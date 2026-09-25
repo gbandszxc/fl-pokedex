@@ -413,12 +413,17 @@ class _Header extends StatelessWidget {
           style: textTheme.bodySmall,
         ),
         const SizedBox(height: AppSpacing.s),
-        Wrap(
-          spacing: AppSpacing.s,
-          runSpacing: AppSpacing.s,
+        // Row 而非 Wrap：Wrap 给子项的是有界松约束，TypeBadge 内部的
+        // alignment 容器会据此撑满整行（P1-b 全宽色带根因）；Flex 对
+        // 非弹性子项宽度无界，徽章收缩为内容宽。属性最多 2 枚，无溢出。
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            for (final typeId in selectedForm.typeIds)
+            for (final typeId in selectedForm.typeIds) ...[
+              if (typeId != selectedForm.typeIds.first)
+                const SizedBox(width: AppSpacing.s),
               TypeBadge(type: typeId),
+            ],
           ],
         ),
         if (detail.genusZh != null || detail.genusEn != null) ...[

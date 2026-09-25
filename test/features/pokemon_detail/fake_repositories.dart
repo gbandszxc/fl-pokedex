@@ -22,10 +22,8 @@ import 'package:fl_pokedex/domain/repositories/pokedex_repository.dart';
 /// - 2 版本图鉴说明：gen1「红」= 简中，gen9「朱」= 仅英文
 ///   （默认应选中最新含简中的版本，即 gen1）。
 class FakePokedexRepository implements PokedexRepository {
-  /// 非 null 时 queryPokemon 抛出该错误（整页失败态测试用）。
+  /// 非 null 时 queryPokemon / getPokemonSummaries 抛出该错误（整页失败态测试用）。
   Object? queryError;
-
-  final _kSpeciesId = 1;
 
   final summaries = <PokemonSummary>[
     PokemonSummary(
@@ -36,6 +34,22 @@ class FakePokedexRepository implements PokedexRepository {
       nameJa: 'フシギダネ',
       typeIds: ['grass', 'poison'],
       thumbAsset: 'assets/pokemon/thumb/1.webp',
+      generationId: 1,
+      isLegendary: false,
+      isMythical: false,
+      isUltraBeast: false,
+    ),
+    // 皮卡丘 fixture（P1-c）：3 形态（默认 + 超极巨化 + cosplay），
+    // 单属性电；超极巨化 21.0m/1000.0kg 与默认 0.4m/6.0kg 形成
+    // 「点击形态 → formDetail 更新」的可断言信号。
+    PokemonSummary(
+      speciesId: 25,
+      nationalDex: 25,
+      nameZh: '皮卡丘',
+      nameEn: 'Pikachu',
+      nameJa: 'ピカチュウ',
+      typeIds: ['electric'],
+      thumbAsset: 'assets/pokemon/thumb/25.webp',
       generationId: 1,
       isLegendary: false,
       isMythical: false,
@@ -90,6 +104,52 @@ class FakePokedexRepository implements PokedexRepository {
       heightM: 0.0,
       weightKg: null,
     ),
+    // 皮卡丘默认形态（P1-c 主用例）。
+    FormSummary(
+      formId: 25,
+      speciesId: 25,
+      formIdentifier: null,
+      formNameZh: '皮卡丘',
+      formNameEn: 'Pikachu',
+      isDefault: true,
+      isMega: false,
+      isGmax: false,
+      isRegional: false,
+      artworkAsset: 'assets/pokemon/full/25.webp',
+      typeIds: ['electric'],
+      heightM: 0.4,
+      weightKg: 6.0,
+    ),
+    FormSummary(
+      formId: 10199,
+      speciesId: 25,
+      formIdentifier: 'gmax',
+      formNameZh: '超极巨化',
+      formNameEn: 'Pikachu Gmax',
+      isDefault: false,
+      isMega: false,
+      isGmax: true,
+      isRegional: false,
+      artworkAsset: null,
+      typeIds: ['electric'],
+      heightM: 21.0,
+      weightKg: 1000.0,
+    ),
+    FormSummary(
+      formId: 10085,
+      speciesId: 25,
+      formIdentifier: 'cosplay',
+      formNameZh: 'Cosplay Pikachu',
+      formNameEn: 'Pikachu Cosplay',
+      isDefault: false,
+      isMega: false,
+      isGmax: false,
+      isRegional: false,
+      artworkAsset: null,
+      typeIds: ['electric'],
+      heightM: 0.4,
+      weightKg: 6.0,
+    ),
   ];
 
   final statsByFormId = <int, StatBlock>{
@@ -116,6 +176,31 @@ class FakePokedexRepository implements PokedexRepository {
       specialAttack: 66,
       specialDefense: 66,
       speed: 46,
+    ),
+    // 皮卡丘三形态种族值（总和均 320）：切换更新的断言信号用身高/体重。
+    25: const StatBlock(
+      hp: 35,
+      attack: 55,
+      defense: 40,
+      specialAttack: 50,
+      specialDefense: 50,
+      speed: 90,
+    ),
+    10199: const StatBlock(
+      hp: 35,
+      attack: 55,
+      defense: 40,
+      specialAttack: 50,
+      specialDefense: 50,
+      speed: 90,
+    ),
+    10085: const StatBlock(
+      hp: 35,
+      attack: 55,
+      defense: 40,
+      specialAttack: 50,
+      specialDefense: 50,
+      speed: 90,
     ),
   };
 
@@ -150,6 +235,41 @@ class FakePokedexRepository implements PokedexRepository {
         descriptionEn: 'Powers up Grass-type moves when HP is low.',
       ),
     ],
+    // 皮卡丘：静电（非隐藏）+ 避雷针（隐藏）。
+    25: [
+      const AbilityRef(
+        id: 9,
+        nameZh: '静电',
+        nameEn: 'Static',
+        isHidden: false,
+        descriptionZh: '有时会让接触到的对手麻痹。',
+        descriptionEn: 'May paralyze on contact.',
+      ),
+      const AbilityRef(
+        id: 31,
+        nameZh: '避雷针',
+        nameEn: 'Lightning Rod',
+        isHidden: true,
+        descriptionZh: null,
+        descriptionEn: 'Draws in Electric moves to boost Sp. Atk.',
+      ),
+    ],
+    10199: [
+      const AbilityRef(
+        id: 9,
+        nameZh: '静电',
+        nameEn: 'Static',
+        isHidden: false,
+      ),
+    ],
+    10085: [
+      const AbilityRef(
+        id: 9,
+        nameZh: '静电',
+        nameEn: 'Static',
+        isHidden: false,
+      ),
+    ],
   };
 
   /// species 基础信息（C2 接口）。
@@ -161,28 +281,48 @@ class FakePokedexRepository implements PokedexRepository {
       genusZh: '种子宝可梦',
       genusEn: 'Seed Pokémon',
     ),
+    25: const SpeciesInfo(
+      speciesId: 25,
+      nationalDex: 25,
+      generationId: 1,
+      genusZh: '鼠宝可梦',
+      genusEn: 'Mouse Pokémon',
+    ),
   };
 
-  final flavorTexts = <FlavorEntry>[
-    FlavorEntry(
-      versionId: 1,
-      versionIdentifier: 'red',
-      versionNameZh: '红',
-      versionNameEn: 'Red',
-      generationId: 1,
-      language: 'zh_hans',
-      text: '种子在出生时埋在土里。',
-    ),
-    FlavorEntry(
-      versionId: 28,
-      versionIdentifier: 'scarlet',
-      versionNameZh: '朱',
-      versionNameEn: 'Scarlet',
-      generationId: 9,
-      language: 'en',
-      text: 'It can go for days without eating.',
-    ),
-  ];
+  final flavorTextsBySpecies = <int, List<FlavorEntry>>{
+    1: [
+      FlavorEntry(
+        versionId: 1,
+        versionIdentifier: 'red',
+        versionNameZh: '红',
+        versionNameEn: 'Red',
+        generationId: 1,
+        language: 'zh_hans',
+        text: '种子在出生时埋在土里。',
+      ),
+      FlavorEntry(
+        versionId: 28,
+        versionIdentifier: 'scarlet',
+        versionNameZh: '朱',
+        versionNameEn: 'Scarlet',
+        generationId: 9,
+        language: 'en',
+        text: 'It can go for days without eating.',
+      ),
+    ],
+    25: [
+      FlavorEntry(
+        versionId: 2,
+        versionIdentifier: 'yellow',
+        versionNameZh: '皮',
+        versionNameEn: 'Yellow',
+        generationId: 1,
+        language: 'zh_hans',
+        text: '脸颊两边有小小的电气袋。',
+      ),
+    ],
+  };
 
   @override
   Future<List<PokemonSummary>> queryPokemon(
@@ -207,12 +347,9 @@ class FakePokedexRepository implements PokedexRepository {
   Future<int> countPokemon(FilterState f) async => summaries.length;
 
   @override
-  Future<List<FormSummary>> getForms(int speciesId) async {
-    if (speciesId != _kSpeciesId) {
-      throw StateError('fixture 只有 species $_kSpeciesId');
-    }
-    return forms;
-  }
+  Future<List<FormSummary>> getForms(int speciesId) async => forms
+      .where((form) => form.speciesId == speciesId)
+      .toList(growable: false);
 
   @override
   Future<StatBlock> getFormStats(int formId) async =>
@@ -224,12 +361,8 @@ class FakePokedexRepository implements PokedexRepository {
       abilitiesByFormId[formId] ?? const <AbilityRef>[];
 
   @override
-  Future<List<FlavorEntry>> getFlavorTexts(int speciesId) async {
-    if (speciesId != _kSpeciesId) {
-      throw StateError('fixture 只有 species $_kSpeciesId');
-    }
-    return flavorTexts;
-  }
+  Future<List<FlavorEntry>> getFlavorTexts(int speciesId) async =>
+      flavorTextsBySpecies[speciesId] ?? const <FlavorEntry>[];
 
   @override
   Future<EvolutionTree?> getEvolutionTree(int speciesId) async =>

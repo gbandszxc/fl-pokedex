@@ -65,8 +65,12 @@ void main() {
   }
 
   /// 向上拖动收起折叠头部，让 TabBarView 内容区完整露出。
-  Future<void> collapseHeader(WidgetTester tester) async {
-    await tester.drag(find.text('#001'), const Offset(0, -600));
+  Future<void> collapseHeader(
+    WidgetTester tester, {
+    int speciesId = 1,
+  }) async {
+    final dexLabel = '#${speciesId.toString().padLeft(3, '0')}';
+    await tester.drag(find.text(dexLabel), const Offset(0, -600));
     await tester.pumpAndSettle();
   }
 
@@ -283,6 +287,78 @@ void main() {
       final rect = tester.getRect(groupChip);
       expect(rect.top, greaterThanOrEqualTo(0));
       expect(rect.bottom, lessThanOrEqualTo(640));
+    });
+  });
+
+  group('P1-b 头部徽章尺寸', () {
+    // 徽章应为紧凑 pill（宽 < 屏宽 60%），不得被拉伸为全宽色带。
+    for (final entry in {
+      'iPhoneSE(360)': const Size(360, 640),
+      'tablet(720)': const Size(720, 900),
+    }.entries) {
+      testWidgets('${entry.key}：徽章宽 < 屏宽 60% 且双徽章并排', (tester) async {
+        tester.view.physicalSize = entry.value;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await pumpPage(tester); // 妙蛙种子：草 / 毒双徽章
+
+        final badges = find.byType(TypeBadge);
+        expect(badges, findsNWidgets(2));
+        final maxWidth = entry.value.width * 0.6;
+        for (final element in badges.evaluate()) {
+          final rect = tester.getRect(find.byWidget(element.widget));
+          expect(rect.width, lessThan(maxWidth),
+              reason: '属性徽章被拉伸为全宽（P1-b 回归）');
+        }
+        // 双徽章并排（同一水平线）。
+        final first = tester.getRect(find.byType(TypeBadge).first);
+        final last = tester.getRect(find.byType(TypeBadge).last);
+        expect(first.top, last.top);
+      });
+    }
+  });
+
+  group('P1-c 形态切换（皮卡丘 fixture）', () {
+    testWidgets('渲染超极巨化 / cosplay 形态 chips', (tester) async {
+      await pumpPage(tester, speciesId: 25);
+
+      expect(find.widgetWithText(VersionChip, '超极巨化'), findsOneWidget);
+      expect(find.widgetWithText(VersionChip, 'Cosplay Pikachu'),
+          findsOneWidget);
+      // 默认形态 chip 选中。
+      expect(
+        tester
+            .widget<VersionChip>(
+              find.widgetWithText(VersionChip, '皮卡丘'),
+            )
+            .selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('点击超极巨化后 formDetail 更新（身高/体重随形态变化）', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await pumpPage(tester, speciesId: 25);
+
+      await tester.tap(find.widgetWithText(VersionChip, '超极巨化'));
+      await tester.pumpAndSettle();
+      await collapseHeader(tester, speciesId: 25);
+      // 360 宽下 5 个 tab 横向溢出：先把「资料」滚入 TabBar 视口。
+      await tester.ensureVisible(find.text('资料'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('资料'));
+      await tester.pumpAndSettle();
+
+      // 超极巨化：21.0m / 1000.0kg（默认形态 0.4m / 6.0kg）。
+      expect(find.text('21.0 m'), findsOneWidget);
+      expect(find.text('1000.0 kg'), findsOneWidget);
+      expect(find.text('0.4 m'), findsNothing);
     });
   });
 
