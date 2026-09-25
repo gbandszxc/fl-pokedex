@@ -1,0 +1,22 @@
+# codegen 范围限定（本机 Flutter 3.47 + analyzer 7.x 的兼容措施）：
+# Flutter 3.47 SDK 源码包含 dot-shorthand 语法，analyzer 7.7.1 的
+# summary writer 无法序列化该 AST 节点；一旦 codegen builder resolve
+# import 了 material 的库（如 lib/app/**）即崩溃。
+# 因此把 freezed / json_serializable / drift_dev 的处理范围
+# 限定在各自的数据层目录（均为纯 Dart 依赖闭包），互不影响产物。
+targets:
+  $default:
+    builders:
+      freezed|freezed:
+        generate_for:
+          include:
+            - lib/domain/models/**
+      json_serializable|json_serializable:
+        generate_for:
+          include:
+            - lib/domain/models/**
+      drift_dev|drift_dev:
+        generate_for:
+          include:
+            - lib/data/**
+            - lib/core/db/**
