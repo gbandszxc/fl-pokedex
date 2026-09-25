@@ -51,3 +51,6 @@ __pycache__/
 # 系统杂项
 Thumbs.db
 .DS_Store
+
+# Gradle/Kotlin 运行日志
+android/.kotlin/
