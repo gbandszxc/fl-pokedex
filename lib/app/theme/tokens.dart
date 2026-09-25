@@ -38,6 +38,9 @@ abstract final class AppMotion {
   /// 大图淡入。
   static const Duration slow = Duration(milliseconds: 300);
 
+  /// 骨架加载透明度脉冲周期（DESIGN.md §6：≤200ms 循环，可随系统关闭动画）。
+  static const Duration pulse = Duration(milliseconds: 200);
+
   /// 统一曲线。
   static const Curve curve = Curves.easeOutCubic;
 }
