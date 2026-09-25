@@ -1,4 +1,4 @@
-# DESIGN.md — 琥珀图鉴 Design System
+# DESIGN.md — Fl-PokeDex Design System
 
 本文件是全项目唯一视觉事实来源。所有 UI 代码必须引用这里定义的 Token（`lib/app/theme/tokens.dart`、`app_colors.dart`），禁止在组件里硬编码颜色 / 圆角 / 时长。
 

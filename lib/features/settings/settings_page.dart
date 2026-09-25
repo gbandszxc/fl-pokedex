@@ -141,7 +141,7 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right, size: 20),
                 onTap: () => showLicensePage(
                   context: context,
-                  applicationName: '琥珀图鉴',
+                  applicationName: 'Fl-PokeDex',
                   applicationVersion: kAppVersion,
                 ),
               ),

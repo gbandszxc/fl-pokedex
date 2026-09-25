@@ -15,7 +15,7 @@ const StatBlock kStatFixture = StatBlock(
   speed: 100,
 );
 
-/// 用琥珀图鉴主题包装被测组件。
+/// 用Fl-PokeDex主题包装被测组件。
 Widget wrapTheme({
   required Widget child,
   Brightness brightness = Brightness.light,

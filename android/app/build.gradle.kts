@@ -1,3 +1,5 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -8,6 +10,14 @@ android {
     namespace = "com.amberdex.fl_pokedex"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    // 产物命名：Fl-PokeDex-<versionName>-<release|debug>.apk（版本号取自 pubspec version）
+    applicationVariants.all {
+        outputs.all {
+            (this as BaseVariantOutputImpl).outputFileName =
+                "Fl-PokeDex-$versionName-${buildType.name}.apk"
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

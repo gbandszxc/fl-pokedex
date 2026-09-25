@@ -1,5 +1,5 @@
 name: fl_pokedex
-description: "琥珀图鉴 — 完全离线的宝可梦图鉴。"
+description: "Fl-PokeDex — 完全离线的宝可梦图鉴。"
 publish_to: 'none'
 
 version: 1.0.0+1

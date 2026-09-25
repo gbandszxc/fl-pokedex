@@ -10,7 +10,7 @@ class OfflineRequestBlocked implements Exception {
   @override
   String toString() =>
       'OfflineRequestBlocked: 离线守卫拦截了 HTTP 请求 → $url。'
-      '琥珀图鉴运行时禁止任何网络请求，请改用本地数据源（assets/database）。';
+      'Fl-PokeDex 运行时禁止任何网络请求，请改用本地数据源（assets/database）。';
 }
 
 /// main() 中无条件 `HttpOverrides.global = BlockingHttpOverrides()`（architecture.md §8）。

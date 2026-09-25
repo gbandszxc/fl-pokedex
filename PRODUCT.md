@@ -1,4 +1,4 @@
-# PRODUCT.md — 琥珀图鉴 (Amber Dex)
+# PRODUCT.md — Fl-PokeDex
 
 ## 一句话定位
 

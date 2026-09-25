@@ -13,7 +13,7 @@ void main() {
     // 底部 NavigationBar（compact 视口）与侧边 NavigationRail（宽视口）
     // 至少其一渲染「图鉴」标签；默认测试视口为 compact。
     expect(find.text('图鉴'), findsWidgets);
-    // E 单元实装后，顶栏为内嵌搜索框（原「琥珀图鉴」占位标题移除）。
+    // E 单元实装后，顶栏为内嵌搜索框（原「Fl-PokeDex」占位标题移除）。
     expect(find.text('搜索 名称 / 编号'), findsOneWidget);
   });
 }

@@ -1,4 +1,4 @@
-# AGENTS.md — 琥珀图鉴 (Amber Dex) 项目约定
+# AGENTS.md — Fl-PokeDex 项目约定
 
 ## 项目
 
@@ -44,4 +44,7 @@ flutter analyze
 flutter test
 flutter run -d windows
 flutter build apk --release --target-platform android-x64
+# APK 产物：build/app/outputs/apk/<release|debug>/Fl-PokeDex-<版本号>-<release|debug>.apk
+# （build/.../flutter-apk/app-*.apk 是 Flutter 工具链的固定名副本，供 flutter run/install 使用，勿手工改名）
+# Windows 可执行：build/windows/x64/runner/<Release|Debug>/Fl-PokeDex.exe；改 BINARY_NAME 后需删 build/windows 重建
 ```

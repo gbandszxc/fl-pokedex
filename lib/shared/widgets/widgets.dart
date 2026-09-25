@@ -1,4 +1,4 @@
-/// 琥珀图鉴共享组件库。DESIGN.md Token 是唯一视觉事实来源，
+/// Fl-PokeDex共享组件库。DESIGN.md Token 是唯一视觉事实来源，
 /// 组件内禁止硬编码颜色 / 圆角 / 时长 / 断点。
 library;
 

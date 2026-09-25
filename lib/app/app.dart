@@ -18,7 +18,7 @@ class AmberDexApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
-      title: '琥珀图鉴',
+      title: 'Fl-PokeDex',
       theme: buildLightTheme(),
       darkTheme: buildDarkTheme(),
       themeMode: themeMode,
