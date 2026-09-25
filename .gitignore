@@ -1,0 +1,53 @@
+# --- Flutter / Dart ---
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+coverage/
+*.g.dart.tmp
+.pub-preparation-cache/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Android
+android/.gradle/
+android/local.properties
+android/key.properties
+**/android/key.properties
+*.jks
+*.keystore
+
+# iOS / macOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+macos/Pods/
+macos/.symlinks/
+macos/Flutter/ephemeral/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/
+
+# 数据构建缓存（上游原始数据体积大且可重新获取，不入库）
+tools/data_builder/.cache/
+tools/data_builder/.venv/
+
+# Python
+__pycache__/
+*.pyc
+.uv/
+
+# 系统杂项
+Thumbs.db
+.DS_Store
