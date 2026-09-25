@@ -151,7 +151,7 @@ void main() {
   });
 
   group('进化树', () {
-    test('伊布(#133)：根节点 8 条出边', () async {
+    test('伊布(#133)：根节点 8 条出边，注册表含全部 9 个成员', () async {
       final tree = await repo.getEvolutionTree(133);
       expect(tree, isNotNull);
       expect(tree!.root.speciesId, 133);
@@ -162,9 +162,20 @@ void main() {
         tree.root.children.map((edge) => edge.trigger).toSet(),
         containsAll(['level-up', 'use-item']),
       );
+      final memberIds = {133, 134, 135, 136, 196, 197, 470, 471, 700};
+      expect(tree.nodesBySpeciesId.keys.toSet(), memberIds);
+      // 每个注册表节点都有编号/简中名（含末段进化的展示信息）
+      for (final id in memberIds) {
+        final node = tree.nodesBySpeciesId[id]!;
+        expect(node.nationalDex, id, reason: 'species $id 编号不符');
+        expect(node.nameZh, isNotEmpty, reason: 'species $id 缺简中名');
+      }
+      expect(tree.nodesBySpeciesId[134]!.nameZh, '水伊布');
+      expect(tree.nodesBySpeciesId[700]!.nameZh, '仙子伊布');
+      // root 在注册表中的节点与 tree.root 一致
       expect(
-        tree.root.children.map((edge) => edge.toSpeciesId).toSet(),
-        {134, 135, 136, 196, 197, 470, 471, 700},
+        identical(tree.nodesBySpeciesId[133], tree.root),
+        isTrue,
       );
     });
 
@@ -271,6 +282,47 @@ void main() {
       expect(forms.first.isDefault, isTrue);
       expect(forms.first.formId, 6);
       expect(forms.first.typeIds, ['fire', 'flying']);
+    });
+
+    test('皮卡丘(#25) 默认形态身高体重：heightM=0.4、weightKg=6.0', () async {
+      final forms = await repo.getForms(25);
+      final def = forms.firstWhere((form) => form.isDefault);
+      expect(def.heightM, 0.4); // forms.height = 4 dm
+      expect(def.weightKg, 6.0); // forms.weight = 60 hg
+    });
+  });
+
+  group('特性', () {
+    test('茂盛(overgrow)：descriptionZh 非空且 descriptionEn 非空', () async {
+      final abilities = await repo.getFormAbilities(1); // 妙蛙种子默认形态
+      final overgrow = abilities.firstWhere((a) => !a.isHidden);
+      expect(overgrow.nameEn, 'Overgrow');
+      expect(overgrow.descriptionZh, isNotNull);
+      expect(overgrow.descriptionZh, isNotEmpty);
+      expect(overgrow.descriptionEn, isNotNull);
+      expect(overgrow.descriptionEn, isNotEmpty);
+    });
+  });
+
+  group('C2：species 信息与批量摘要', () {
+    test('getSpeciesInfo(1)：genusZh == "种子宝可梦"', () async {
+      final info = await repo.getSpeciesInfo(1);
+      expect(info.speciesId, 1);
+      expect(info.nationalDex, 1);
+      expect(info.generationId, 1);
+      expect(info.genusZh, '种子宝可梦');
+      expect(info.genusEn, 'Seed Pokémon');
+    });
+
+    test('getPokemonSummaries([6,1,9999,25]) 按入参顺序返回 [6,1,25]', () async {
+      final summaries = await repo.getPokemonSummaries([6, 1, 9999, 25]);
+      expect(summaries.map((s) => s.speciesId).toList(), [6, 1, 25]);
+      final bulba = summaries.firstWhere((s) => s.speciesId == 1);
+      expect(bulba.nameZh, '妙蛙种子');
+      expect(bulba.typeIds, ['grass', 'poison']);
+
+      // 空入参安全
+      expect(await repo.getPokemonSummaries(const []), isEmpty);
     });
   });
 

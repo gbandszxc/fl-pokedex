@@ -28,6 +28,12 @@ mixin _$FormSummary {
   String? get artworkAsset => throw _privateConstructorUsedError;
   List<String> get typeIds => throw _privateConstructorUsedError;
 
+  /// 身高（米）= forms.height ÷ 10；上游缺失为 null。
+  double? get heightM => throw _privateConstructorUsedError;
+
+  /// 体重（千克）= forms.weight ÷ 10；上游缺失为 null。
+  double? get weightKg => throw _privateConstructorUsedError;
+
   /// Create a copy of FormSummary
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -52,7 +58,9 @@ abstract class $FormSummaryCopyWith<$Res> {
       bool isGmax,
       bool isRegional,
       String? artworkAsset,
-      List<String> typeIds});
+      List<String> typeIds,
+      double? heightM,
+      double? weightKg});
 }
 
 /// @nodoc
@@ -81,6 +89,8 @@ class _$FormSummaryCopyWithImpl<$Res, $Val extends FormSummary>
     Object? isRegional = null,
     Object? artworkAsset = freezed,
     Object? typeIds = null,
+    Object? heightM = freezed,
+    Object? weightKg = freezed,
   }) {
     return _then(_value.copyWith(
       formId: null == formId
@@ -127,6 +137,14 @@ class _$FormSummaryCopyWithImpl<$Res, $Val extends FormSummary>
           ? _value.typeIds
           : typeIds // ignore: cast_nullable_to_non_nullable
               as List<String>,
+      heightM: freezed == heightM
+          ? _value.heightM
+          : heightM // ignore: cast_nullable_to_non_nullable
+              as double?,
+      weightKg: freezed == weightKg
+          ? _value.weightKg
+          : weightKg // ignore: cast_nullable_to_non_nullable
+              as double?,
     ) as $Val);
   }
 }
@@ -150,7 +168,9 @@ abstract class _$$FormSummaryImplCopyWith<$Res>
       bool isGmax,
       bool isRegional,
       String? artworkAsset,
-      List<String> typeIds});
+      List<String> typeIds,
+      double? heightM,
+      double? weightKg});
 }
 
 /// @nodoc
@@ -177,6 +197,8 @@ class __$$FormSummaryImplCopyWithImpl<$Res>
     Object? isRegional = null,
     Object? artworkAsset = freezed,
     Object? typeIds = null,
+    Object? heightM = freezed,
+    Object? weightKg = freezed,
   }) {
     return _then(_$FormSummaryImpl(
       formId: null == formId
@@ -223,6 +245,14 @@ class __$$FormSummaryImplCopyWithImpl<$Res>
           ? _value._typeIds
           : typeIds // ignore: cast_nullable_to_non_nullable
               as List<String>,
+      heightM: freezed == heightM
+          ? _value.heightM
+          : heightM // ignore: cast_nullable_to_non_nullable
+              as double?,
+      weightKg: freezed == weightKg
+          ? _value.weightKg
+          : weightKg // ignore: cast_nullable_to_non_nullable
+              as double?,
     ));
   }
 }
@@ -241,7 +271,9 @@ class _$FormSummaryImpl implements _FormSummary {
       required this.isGmax,
       required this.isRegional,
       this.artworkAsset,
-      required final List<String> typeIds})
+      required final List<String> typeIds,
+      this.heightM,
+      this.weightKg})
       : _typeIds = typeIds;
 
   @override
@@ -272,9 +304,17 @@ class _$FormSummaryImpl implements _FormSummary {
     return EqualUnmodifiableListView(_typeIds);
   }
 
+  /// 身高（米）= forms.height ÷ 10；上游缺失为 null。
+  @override
+  final double? heightM;
+
+  /// 体重（千克）= forms.weight ÷ 10；上游缺失为 null。
+  @override
+  final double? weightKg;
+
   @override
   String toString() {
-    return 'FormSummary(formId: $formId, speciesId: $speciesId, formIdentifier: $formIdentifier, formNameZh: $formNameZh, formNameEn: $formNameEn, isDefault: $isDefault, isMega: $isMega, isGmax: $isGmax, isRegional: $isRegional, artworkAsset: $artworkAsset, typeIds: $typeIds)';
+    return 'FormSummary(formId: $formId, speciesId: $speciesId, formIdentifier: $formIdentifier, formNameZh: $formNameZh, formNameEn: $formNameEn, isDefault: $isDefault, isMega: $isMega, isGmax: $isGmax, isRegional: $isRegional, artworkAsset: $artworkAsset, typeIds: $typeIds, heightM: $heightM, weightKg: $weightKg)';
   }
 
   @override
@@ -299,7 +339,10 @@ class _$FormSummaryImpl implements _FormSummary {
                 other.isRegional == isRegional) &&
             (identical(other.artworkAsset, artworkAsset) ||
                 other.artworkAsset == artworkAsset) &&
-            const DeepCollectionEquality().equals(other._typeIds, _typeIds));
+            const DeepCollectionEquality().equals(other._typeIds, _typeIds) &&
+            (identical(other.heightM, heightM) || other.heightM == heightM) &&
+            (identical(other.weightKg, weightKg) ||
+                other.weightKg == weightKg));
   }
 
   @override
@@ -315,7 +358,9 @@ class _$FormSummaryImpl implements _FormSummary {
       isGmax,
       isRegional,
       artworkAsset,
-      const DeepCollectionEquality().hash(_typeIds));
+      const DeepCollectionEquality().hash(_typeIds),
+      heightM,
+      weightKg);
 
   /// Create a copy of FormSummary
   /// with the given fields replaced by the non-null parameter values.
@@ -338,7 +383,9 @@ abstract class _FormSummary implements FormSummary {
       required final bool isGmax,
       required final bool isRegional,
       final String? artworkAsset,
-      required final List<String> typeIds}) = _$FormSummaryImpl;
+      required final List<String> typeIds,
+      final double? heightM,
+      final double? weightKg}) = _$FormSummaryImpl;
 
   @override
   int get formId;
@@ -362,6 +409,14 @@ abstract class _FormSummary implements FormSummary {
   String? get artworkAsset;
   @override
   List<String> get typeIds;
+
+  /// 身高（米）= forms.height ÷ 10；上游缺失为 null。
+  @override
+  double? get heightM;
+
+  /// 体重（千克）= forms.weight ÷ 10；上游缺失为 null。
+  @override
+  double? get weightKg;
 
   /// Create a copy of FormSummary
   /// with the given fields replaced by the non-null parameter values.

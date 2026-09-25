@@ -12,6 +12,7 @@ import '../../domain/models/move_detail.dart';
 import '../../domain/models/move_entry.dart';
 import '../../domain/models/pokemon_summary.dart';
 import '../../domain/models/refs.dart';
+import '../../domain/models/species_info.dart';
 import '../../domain/models/stat_block.dart';
 import 'tables.dart';
 
@@ -192,14 +193,7 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
       Variable.withInt(offset),
     ];
     final rows = await customSelect(
-      'SELECT s.id AS species_id, s.national_dex, s.name_zh_hans, s.name_en, '
-      '       s.name_ja, s.generation_id, s.is_legendary, s.is_mythical, '
-      '       s.is_ultra_beast, df.thumb_asset, '
-      '       (SELECT GROUP_CONCAT(x.identifier, \',\') FROM ('
-      '          SELECT t.identifier FROM form_types ft '
-      '          JOIN types t ON t.id = ft.type_id '
-      '          WHERE ft.form_id = df.id ORDER BY ft.slot ASC) AS x'
-      '       ) AS type_ids_csv '
+      '$_summarySelectShape '
       'FROM species s '
       'JOIN forms df ON df.species_id = s.id AND df.is_default = 1 '
       '$whereSql '
@@ -213,6 +207,51 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
       },
     ).get();
     return rows.map(_mapPokemonSummary).toList(growable: false);
+  }
+
+  /// 按一批 speciesId 取列表摘要（收藏/最近浏览）：单条 SQL IN 查询，
+  /// 结果按入参顺序返回，缺失 id 跳过。
+  Future<List<PokemonSummary>> getPokemonSummaries(
+    List<int> speciesIds,
+  ) async {
+    if (speciesIds.isEmpty) return const <PokemonSummary>[];
+    final rows = await customSelect(
+      '$_summarySelectShape '
+      'FROM species s '
+      'JOIN forms df ON df.species_id = s.id AND df.is_default = 1 '
+      'WHERE s.id IN (${_placeholders(speciesIds.length)}) '
+      'ORDER BY s.id ASC',
+      variables: speciesIds.map(Variable.withInt).toList(),
+      readsFrom: {
+        attachedDatabase.species,
+        attachedDatabase.forms,
+        attachedDatabase.formTypes,
+        attachedDatabase.types,
+      },
+    ).get();
+    // 按入参顺序排列；缺失 id（无行）自然跳过。
+    final byId = {for (final row in rows) row.data['species_id'] as int: row};
+    return [
+      for (final id in speciesIds)
+        if (byId[id] != null) _mapPokemonSummary(byId[id]!),
+    ];
+  }
+
+  /// species 基础信息（编号/世代/分类）。
+  Future<SpeciesInfo> getSpeciesInfo(int speciesId) async {
+    final row = await (select(attachedDatabase.species)
+          ..where((tbl) => tbl.id.equals(speciesId)))
+        .getSingleOrNull();
+    if (row == null) {
+      throw StateError('species 表不存在 id=$speciesId');
+    }
+    return SpeciesInfo(
+      speciesId: row.id,
+      nationalDex: row.nationalDex,
+      generationId: row.generationId,
+      genusZh: row.genusZhHans,
+      genusEn: row.genusEn,
+    );
   }
 
   /// 与 [queryPokemon] 相同 WHERE 的总数（分页用）。
@@ -234,12 +273,12 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     return row.data['c'] as int;
   }
 
-  /// species 全部形态 + 各自属性（有序 CSV），按 form_order 排序。
+  /// species 全部形态 + 各自属性（有序 CSV）+ 身高体重，按 form_order 排序。
   Future<List<FormSummary>> getForms(int speciesId) async {
     final rows = await customSelect(
       'SELECT f.id AS form_id, f.species_id, f.form_identifier, '
       '       f.form_name_zh, f.form_name_en, f.is_default, f.is_mega, '
-      '       f.is_gmax, f.is_regional, f.artwork_asset, '
+      '       f.is_gmax, f.is_regional, f.artwork_asset, f.height, f.weight, '
       '       (SELECT GROUP_CONCAT(x.identifier, \',\') FROM ('
       '          SELECT t.identifier FROM form_types ft '
       '          JOIN types t ON t.id = ft.type_id '
@@ -255,19 +294,25 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     ).get();
     return rows
         .map(
-          (row) => FormSummary(
-            formId: row.data['form_id'] as int,
-            speciesId: row.data['species_id'] as int,
-            formIdentifier: row.data['form_identifier'] as String?,
-            formNameZh: row.data['form_name_zh'] as String,
-            formNameEn: row.data['form_name_en'] as String,
-            isDefault: (row.data['is_default'] as int) != 0,
-            isMega: (row.data['is_mega'] as int) != 0,
-            isGmax: (row.data['is_gmax'] as int) != 0,
-            isRegional: (row.data['is_regional'] as int) != 0,
-            artworkAsset: row.data['artwork_asset'] as String?,
-            typeIds: _typeIdsFromCsv(row.data['type_ids_csv'] as String?),
-          ),
+          (row) {
+            final height = row.data['height'] as int?;
+            final weight = row.data['weight'] as int?;
+            return FormSummary(
+              formId: row.data['form_id'] as int,
+              speciesId: row.data['species_id'] as int,
+              formIdentifier: row.data['form_identifier'] as String?,
+              formNameZh: row.data['form_name_zh'] as String,
+              formNameEn: row.data['form_name_en'] as String,
+              isDefault: (row.data['is_default'] as int) != 0,
+              isMega: (row.data['is_mega'] as int) != 0,
+              isGmax: (row.data['is_gmax'] as int) != 0,
+              isRegional: (row.data['is_regional'] as int) != 0,
+              artworkAsset: row.data['artwork_asset'] as String?,
+              typeIds: _typeIdsFromCsv(row.data['type_ids_csv'] as String?),
+              heightM: height == null ? null : height / 10,
+              weightKg: weight == null ? null : weight / 10,
+            );
+          },
         )
         .toList(growable: false);
   }
@@ -295,10 +340,11 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     );
   }
 
-  /// 形态特性（非隐藏在前，同槽位按 slot 排序）。
+  /// 形态特性（非隐藏在前，同槽位按 slot 排序），含双语说明。
   Future<List<AbilityRef>> getFormAbilities(int formId) async {
     final rows = await customSelect(
-      'SELECT a.id, a.name_zh_hans, a.name_en, fa.is_hidden '
+      'SELECT a.id, a.name_zh_hans, a.name_en, a.text_zh_hans, a.text_en, '
+      '       fa.is_hidden '
       'FROM form_abilities fa JOIN abilities a ON a.id = fa.ability_id '
       'WHERE fa.form_id = ? '
       'ORDER BY fa.is_hidden ASC, fa.slot ASC',
@@ -315,6 +361,8 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
             nameZh: row.data['name_zh_hans'] as String,
             nameEn: row.data['name_en'] as String,
             isHidden: (row.data['is_hidden'] as int) != 0,
+            descriptionZh: row.data['text_zh_hans'] as String?,
+            descriptionEn: row.data['text_en'] as String?,
           ),
         )
         .toList(growable: false);
@@ -748,6 +796,16 @@ class MetaDao extends DatabaseAccessor<PokedexDatabase> with _$MetaDaoMixin {
 // ---- 文件内共享的小工具 ----
 
 String _placeholders(int count) => List.filled(count, '?').join(', ');
+
+/// queryPokemon / getPokemonSummaries 共用的列表 SELECT 形状
+/// （species 基本列 + 默认形态 thumb + 默认形态属性有序 CSV）。
+const String _summarySelectShape = 'SELECT s.id AS species_id, s.national_dex, '
+    's.name_zh_hans, s.name_en, s.name_ja, s.generation_id, s.is_legendary, '
+    's.is_mythical, s.is_ultra_beast, df.thumb_asset, '
+    "(SELECT GROUP_CONCAT(x.identifier, ',') FROM ("
+    'SELECT t.identifier FROM form_types ft '
+    'JOIN types t ON t.id = ft.type_id '
+    'WHERE ft.form_id = df.id ORDER BY ft.slot ASC) AS x) AS type_ids_csv';
 
 List<String> _typeIdsFromCsv(String? csv) =>
     csv == null || csv.isEmpty ? const <String>[] : csv.split(',');

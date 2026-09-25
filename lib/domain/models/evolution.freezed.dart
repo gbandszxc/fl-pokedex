@@ -812,6 +812,12 @@ abstract class _EvolutionNode implements EvolutionNode {
 mixin _$EvolutionTree {
   EvolutionNode get root => throw _privateConstructorUsedError;
 
+  /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
+  /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
+  /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
+  Map<int, EvolutionNode> get nodesBySpeciesId =>
+      throw _privateConstructorUsedError;
+
   /// Create a copy of EvolutionTree
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -825,7 +831,7 @@ abstract class $EvolutionTreeCopyWith<$Res> {
           EvolutionTree value, $Res Function(EvolutionTree) then) =
       _$EvolutionTreeCopyWithImpl<$Res, EvolutionTree>;
   @useResult
-  $Res call({EvolutionNode root});
+  $Res call({EvolutionNode root, Map<int, EvolutionNode> nodesBySpeciesId});
 
   $EvolutionNodeCopyWith<$Res> get root;
 }
@@ -846,12 +852,17 @@ class _$EvolutionTreeCopyWithImpl<$Res, $Val extends EvolutionTree>
   @override
   $Res call({
     Object? root = null,
+    Object? nodesBySpeciesId = null,
   }) {
     return _then(_value.copyWith(
       root: null == root
           ? _value.root
           : root // ignore: cast_nullable_to_non_nullable
               as EvolutionNode,
+      nodesBySpeciesId: null == nodesBySpeciesId
+          ? _value.nodesBySpeciesId
+          : nodesBySpeciesId // ignore: cast_nullable_to_non_nullable
+              as Map<int, EvolutionNode>,
     ) as $Val);
   }
 
@@ -874,7 +885,7 @@ abstract class _$$EvolutionTreeImplCopyWith<$Res>
       __$$EvolutionTreeImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({EvolutionNode root});
+  $Res call({EvolutionNode root, Map<int, EvolutionNode> nodesBySpeciesId});
 
   @override
   $EvolutionNodeCopyWith<$Res> get root;
@@ -894,12 +905,17 @@ class __$$EvolutionTreeImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? root = null,
+    Object? nodesBySpeciesId = null,
   }) {
     return _then(_$EvolutionTreeImpl(
       root: null == root
           ? _value.root
           : root // ignore: cast_nullable_to_non_nullable
               as EvolutionNode,
+      nodesBySpeciesId: null == nodesBySpeciesId
+          ? _value._nodesBySpeciesId
+          : nodesBySpeciesId // ignore: cast_nullable_to_non_nullable
+              as Map<int, EvolutionNode>,
     ));
   }
 }
@@ -907,14 +923,32 @@ class __$$EvolutionTreeImplCopyWithImpl<$Res>
 /// @nodoc
 
 class _$EvolutionTreeImpl implements _EvolutionTree {
-  const _$EvolutionTreeImpl({required this.root});
+  const _$EvolutionTreeImpl(
+      {required this.root,
+      required final Map<int, EvolutionNode> nodesBySpeciesId})
+      : _nodesBySpeciesId = nodesBySpeciesId;
 
   @override
   final EvolutionNode root;
 
+  /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
+  /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
+  /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
+  final Map<int, EvolutionNode> _nodesBySpeciesId;
+
+  /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
+  /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
+  /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
+  @override
+  Map<int, EvolutionNode> get nodesBySpeciesId {
+    if (_nodesBySpeciesId is EqualUnmodifiableMapView) return _nodesBySpeciesId;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_nodesBySpeciesId);
+  }
+
   @override
   String toString() {
-    return 'EvolutionTree(root: $root)';
+    return 'EvolutionTree(root: $root, nodesBySpeciesId: $nodesBySpeciesId)';
   }
 
   @override
@@ -922,11 +956,14 @@ class _$EvolutionTreeImpl implements _EvolutionTree {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$EvolutionTreeImpl &&
-            (identical(other.root, root) || other.root == root));
+            (identical(other.root, root) || other.root == root) &&
+            const DeepCollectionEquality()
+                .equals(other._nodesBySpeciesId, _nodesBySpeciesId));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, root);
+  int get hashCode => Object.hash(runtimeType, root,
+      const DeepCollectionEquality().hash(_nodesBySpeciesId));
 
   /// Create a copy of EvolutionTree
   /// with the given fields replaced by the non-null parameter values.
@@ -938,11 +975,19 @@ class _$EvolutionTreeImpl implements _EvolutionTree {
 }
 
 abstract class _EvolutionTree implements EvolutionTree {
-  const factory _EvolutionTree({required final EvolutionNode root}) =
+  const factory _EvolutionTree(
+          {required final EvolutionNode root,
+          required final Map<int, EvolutionNode> nodesBySpeciesId}) =
       _$EvolutionTreeImpl;
 
   @override
   EvolutionNode get root;
+
+  /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
+  /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
+  /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
+  @override
+  Map<int, EvolutionNode> get nodesBySpeciesId;
 
   /// Create a copy of EvolutionTree
   /// with the given fields replaced by the non-null parameter values.

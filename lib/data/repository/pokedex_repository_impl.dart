@@ -8,6 +8,7 @@ import '../../domain/models/move_detail.dart';
 import '../../domain/models/move_entry.dart';
 import '../../domain/models/pokemon_summary.dart';
 import '../../domain/models/refs.dart';
+import '../../domain/models/species_info.dart';
 import '../../domain/models/stat_block.dart';
 import '../../domain/repositories/pokedex_repository.dart';
 import '../database/pokedex_database.dart';
@@ -73,22 +74,43 @@ class PokedexRepositoryImpl implements PokedexRepository {
     final rootEdge = edges.firstWhere(
       (edge) => edge.isRootRow || edge.fromSpeciesId == edge.toSpeciesId,
     );
+
+    // 节点注册表：每个 species 一个节点，children = 该节点的直接出边；
+    // 中段物种（如蛹）由此获得编号/简中名/缩略图，UI 逐层查表重建层级。
+    final outEdges = <int, List<EvolutionEdgeData>>{};
+    for (final edge in edges) {
+      final from = edge.fromSpeciesId;
+      if (from == null || edge.isRootRow || from == edge.toSpeciesId) continue;
+      outEdges.putIfAbsent(from, () => []).add(edge);
+    }
+    final memberIds = <int>{
+      rootEdge.toSpeciesId,
+      for (final edge in edges) edge.toSpeciesId,
+    };
     final displayBySpecies = {
       for (final edge in edges) edge.toSpeciesId: edge,
     };
-    final rootData = displayBySpecies[rootEdge.toSpeciesId]!;
+    EvolutionNode nodeOf(int speciesId) {
+      final data = displayBySpecies[speciesId]!;
+      return EvolutionNode(
+        speciesId: speciesId,
+        nationalDex: data.toNationalDex,
+        nameZh: data.toNameZh,
+        thumbAsset: data.toThumbAsset,
+        children: [
+          for (final edge in outEdges[speciesId] ?? const <EvolutionEdgeData>[])
+            edge.toDomain(),
+        ],
+      );
+    }
+
+    final nodesBySpeciesId = {
+      for (final id in memberIds) id: nodeOf(id),
+    };
 
     return EvolutionTree(
-      root: EvolutionNode(
-        speciesId: rootData.toSpeciesId,
-        nationalDex: rootData.toNationalDex,
-        nameZh: rootData.toNameZh,
-        thumbAsset: rootData.toThumbAsset,
-        children: edges
-            .where((edge) => !edge.isRootRow)
-            .map((edge) => edge.toDomain())
-            .toList(growable: false),
-      ),
+      root: nodesBySpeciesId[rootEdge.toSpeciesId]!,
+      nodesBySpeciesId: nodesBySpeciesId,
     );
   }
 
@@ -116,6 +138,14 @@ class PokedexRepositoryImpl implements PokedexRepository {
 
   @override
   Future<List<PokedexRef>> getPokedexes() => _pokedexDao.getPokedexes();
+
+  @override
+  Future<SpeciesInfo> getSpeciesInfo(int speciesId) =>
+      _pokedexDao.getSpeciesInfo(speciesId);
+
+  @override
+  Future<List<PokemonSummary>> getPokemonSummaries(List<int> speciesIds) =>
+      _pokedexDao.getPokemonSummaries(speciesIds);
 
   @override
   Future<DataManifest> getManifest() async =>

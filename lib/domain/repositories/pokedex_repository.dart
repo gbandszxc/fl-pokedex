@@ -8,6 +8,7 @@ import '../models/move_detail.dart';
 import '../models/move_entry.dart';
 import '../models/pokemon_summary.dart';
 import '../models/refs.dart';
+import '../models/species_info.dart';
 import '../models/stat_block.dart';
 
 /// 图鉴数据仓储（architecture.md §4，签名逐字锁死）。
@@ -48,6 +49,13 @@ abstract class PokedexRepository {
   Future<List<GenerationRef>> getGenerations();
 
   Future<List<PokedexRef>> getPokedexes();
+
+  /// species 基础信息（编号/世代/分类）。
+  Future<SpeciesInfo> getSpeciesInfo(int speciesId);
+
+  /// 按一批 speciesId 取列表摘要（收藏/最近浏览用）：单条 SQL IN 查询，
+  /// 结果按入参顺序返回，缺失的 id 跳过。
+  Future<List<PokemonSummary>> getPokemonSummaries(List<int> speciesIds);
 
   /// 读 assets/database/manifest.json。
   Future<DataManifest> getManifest();

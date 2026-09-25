@@ -10,5 +10,11 @@ class AbilityRef with _$AbilityRef {
     required String nameZh,
     required String nameEn,
     required bool isHidden,
+
+    /// 官方简中说明（abilities.text_zh_hans，可空）。
+    String? descriptionZh,
+
+    /// 英文 short_effect（abilities.text_en，可空）。
+    String? descriptionEn,
   }) = _AbilityRef;
 }

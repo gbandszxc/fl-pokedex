@@ -21,6 +21,12 @@ mixin _$AbilityRef {
   String get nameEn => throw _privateConstructorUsedError;
   bool get isHidden => throw _privateConstructorUsedError;
 
+  /// 官方简中说明（abilities.text_zh_hans，可空）。
+  String? get descriptionZh => throw _privateConstructorUsedError;
+
+  /// 英文 short_effect（abilities.text_en，可空）。
+  String? get descriptionEn => throw _privateConstructorUsedError;
+
   /// Create a copy of AbilityRef
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -34,7 +40,13 @@ abstract class $AbilityRefCopyWith<$Res> {
           AbilityRef value, $Res Function(AbilityRef) then) =
       _$AbilityRefCopyWithImpl<$Res, AbilityRef>;
   @useResult
-  $Res call({int id, String nameZh, String nameEn, bool isHidden});
+  $Res call(
+      {int id,
+      String nameZh,
+      String nameEn,
+      bool isHidden,
+      String? descriptionZh,
+      String? descriptionEn});
 }
 
 /// @nodoc
@@ -56,6 +68,8 @@ class _$AbilityRefCopyWithImpl<$Res, $Val extends AbilityRef>
     Object? nameZh = null,
     Object? nameEn = null,
     Object? isHidden = null,
+    Object? descriptionZh = freezed,
+    Object? descriptionEn = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -74,6 +88,14 @@ class _$AbilityRefCopyWithImpl<$Res, $Val extends AbilityRef>
           ? _value.isHidden
           : isHidden // ignore: cast_nullable_to_non_nullable
               as bool,
+      descriptionZh: freezed == descriptionZh
+          ? _value.descriptionZh
+          : descriptionZh // ignore: cast_nullable_to_non_nullable
+              as String?,
+      descriptionEn: freezed == descriptionEn
+          ? _value.descriptionEn
+          : descriptionEn // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -86,7 +108,13 @@ abstract class _$$AbilityRefImplCopyWith<$Res>
       __$$AbilityRefImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({int id, String nameZh, String nameEn, bool isHidden});
+  $Res call(
+      {int id,
+      String nameZh,
+      String nameEn,
+      bool isHidden,
+      String? descriptionZh,
+      String? descriptionEn});
 }
 
 /// @nodoc
@@ -106,6 +134,8 @@ class __$$AbilityRefImplCopyWithImpl<$Res>
     Object? nameZh = null,
     Object? nameEn = null,
     Object? isHidden = null,
+    Object? descriptionZh = freezed,
+    Object? descriptionEn = freezed,
   }) {
     return _then(_$AbilityRefImpl(
       id: null == id
@@ -124,6 +154,14 @@ class __$$AbilityRefImplCopyWithImpl<$Res>
           ? _value.isHidden
           : isHidden // ignore: cast_nullable_to_non_nullable
               as bool,
+      descriptionZh: freezed == descriptionZh
+          ? _value.descriptionZh
+          : descriptionZh // ignore: cast_nullable_to_non_nullable
+              as String?,
+      descriptionEn: freezed == descriptionEn
+          ? _value.descriptionEn
+          : descriptionEn // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -135,7 +173,9 @@ class _$AbilityRefImpl implements _AbilityRef {
       {required this.id,
       required this.nameZh,
       required this.nameEn,
-      required this.isHidden});
+      required this.isHidden,
+      this.descriptionZh,
+      this.descriptionEn});
 
   @override
   final int id;
@@ -146,9 +186,17 @@ class _$AbilityRefImpl implements _AbilityRef {
   @override
   final bool isHidden;
 
+  /// 官方简中说明（abilities.text_zh_hans，可空）。
+  @override
+  final String? descriptionZh;
+
+  /// 英文 short_effect（abilities.text_en，可空）。
+  @override
+  final String? descriptionEn;
+
   @override
   String toString() {
-    return 'AbilityRef(id: $id, nameZh: $nameZh, nameEn: $nameEn, isHidden: $isHidden)';
+    return 'AbilityRef(id: $id, nameZh: $nameZh, nameEn: $nameEn, isHidden: $isHidden, descriptionZh: $descriptionZh, descriptionEn: $descriptionEn)';
   }
 
   @override
@@ -160,11 +208,16 @@ class _$AbilityRefImpl implements _AbilityRef {
             (identical(other.nameZh, nameZh) || other.nameZh == nameZh) &&
             (identical(other.nameEn, nameEn) || other.nameEn == nameEn) &&
             (identical(other.isHidden, isHidden) ||
-                other.isHidden == isHidden));
+                other.isHidden == isHidden) &&
+            (identical(other.descriptionZh, descriptionZh) ||
+                other.descriptionZh == descriptionZh) &&
+            (identical(other.descriptionEn, descriptionEn) ||
+                other.descriptionEn == descriptionEn));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, id, nameZh, nameEn, isHidden);
+  int get hashCode => Object.hash(
+      runtimeType, id, nameZh, nameEn, isHidden, descriptionZh, descriptionEn);
 
   /// Create a copy of AbilityRef
   /// with the given fields replaced by the non-null parameter values.
@@ -180,7 +233,9 @@ abstract class _AbilityRef implements AbilityRef {
       {required final int id,
       required final String nameZh,
       required final String nameEn,
-      required final bool isHidden}) = _$AbilityRefImpl;
+      required final bool isHidden,
+      final String? descriptionZh,
+      final String? descriptionEn}) = _$AbilityRefImpl;
 
   @override
   int get id;
@@ -190,6 +245,14 @@ abstract class _AbilityRef implements AbilityRef {
   String get nameEn;
   @override
   bool get isHidden;
+
+  /// 官方简中说明（abilities.text_zh_hans，可空）。
+  @override
+  String? get descriptionZh;
+
+  /// 英文 short_effect（abilities.text_en，可空）。
+  @override
+  String? get descriptionEn;
 
   /// Create a copy of AbilityRef
   /// with the given fields replaced by the non-null parameter values.

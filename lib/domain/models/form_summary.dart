@@ -17,5 +17,11 @@ class FormSummary with _$FormSummary {
     required bool isRegional,
     String? artworkAsset,
     required List<String> typeIds,
+
+    /// 身高（米）= forms.height ÷ 10；上游缺失为 null。
+    double? heightM,
+
+    /// 体重（千克）= forms.weight ÷ 10；上游缺失为 null。
+    double? weightKg,
   }) = _FormSummary;
 }

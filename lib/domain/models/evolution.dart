@@ -49,5 +49,10 @@ class EvolutionNode with _$EvolutionNode {
 class EvolutionTree with _$EvolutionTree {
   const factory EvolutionTree({
     required EvolutionNode root,
+
+    /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
+    /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
+    /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
+    required Map<int, EvolutionNode> nodesBySpeciesId,
   }) = _EvolutionTree;
 }

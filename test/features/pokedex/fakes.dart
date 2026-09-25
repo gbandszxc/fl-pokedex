@@ -12,6 +12,7 @@ import 'package:fl_pokedex/domain/models/move_detail.dart';
 import 'package:fl_pokedex/domain/models/move_entry.dart';
 import 'package:fl_pokedex/domain/models/pokemon_summary.dart';
 import 'package:fl_pokedex/domain/models/refs.dart';
+import 'package:fl_pokedex/domain/models/species_info.dart';
 import 'package:fl_pokedex/domain/models/stat_block.dart';
 import 'package:fl_pokedex/domain/repositories/favorites_repository.dart';
 import 'package:fl_pokedex/domain/repositories/pokedex_repository.dart';
@@ -225,6 +226,14 @@ class FakePokedexRepository implements PokedexRepository {
 
   @override
   Future<MoveDetail?> getMoveDetail(int moveId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<SpeciesInfo> getSpeciesInfo(int speciesId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<PokemonSummary>> getPokemonSummaries(List<int> speciesIds) =>
       throw UnimplementedError();
 }
 
