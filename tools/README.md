@@ -65,6 +65,13 @@ uv run tools/data_builder/process_images.py        # 只处理图片
 
 `--latest` 会通过 GitHub API（限流时回退 `gh` CLI）获取最新 sha 并**回写 `config.py`**，保证“当前构建可重复”。想长期钉住某个版本，把 sha 手动改回即可。
 
+## 缓存与增量（重要边界）
+
+- 缓存键是**文件名**（`.cache/csv/*.csv`、`.cache/sprites/{id}.png`），判断逻辑为“已存在且非空即跳过”，与 sha 无关：
+  - **同版本重复打包**：0 下载，只剩本地 CPU 工作（SQLite 重建 + WebP 重编码，全量约 20-60 秒）。
+  - **升级上游版本（`--latest` 后）**：旧缓存仍会命中，拉不到新数据——**必须 `build_all.py --force` 全量重拉**（约 200MB，一次性几分钟）。这是有意保留的简单策略；如需按 sha/内容哈希的真增量，改动只在 `fetch_data.py` 的缓存键。
+- 删除 `.cache` 或在全新机器/CI 上构建会自动全量下载一次，无需手工干预。
+
 ## 构建期约定（重要）
 
 - 语言映射、代表版本组、形态中文名规则等全部以 `docs/data-contract.md` 为准；契约与实现的任何偏差都记录在 `meta` 表（`missing_json`、`learnset_vg_fallback` 等 key）。

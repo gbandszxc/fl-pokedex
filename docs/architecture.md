@@ -172,9 +172,13 @@ WHERE ( national_dex = n  或为空 )
 排序固定 national_dex ASC。
 ```
 
-## 8. 离线守卫（lib/core/offline/）
+## 8. 离线保证（运行时 0 网络请求的三层机制）
 
-`BlockingHttpOverrides extends HttpOverrides`：`createHttpClient` 返回的客户端在 `open/openUrl` 直接抛 `OfflineRequestBlocked`。`main()` 中无条件 `HttpOverrides.global = BlockingHttpOverrides()`。集成测试据此验收 0 请求。
+1. **数据全部随包**：`assets/database/pokedex.db` + `manifest.json` + `assets/pokemon/{full,thumb}/*.webp`。运行时只读 assets 与本地文件；首启把 db 复制到应用文档目录（`meta.schema_version` 与 manifest 比对决定是否覆盖，换数据重装需 `pm clear`），Drift 以 `query_only` 只读打开；图片 `Image.asset` + `cacheWidth`。
+2. **运行时依赖零 HTTP 库**：drift / riverpod / go_router 等均无网络能力，禁止引入 dio/http 等。
+3. **兜底拦截器**：`main()` 无条件 `HttpOverrides.global = BlockingHttpOverrides()`（lib/core/offline/），任何 `open/openUrl` 当场抛 `OfflineRequestBlocked`——未来任何依赖试图联网都会立刻暴露而非静默请求。
+
+机器判据：`test/acceptance/offline_acceptance_test.dart` 在拦截器生效下，用真实 `pokedex.db` 驱动完整链路（首页→搜索→详情→进化→招式→图鉴说明→切主题），断言全程 0 请求且无异常。网络只允许出现在构建期（`tools/data_builder`，见其 README 的缓存与增量说明）。
 
 ## 9. 路由（go_router，路径锁死）
 
