@@ -232,20 +232,67 @@ class FakePokedexRepository implements PokedexRepository {
   }
 
   @override
-  Future<EvolutionTree?> getEvolutionTree(int speciesId) =>
-      throw UnimplementedError();
+  Future<EvolutionTree?> getEvolutionTree(int speciesId) async =>
+      null; // fixture：妙蛙种子简化为无进化链（进化分区显示空态）。
+
+  /// 默认形态有学习集的版本组（招式分区版本组 chips 行用）。
+  final versionGroups = <int, List<VersionGroupRef>>{
+    1: [
+      const VersionGroupRef(
+        id: 'scarlet-violet',
+        labelZh: '朱/紫',
+        generationId: 9,
+      ),
+    ],
+  };
+
+  final learnset = <int, List<MoveEntry>>{
+    1: const [
+      MoveEntry(
+        moveId: 33,
+        nameZh: '撞击',
+        nameEn: 'Tackle',
+        typeId: 'normal',
+        damageClass: 'physical',
+        power: 40,
+        pp: 35,
+        accuracy: 100,
+        level: 1,
+        method: 'level_up',
+        versionGroup: 'scarlet-violet',
+      ),
+      MoveEntry(
+        moveId: 73,
+        nameZh: '寄生种子',
+        nameEn: 'Leech Seed',
+        typeId: 'grass',
+        damageClass: 'status',
+        power: null,
+        pp: 10,
+        accuracy: 90,
+        level: 7,
+        method: 'level_up',
+        versionGroup: 'scarlet-violet',
+      ),
+    ],
+  };
 
   @override
-  Future<List<VersionGroupRef>> getFormVersionGroups(int formId) =>
-      throw UnimplementedError();
+  Future<List<VersionGroupRef>> getFormVersionGroups(int formId) async =>
+      versionGroups[formId] ?? const <VersionGroupRef>[];
 
   @override
   Future<List<MoveEntry>> getLearnset(
     int formId,
     String versionGroup, {
     Set<String>? methods,
-  }) =>
-      throw UnimplementedError();
+  }) async {
+    final all = learnset[formId] ?? const <MoveEntry>[];
+    if (methods == null || methods.isEmpty) {
+      return all;
+    }
+    return all.where((move) => methods.contains(move.method)).toList();
+  }
 
   @override
   Future<MoveDetail?> getMoveDetail(int moveId) =>

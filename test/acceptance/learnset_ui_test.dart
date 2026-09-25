@@ -310,13 +310,31 @@ void main() {
     }
   }
 
-  /// 收起折叠式 SliverAppBar（拖动起点必须在头部区域，
-  /// 从 TabBarView 区域上拖会被内层滚动消费）。
+  /// 收起折叠式 SliverAppBar：按「当前 pinned TabBar 位置 → 就位」的
+  /// 实测距离上拖，不硬编码头高（F1c 后 = 视口高×0.5 clamp 300–440）。
+  ///
+  /// 距离留 16px 余量：拖过头会让内层滚动把 tab 顶部内容推进 pinned
+  /// TabBar 覆盖区导致 tap miss。拖后断言 TabBar 已接近就位再继续交互。
   Future<void> collapseHeader(WidgetTester tester) async {
-    await tester.dragFrom(const Offset(400, 250), const Offset(0, -500));
-    for (var i = 0; i < 8; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
+    const pinnedTabTop = 56.0; // kToolbarHeight
+    const tabAnchor = '图鉴说明';
+    final top = tester.getTopLeft(find.text(tabAnchor).first).dy;
+    final distance = top - pinnedTabTop - 16;
+    if (distance > 20) {
+      // 起点取 TabBar 上方 50px，保证落在头部区域内（外层滚动收 header）。
+      await tester.dragFrom(
+        Offset(400, top - 50),
+        Offset(0, -distance),
+      );
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     }
+    expect(
+      tester.getTopLeft(find.text(tabAnchor).first).dy,
+      lessThan(pinnedTabTop + 64),
+      reason: '折叠头部未收起，tab 内容区仍被压缩',
+    );
   }
 
   testWidgets('招式 tab：默认最新版本组（朱/紫）渲染列表', (tester) async {
@@ -325,6 +343,14 @@ void main() {
     await collapseHeader(tester);
 
     expect(find.text('共 4 个招式'), findsOneWidget);
+    // 头部收起后版本组 chips 不被 pinned TabBar 覆盖（可被 tap 命中）。
+    final tabBarBottom =
+        tester.getBottomLeft(find.text('图鉴说明').first).dy;
+    expect(
+      tester.getCenter(find.widgetWithText(VersionChip, '朱/紫')).dy,
+      greaterThan(tabBarBottom),
+      reason: '版本组 chips 位于 pinned TabBar 覆盖区内，无法交互',
+    );
     // 默认选中最新组。
     expect(
       tester.widget<VersionChip>(

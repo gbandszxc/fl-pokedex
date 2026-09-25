@@ -18,15 +18,13 @@ import 'providers.dart';
 /// 头部内自适应展开）。
 const double _kArtworkHeightExpanded = 320;
 
-/// compact/medium 折叠头部展开后的目标高度（含工具栏）；
-/// 超出可视高度时收窄，保证 pinned TabBar 之下始终留有内容空间。
-const double _kHeaderExpandedHeight = 512;
+/// compact/medium 折叠头部展开后的目标高度（含工具栏）：
+/// 实际取视口高 ×0.5（clamp 300–440），保证 pinned TabBar 之下首屏
+/// 始终留有可感知的内容空间（无需先收起头部）。
+const double _kHeaderExpandedHeight = 440;
 
 /// 折叠头部的最小展开高度（矮视口兜底）。
-const double _kHeaderMinHeight = 340;
-
-/// 常驻 TabBar 高度附近值（折叠头部预留量计算用）。
-const double _kTabBarExtent = 48;
+const double _kHeaderMinHeight = 300;
 
 /// 立绘解码参考宽（逻辑像素）：cacheWidth = 360 × dpr。
 const int _kArtworkRefWidth = 360;
@@ -230,7 +228,7 @@ class _DetailScaffold extends ConsumerWidget {
     if (!isExpanded) {
       // compact / medium：头部收进折叠式 SliverAppBar（滚动收起），
       // pinned TabBar + TabBarView 始终保有视口剩余空间。
-      final expandedHeight = (MediaQuery.sizeOf(context).height - _kTabBarExtent)
+      final expandedHeight = (MediaQuery.sizeOf(context).height * 0.5)
           .clamp(_kHeaderMinHeight, _kHeaderExpandedHeight);
       return Scaffold(
         body: DefaultTabController(

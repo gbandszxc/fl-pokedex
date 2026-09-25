@@ -142,19 +142,33 @@ void main() {
       }
     }
 
-    /// 收起详情页折叠式 SliverAppBar。
+    /// 收起详情页折叠式 SliverAppBar：按「当前 pinned TabBar 位置 →
+    /// 就位」的实测距离上拖，不硬编码头高（F1c 后 = 视口高×0.5
+    /// clamp 300–440，600 高视口为 300px）。
     ///
-    /// medium 视口（600 高）下头部初始完全展开（约 512px），tab 内容区
-    /// 仅剩约 40px：chips 在视口内不可命中。注意拖动起点必须在**头部
-    /// 区域**（y ≈ 250）——从 TabBarView 区域上拖会被内层滚动消费，
-    /// 头部纹丝不动；从头部上拖才走外层滚动把 header 收起。
+    /// 拖动起点必须在头部区域（从 TabBarView 区域上拖会被内层滚动
+    /// 消费）；距离留 16px 余量——拖过头会让内层滚动把 tab 顶部内容
+    /// 推进 pinned TabBar 覆盖区导致 tap miss。拖后断言 TabBar 已
+    /// 接近就位再继续交互。
     Future<void> collapseHeader(WidgetTester tester) async {
-      await tester.dragFrom(
-        const Offset(400, 250),
-        const Offset(0, -500),
+      const pinnedTabTop = 56.0; // kToolbarHeight
+      const tabAnchor = '图鉴说明';
+      final top = tester.getTopLeft(find.text(tabAnchor).first).dy;
+      final distance = top - pinnedTabTop - 16;
+      if (distance > 20) {
+        await tester.dragFrom(
+          Offset(400, top - 50),
+          Offset(0, -distance),
+        );
+        for (var i = 0; i < 8; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+      }
+      expect(
+        tester.getTopLeft(find.text(tabAnchor).first).dy,
+        lessThan(pinnedTabTop + 64),
+        reason: '折叠头部未收起，tab 内容区仍被压缩',
       );
-      await pumpFor(tester);
-      await tester.pump(const Duration(milliseconds: 300));
     }
 
     testWidgets('冷启动 → 搜索 → 详情 → 设置切深色：全程 0 网络请求',

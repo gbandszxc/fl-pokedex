@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:fl_pokedex/app/theme/theme.dart';
 import 'package:fl_pokedex/core/di.dart';
@@ -23,16 +24,29 @@ void main() {
   });
 
   Widget buildApp(Brightness brightness, {int speciesId = 1}) {
+    // 走 /pokemon/:speciesId 路由挂载：招式 / 进化分区从 GoRouterState
+    // 解析 speciesId，纯 home: 挂载会落入其「无法识别」空态。
     return ProviderScope(
       overrides: [
         pokedexRepositoryProvider.overrideWithValue(repo),
         favoritesRepositoryProvider.overrideWithValue(favorites),
       ],
-      child: MaterialApp(
+      child: MaterialApp.router(
         theme: brightness == Brightness.light
             ? buildLightTheme()
             : buildDarkTheme(),
-        home: PokemonDetailPage(speciesId: speciesId),
+        routerConfig: GoRouter(
+          initialLocation: '/pokemon/$speciesId',
+          routes: [
+            GoRoute(
+              path: '/pokemon/:speciesId',
+              builder: (context, state) => PokemonDetailPage(
+                speciesId:
+                    int.tryParse(state.pathParameters['speciesId'] ?? '') ?? 0,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -186,7 +200,9 @@ void main() {
 
       await tester.tap(find.text('招式'));
       await tester.pumpAndSettle();
-      expect(find.text('暂无招式'), findsOneWidget);
+      // 招式分区有数据：版本组 chips（fake：朱/紫）与学习集条目。
+      expect(find.widgetWithText(VersionChip, '朱/紫'), findsOneWidget);
+      expect(find.text('撞击'), findsOneWidget);
 
       await tester.tap(find.text('资料'));
       await tester.pumpAndSettle();
@@ -245,6 +261,28 @@ void main() {
       // 身高（0）与体重（缺失）均回退为 —。
       expect(find.text('—'), findsNWidgets(2));
       expect(find.text('0.7 m'), findsNothing);
+    });
+  });
+
+  group('compact 折叠头占比', () {
+    testWidgets('360×640：不滚动头部即可见招式版本组 chips 行', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await pumpPage(tester);
+
+      // 不做任何滚动，直接切到招式 tab。
+      await tester.tap(find.text('招式'));
+      await tester.pumpAndSettle();
+
+      // 版本组 chips 行在首屏视口内（可发现性：无需先收起头部）。
+      final groupChip = find.widgetWithText(VersionChip, '朱/紫');
+      expect(groupChip, findsOneWidget);
+      final rect = tester.getRect(groupChip);
+      expect(rect.top, greaterThanOrEqualTo(0));
+      expect(rect.bottom, lessThanOrEqualTo(640));
     });
   });
 
