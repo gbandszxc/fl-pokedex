@@ -8,6 +8,7 @@ import '../../app/theme/tokens.dart';
 import '../../core/di.dart';
 import '../../domain/models/pokemon_summary.dart';
 import '../../shared/widgets/widgets.dart';
+import '../settings/providers.dart';
 import 'providers.dart';
 
 /// 收藏页（design-ui.md §1 视觉复用 + 个人数据）：
@@ -37,8 +38,14 @@ class FavoritesPage extends ConsumerWidget {
 class _FavoritesBody extends ConsumerWidget {
   const _FavoritesBody();
 
-  static const double _gridMaxCrossAxisExtent = 200;
-  static const double _gridAspectRatio = 0.82;
+  /// 网格卡片固定高——舒适档：等价于 200 宽 × 0.82 比例的自然高。
+  /// 两档密度均弃用宽高比改用固定高：列宽随窗口浮动，比例高会小于
+  /// 卡片内容最小高（PokemonCard ≈190）导致纵向溢出（小屏必现）。
+  static const double _gridComfortableMainAxisExtent = 244;
+
+  /// 网格卡片固定高——紧凑档（卡片更窄，同理必须固定高）。
+  static const double _gridCompactMainAxisExtent = 200;
+
   static const double _recentThumbWidth = 76;
   static const double _recentsRowHeight = 102;
 
@@ -47,6 +54,11 @@ class _FavoritesBody extends ConsumerWidget {
     final favoritesAsync = ref.watch(favoriteSummariesProvider);
     final recentsAsync = ref.watch(recentSummariesProvider);
     final viewMode = ref.watch(favoritesViewModeProvider);
+    final density = ref.watch(cardDensityProvider);
+    // 网格卡片最大宽：舒适 200 / 紧凑 156（设置「桌面卡片密度」）；
+    // 列表模式不受影响。
+    final gridMaxExtent =
+        density == CardDensity.compact ? 156.0 : 200.0;
 
     final loading = favoritesAsync.isLoading;
     final favorites = favoritesAsync.valueOrNull;
@@ -74,6 +86,7 @@ class _FavoritesBody extends ConsumerWidget {
 
     final pad = pagePaddingFor(context);
     final isGrid = viewMode == FavoritesViewMode.grid;
+    final compactDensity = density == CardDensity.compact;
 
     if (favorites.isEmpty && recents.isEmpty) {
       return const EmptyState(
@@ -137,12 +150,15 @@ class _FavoritesBody extends ConsumerWidget {
             ),
             sliver: isGrid
                 ? SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: _gridMaxCrossAxisExtent,
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: gridMaxExtent,
                       mainAxisSpacing: AppSpacing.m,
                       crossAxisSpacing: AppSpacing.m,
-                      childAspectRatio: _gridAspectRatio,
+                      // 固定卡高（见 _gridComfortableMainAxisExtent
+                      // 注释），任意列宽下不再纵向溢出。
+                      mainAxisExtent: compactDensity
+                          ? _gridCompactMainAxisExtent
+                          : _gridComfortableMainAxisExtent,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _FavoriteCard(

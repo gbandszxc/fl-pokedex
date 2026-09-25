@@ -302,3 +302,10 @@ final pokedexRefsProvider = FutureProvider<PokedexRefs>((ref) async {
 final favoriteSpeciesIdsProvider = StreamProvider<List<int>>((ref) {
   return ref.watch(favoritesRepositoryProvider).watchFavoriteSpeciesIds();
 });
+
+/// 双栏（宽 ≥1080）下列表面板的选中 speciesId；null 表示未选择，
+/// 详情面板显示引导空态。
+///
+/// 仅图鉴分支双栏模式消费：列表面板点卡片写入选中态（不导航），
+/// 详情面板按它内联渲染 [PokemonDetailPage]；单栏路径不读不写。
+final paneSelectionProvider = StateProvider<int?>((ref) => null);

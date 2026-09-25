@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,6 +11,7 @@ import '../../domain/models/filters.dart';
 import '../../domain/models/pokemon_summary.dart';
 import '../../shared/responsive/breakpoints.dart';
 import '../../shared/widgets/widgets.dart';
+import '../settings/providers.dart';
 import 'providers.dart';
 
 /// 图鉴首页（design-ui.md §1 / §7）：
@@ -37,20 +39,43 @@ class _CompactLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: const Icon(Icons.search),
-        title: const _SearchField(),
-        bottom: const _FilterBar(),
+    return _HomeKeyboardScope(
+      builder: (context, searchController, searchFocus) => Scaffold(
+        appBar: AppBar(
+          leading: const Icon(Icons.search),
+          title: _SearchField(
+            controller: searchController,
+            focusNode: searchFocus,
+          ),
+          bottom: const _FilterBar(),
+        ),
+        body: const _PokemonListBody(embeddedInPane: false),
       ),
-      body: const _PokemonListBody(),
     );
   }
 }
 
 /// expanded：标题 + 计数、搜索框、筛选行自上而下，列表占据余下空间。
-class _ExpandedLayout extends ConsumerWidget {
+class _ExpandedLayout extends StatelessWidget {
   const _ExpandedLayout();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: PokedexHomeListContent(embeddedInPane: false),
+    );
+  }
+}
+
+/// 图鉴列表内容：标题行（「图鉴」+ 计数）+ 搜索框 + 筛选行 + 列表主体。
+///
+/// expanded 首页整页与 twoPane（宽 ≥1080）双栏的列表面板共用，
+/// 保证搜索 / 筛选 / 网格 / 分页的单一代码路径；[embeddedInPane]
+/// 决定点按卡片的去向——写入双栏选中态（不导航）或推入详情路由。
+class PokedexHomeListContent extends ConsumerWidget {
+  const PokedexHomeListContent({super.key, required this.embeddedInPane});
+
+  final bool embeddedInPane;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,8 +83,8 @@ class _ExpandedLayout extends ConsumerWidget {
     final total = ref.watch(
       pokemonListProvider.select((async) => async.valueOrNull?.total),
     );
-    return Scaffold(
-      body: Column(
+    return _HomeKeyboardScope(
+      builder: (context, searchController, searchFocus) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
@@ -84,23 +109,121 @@ class _ExpandedLayout extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.m),
-                const _SearchField(showLeadingIcon: true),
+                _SearchField(
+                  controller: searchController,
+                  focusNode: searchFocus,
+                  showLeadingIcon: true,
+                ),
                 const SizedBox(height: AppSpacing.s),
                 const _FilterBar(),
               ],
             ),
           ),
-          const Expanded(child: _PokemonListBody()),
+          Expanded(
+            child: _PokemonListBody(embeddedInPane: embeddedInPane),
+          ),
         ],
       ),
     );
   }
 }
 
+/// 首页键盘作用域（桌面）：`/` 聚焦搜索框，Esc 清空搜索并失焦。
+///
+/// 拥有搜索框的 [TextEditingController] 与 [FocusNode]；输入变更的
+/// 防抖与外部同步逻辑仍留在 [_SearchField]。内部的 Focus(autofocus)
+/// 是键盘锚点：无控件持有焦点时按键也能沿焦点链命中上面的 Shortcuts。
+class _HomeKeyboardScope extends ConsumerStatefulWidget {
+  const _HomeKeyboardScope({required this.builder});
+
+  final Widget Function(
+    BuildContext context,
+    TextEditingController searchController,
+    FocusNode searchFocus,
+  ) builder;
+
+  @override
+  ConsumerState<_HomeKeyboardScope> createState() =>
+      _HomeKeyboardScopeState();
+}
+
+class _HomeKeyboardScopeState extends ConsumerState<_HomeKeyboardScope> {
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _focusSearch() {
+    _searchFocus.requestFocus();
+  }
+
+  void _clearSearch() {
+    // 直接写 provider：立即触发列表重载（不等输入框 200ms 防抖）；
+    // 未提交的防抖词被下面 clear() 触发的重排取消。
+    ref.read(filterProvider.notifier).updateQuery('');
+    _searchController.clear();
+    _searchFocus.unfocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.slash): _FocusSearchIntent(),
+        SingleActivator(LogicalKeyboardKey.escape): _ClearSearchIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _FocusSearchIntent: CallbackAction<_FocusSearchIntent>(
+            onInvoke: (_) {
+              _focusSearch();
+              return null;
+            },
+          ),
+          _ClearSearchIntent: CallbackAction<_ClearSearchIntent>(
+            onInvoke: (_) {
+              _clearSearch();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          skipTraversal: true,
+          child: widget.builder(context, _searchController, _searchFocus),
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusSearchIntent extends Intent {
+  const _FocusSearchIntent();
+}
+
+class _ClearSearchIntent extends Intent {
+  const _ClearSearchIntent();
+}
+
 /// 搜索框：200ms 防抖写入 [filterProvider.query]；外部清空筛选时
-/// （清除按钮 / 面板重置）反向同步回输入框。
+/// （清除按钮 / 面板重置 / Esc）反向同步回输入框。
 class _SearchField extends ConsumerStatefulWidget {
-  const _SearchField({this.showLeadingIcon = false});
+  const _SearchField({
+    required this.controller,
+    required this.focusNode,
+    this.showLeadingIcon = false,
+  });
+
+  /// 由 [_HomeKeyboardScope] 持有（Esc 清空 / `/` 聚焦共用）。
+  final TextEditingController controller;
+
+  /// 由 [_HomeKeyboardScope] 持有。
+  final FocusNode focusNode;
 
   /// expanded 独立搜索框自带放大镜；compact 的放大镜由 AppBar.leading 承担。
   final bool showLeadingIcon;
@@ -112,7 +235,6 @@ class _SearchField extends ConsumerStatefulWidget {
 class _SearchFieldState extends ConsumerState<_SearchField> {
   static const Duration _debounceDuration = Duration(milliseconds: 200);
 
-  final TextEditingController _controller = TextEditingController();
   Timer? _debounce;
   bool _applyingExternal = false;
 
@@ -121,12 +243,12 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
     super.initState();
     final query = ref.read(filterProvider).query;
     if (query.isNotEmpty) {
-      _controller.value = TextEditingValue(
+      widget.controller.value = TextEditingValue(
         text: query,
         selection: TextSelection.collapsed(offset: query.length),
       );
     }
-    _controller.addListener(_onTextChanged);
+    widget.controller.addListener(_onTextChanged);
   }
 
   void _onTextChanged() {
@@ -135,20 +257,22 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
     }
     _debounce?.cancel();
     _debounce = Timer(_debounceDuration, () {
-      ref.read(filterProvider.notifier).updateQuery(_controller.text);
+      ref
+          .read(filterProvider.notifier)
+          .updateQuery(widget.controller.text);
     });
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen<FilterState>(filterProvider, (_, next) {
-      if (_controller.text == next.query) {
+      if (widget.controller.text == next.query) {
         return;
       }
       // 外部变更（清空筛选）：覆盖输入框且不触发防抖。
       _debounce?.cancel();
       _applyingExternal = true;
-      _controller.value = TextEditingValue(
+      widget.controller.value = TextEditingValue(
         text: next.query,
         selection: TextSelection.collapsed(offset: next.query.length),
       );
@@ -156,7 +280,8 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
     });
 
     return TextField(
-      controller: _controller,
+      controller: widget.controller,
+      focusNode: widget.focusNode,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         hintText: '搜索 名称 / 编号',
@@ -168,8 +293,8 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
   @override
   void dispose() {
     _debounce?.cancel();
-    _controller.removeListener(_onTextChanged);
-    _controller.dispose();
+    widget.controller.removeListener(_onTextChanged);
+    // controller / focusNode 归 [_HomeKeyboardScope] 所有，不在此释放。
     super.dispose();
   }
 }
@@ -295,8 +420,13 @@ class _FilterGroupChip extends StatelessWidget {
 }
 
 /// 列表主体：首载骨架 / 加载失败重试 / 空结果指引 / 分页网格或列表。
+///
+/// [embeddedInPane] 为 true 时运行在双栏列表面板内：点卡片写入
+/// [paneSelectionProvider]（不导航），并为选中项绘制 primary 描边。
 class _PokemonListBody extends ConsumerStatefulWidget {
-  const _PokemonListBody();
+  const _PokemonListBody({required this.embeddedInPane});
+
+  final bool embeddedInPane;
 
   @override
   ConsumerState<_PokemonListBody> createState() => _PokemonListBodyState();
@@ -304,8 +434,20 @@ class _PokemonListBody extends ConsumerStatefulWidget {
 
 class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
   static const double _loadMoreThreshold = 600;
-  static const double _gridMaxCrossAxisExtent = 200;
-  static const double _gridAspectRatio = 0.82;
+
+  /// 网格卡片最大宽——舒适档（DESIGN.md §3）。
+  static const double _gridComfortableExtent = 200;
+
+  /// 网格卡片最大宽——紧凑档（设置「桌面卡片密度」）。
+  static const double _gridCompactExtent = 156;
+
+  /// 网格卡片固定高——舒适档：等价于 200 宽 × 0.82 比例的自然高。
+  /// 两档密度均弃用宽高比改用固定高：列宽随窗口浮动，比例高会小于
+  /// 卡片内容最小高（PokemonCard ≈190）导致纵向溢出（小屏必现）。
+  static const double _gridComfortableMainAxisExtent = 244;
+
+  /// 网格卡片固定高——紧凑档（卡片更窄，同理必须固定高）。
+  static const double _gridCompactMainAxisExtent = 200;
 
   final ScrollController _scrollController = ScrollController();
 
@@ -332,6 +474,13 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
   Widget build(BuildContext context) {
     final asyncList = ref.watch(pokemonListProvider);
     final viewMode = ref.watch(listViewModeProvider);
+    final density = ref.watch(cardDensityProvider);
+    // 桌面卡片密度（design-ui.md §8）：舒适 200 / 紧凑 156；列表模式不受影响。
+    final gridMaxExtent = density == CardDensity.compact
+        ? _gridCompactExtent
+        : _gridComfortableExtent;
+    final selectedSpeciesId =
+        widget.embeddedInPane ? ref.watch(paneSelectionProvider) : null;
     final favoriteIds = ref
             .watch(favoriteSpeciesIdsProvider)
             .valueOrNull
@@ -341,7 +490,7 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
     final page = asyncList.valueOrNull;
 
     if (loading && page == null) {
-      return _firstLoadSkeleton(context, viewMode);
+      return _firstLoadSkeleton(context, viewMode, gridMaxExtent);
     }
     if (asyncList.hasError && page == null) {
       return EmptyState(
@@ -371,6 +520,7 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
 
     final pad = pagePaddingFor(context);
     final isGrid = viewMode == PokemonViewMode.grid;
+    final compactDensity = density == CardDensity.compact;
     return Column(
       children: [
         Expanded(
@@ -387,17 +537,22 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
                 sliver: isGrid
                     ? SliverGrid(
                         gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: _gridMaxCrossAxisExtent,
+                            SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: gridMaxExtent,
                           mainAxisSpacing: AppSpacing.m,
                           crossAxisSpacing: AppSpacing.m,
-                          childAspectRatio: _gridAspectRatio,
+                          // 固定卡高（见 _gridComfortableMainAxisExtent
+                          // 注释），任意列宽下不再纵向溢出。
+                          mainAxisExtent: compactDensity
+                              ? _gridCompactMainAxisExtent
+                              : _gridComfortableMainAxisExtent,
                         ),
                         delegate: SliverChildBuilderDelegate(
                           (context, index) => _buildItem(
                             page.items[index],
                             favoriteIds,
                             isGrid: true,
+                            selectedSpeciesId: selectedSpeciesId,
                           ),
                           childCount: page.items.length,
                           addAutomaticKeepAlives: false,
@@ -409,6 +564,7 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
                             page.items[index],
                             favoriteIds,
                             isGrid: false,
+                            selectedSpeciesId: selectedSpeciesId,
                           ),
                           childCount: page.items.length,
                           addAutomaticKeepAlives: false,
@@ -424,7 +580,11 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
     );
   }
 
-  Widget _firstLoadSkeleton(BuildContext context, PokemonViewMode viewMode) {
+  Widget _firstLoadSkeleton(
+    BuildContext context,
+    PokemonViewMode viewMode,
+    double gridMaxExtent,
+  ) {
     if (viewMode == PokemonViewMode.list) {
       return SkeletonList(
         itemCount: 12,
@@ -434,7 +594,7 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
     final width = MediaQuery.sizeOf(context).width;
     final pad = pagePaddingFor(context);
     final crossAxisCount =
-        ((width - pad * 2 + AppSpacing.m) / (_gridMaxCrossAxisExtent + AppSpacing.m))
+        ((width - pad * 2 + AppSpacing.m) / (gridMaxExtent + AppSpacing.m))
             .ceil()
             .clamp(1, 8);
     return SkeletonGrid(itemCount: 12, crossAxisCount: crossAxisCount);
@@ -444,17 +604,24 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
     PokemonSummary summary,
     Set<int> favoriteIds, {
     required bool isGrid,
+    required int? selectedSpeciesId,
   }) {
     final isFavorite = favoriteIds.contains(summary.speciesId);
     void onOpen() {
       unawaited(
         ref.read(favoritesRepositoryProvider).addRecent(summary.speciesId),
       );
+      if (widget.embeddedInPane) {
+        // 双栏列表面板：写选中态，详情在右侧面板内联渲染。
+        ref.read(paneSelectionProvider.notifier).state = summary.speciesId;
+        return;
+      }
       context.push('/pokemon/${summary.speciesId}');
     }
 
+    final Widget item;
     if (isGrid) {
-      return PokemonCard(
+      item = PokemonCard(
         nationalDex: summary.nationalDex,
         nameZh: summary.nameZh,
         nameEn: summary.nameEn,
@@ -468,20 +635,39 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
         ),
         onTap: onOpen,
       );
+    } else {
+      item = PokemonListTile(
+        nationalDex: summary.nationalDex,
+        nameZh: summary.nameZh,
+        nameEn: summary.nameEn,
+        typeIds: summary.typeIds,
+        thumbAsset: summary.thumbAsset,
+        isFavorite: isFavorite,
+        onFavoriteToggle: (_) => unawaited(
+          ref
+              .read(favoritesRepositoryProvider)
+              .toggleFavorite(summary.speciesId),
+        ),
+        onTap: onOpen,
+      );
     }
-    return PokemonListTile(
-      nationalDex: summary.nationalDex,
-      nameZh: summary.nameZh,
-      nameEn: summary.nameEn,
-      typeIds: summary.typeIds,
-      thumbAsset: summary.thumbAsset,
-      isFavorite: isFavorite,
-      onFavoriteToggle: (_) => unawaited(
-        ref
-            .read(favoritesRepositoryProvider)
-            .toggleFavorite(summary.speciesId),
+
+    if (selectedSpeciesId != summary.speciesId) {
+      return item;
+    }
+    // 双栏选中描边（DESIGN.md §2：细线 accent ≤2px）画在前景，避免被
+    // 卡片底色盖住。
+    return Container(
+      foregroundDecoration: ShapeDecoration(
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(AppRadius.card)),
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2,
+          ),
+        ),
       ),
-      onTap: onOpen,
+      child: item,
     );
   }
 }

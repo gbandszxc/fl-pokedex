@@ -57,13 +57,23 @@ String _measureLabel(double? value, String unit) =>
 /// 宝可梦详情页（compact/medium 全页 Tab 布局；expanded 单页滚动分区；
 /// 宽 ≥1080 的 master-detail 双栏由集成单元处理）。
 class PokemonDetailPage extends ConsumerStatefulWidget {
-  const PokemonDetailPage({super.key, required this.speciesId});
+  const PokemonDetailPage({
+    super.key,
+    required this.speciesId,
+    this.showBackButton = true,
+  });
 
   /// 路由参数不是合法整数时的「未找到」态。
-  const PokemonDetailPage.notFound({super.key}) : speciesId = null;
+  const PokemonDetailPage.notFound({super.key})
+      : speciesId = null,
+        showBackButton = true;
 
   /// null 表示路由参数非法（渲染未找到空态）。
   final int? speciesId;
+
+  /// 是否展示返回入口（AppBar 自动 leading）。路由全页用默认 true；
+  /// 嵌入双栏详情面板时传 false（面板无路由栈，不提供返回）。
+  final bool showBackButton;
 
   @override
   ConsumerState<PokemonDetailPage> createState() =>
@@ -133,7 +143,10 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
           ),
         );
       },
-      data: (detail) => _DetailScaffold(detail: detail),
+      data: (detail) => _DetailScaffold(
+        detail: detail,
+        showBackButton: widget.showBackButton,
+      ),
     );
   }
 }
@@ -187,9 +200,12 @@ class _DetailSkeleton extends StatelessWidget {
 
 /// 详情页主体：解析选中形态并组织布局。
 class _DetailScaffold extends ConsumerWidget {
-  const _DetailScaffold({required this.detail});
+  const _DetailScaffold({required this.detail, required this.showBackButton});
 
   final PokemonDetailData detail;
+
+  /// false = 嵌入双栏详情面板：SliverAppBar 不自动补返回按钮。
+  final bool showBackButton;
 
   static const _tabLabels = ['图鉴说明', '种族值', '进化', '招式', '资料'];
 
@@ -224,6 +240,7 @@ class _DetailScaffold extends ConsumerWidget {
               SliverAppBar(
                 pinned: true,
                 expandedHeight: expandedHeight,
+                automaticallyImplyLeading: showBackButton,
                 actions: [favoriteAction],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Padding(
@@ -265,11 +282,16 @@ class _DetailScaffold extends ConsumerWidget {
       );
     }
 
-    // expanded：单页滚动 + SectionTitle 分区（twoPane 双栏由集成单元处理）。
+    // expanded：单页滚动 + SectionTitle 分区；twoPane 时本页嵌入
+    // 右侧详情面板（showBackButton = false，无返回入口）。
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(pinned: true, actions: [favoriteAction]),
+          SliverAppBar(
+            pinned: true,
+            automaticallyImplyLeading: showBackButton,
+            actions: [favoriteAction],
+          ),
           SliverPadding(
             padding:
                 EdgeInsets.fromLTRB(pad, AppSpacing.s, pad, AppSpacing.xxl),

@@ -1,0 +1,335 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:fl_pokedex/app/router.dart';
+import 'package:fl_pokedex/app/theme/theme.dart';
+import 'package:fl_pokedex/domain/models/ability_ref.dart';
+import 'package:fl_pokedex/domain/models/evolution.dart';
+import 'package:fl_pokedex/domain/models/flavor_entry.dart';
+import 'package:fl_pokedex/domain/models/form_summary.dart';
+import 'package:fl_pokedex/domain/models/filters.dart';
+import 'package:fl_pokedex/domain/models/pokemon_summary.dart';
+import 'package:fl_pokedex/domain/models/species_info.dart';
+import 'package:fl_pokedex/domain/models/stat_block.dart';
+import 'package:fl_pokedex/features/pokedex/providers.dart';
+import 'package:fl_pokedex/features/settings/providers.dart';
+import 'package:fl_pokedex/shared/widgets/widgets.dart';
+
+import '../pokedex/fakes.dart';
+
+/// 在首页 Fake（70 条合成数据）之上补齐 species 1 的详情接口：
+/// #001 以「妙蛙种子」呈现（与详情 fixture 一致），供双栏详情面板
+/// 端到端渲染（名称 / 属性 / 种族值 / 图鉴说明）。
+class _TwoPaneFakePokedexRepository extends FakePokedexRepository {
+  @override
+  Future<List<PokemonSummary>> queryPokemon(
+    FilterState f, {
+    required int limit,
+    required int offset,
+  }) async {
+    final items = await super.queryPokemon(f, limit: limit, offset: offset);
+    return [
+      for (final item in items)
+        item.speciesId == 1
+            ? item.copyWith(
+                nameZh: '妙蛙种子',
+                nameEn: 'Bulbasaur',
+                nameJa: 'フシギダネ',
+                typeIds: ['grass', 'poison'],
+              )
+            : item,
+    ];
+  }
+
+  @override
+  Future<List<PokemonSummary>> getPokemonSummaries(
+    List<int> speciesIds,
+  ) async {
+    final all =
+        await queryPokemon(const FilterState(), limit: 1 << 20, offset: 0);
+    return [
+      for (final id in speciesIds)
+        ...all.where((summary) => summary.speciesId == id),
+    ];
+  }
+
+  @override
+  Future<SpeciesInfo> getSpeciesInfo(int speciesId) async => SpeciesInfo(
+        speciesId: speciesId,
+        nationalDex: speciesId,
+        generationId: 1,
+        genusZh: speciesId == 1 ? '种子宝可梦' : null,
+        genusEn: speciesId == 1 ? 'Seed Pokémon' : null,
+      );
+
+  @override
+  Future<List<FormSummary>> getForms(int speciesId) async {
+    if (speciesId != 1) {
+      throw StateError('fixture 只有 species 1 的形态');
+    }
+    return const [
+      FormSummary(
+        formId: 1,
+        speciesId: 1,
+        formIdentifier: null,
+        formNameZh: '妙蛙种子',
+        formNameEn: 'Bulbasaur',
+        isDefault: true,
+        isMega: false,
+        isGmax: false,
+        isRegional: false,
+        artworkAsset: null,
+        typeIds: ['grass', 'poison'],
+        heightM: 0.7,
+        weightKg: 6.9,
+      ),
+    ];
+  }
+
+  @override
+  Future<StatBlock> getFormStats(int formId) async => const StatBlock(
+        hp: 45,
+        attack: 49,
+        defense: 49,
+        specialAttack: 65,
+        specialDefense: 65,
+        speed: 45,
+      );
+
+  @override
+  Future<List<AbilityRef>> getFormAbilities(int formId) async => const [
+        AbilityRef(id: 65, nameZh: '茂盛', nameEn: 'Overgrow', isHidden: false),
+      ];
+
+  @override
+  Future<List<FlavorEntry>> getFlavorTexts(int speciesId) async => [
+        FlavorEntry(
+          versionId: 1,
+          versionIdentifier: 'red',
+          versionNameZh: '红',
+          versionNameEn: 'Red',
+          generationId: 1,
+          language: 'zh_hans',
+          text: '种子在出生时埋在土里。',
+        ),
+      ];
+
+  @override
+  Future<EvolutionTree?> getEvolutionTree(int speciesId) async => null;
+}
+
+typedef _Harness = (
+  ProviderContainer container,
+  FakeFavoritesRepository favorites,
+);
+
+/// 真实路由（routerProvider）+ Fake 仓储泵入应用，窗口 [size]。
+Future<_Harness> _pumpApp(WidgetTester tester, {required Size size}) async {
+  SharedPreferences.setMockInitialValues(const {});
+  final pokedex = _TwoPaneFakePokedexRepository();
+  final favorites = FakeFavoritesRepository();
+  final container = ProviderContainer(
+    overrides: fakeRepositoryOverrides(pokedex: pokedex, favorites: favorites),
+  );
+  addTearDown(container.dispose);
+  addTearDown(favorites.dispose);
+
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        theme: buildLightTheme(),
+        routerConfig: container.read(routerProvider),
+      ),
+    ),
+  );
+  // 首载骨架 → 数据就绪；再留一拍让收藏 / 密度等异步恢复落地。
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pump(const Duration(milliseconds: 50));
+  return (container, favorites);
+}
+
+/// 当前路由地址（验证「面板选中 vs 路由跳转」行为）。
+///
+/// 注意用 [RouteMatch.matchedLocation] 而非 `currentConfiguration.uri`：
+/// 后者不含 `push` 产生的 ImperativeRouteMatch（文档明确排除）。
+String _location(ProviderContainer container) =>
+    container
+        .read(routerProvider)
+        .routerDelegate
+        .currentConfiguration
+        .last
+        .matchedLocation;
+
+/// 详情面板数据就绪的泵帧（fake 全为即时异步，少量有界泵即可）。
+Future<void> _pumpDetailReady(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+/// 首行网格卡片数 = 当前窗口下的网格列数。
+int _gridColumnCount(WidgetTester tester) {
+  final cards = find.byType(PokemonCard);
+  final count = cards.evaluate().length;
+  final tops = List<double>.filled(count, 0);
+  var minY = double.infinity;
+  for (var i = 0; i < count; i++) {
+    final dy = tester.getTopLeft(cards.at(i)).dy;
+    tops[i] = dy;
+    if (dy < minY) {
+      minY = dy;
+    }
+  }
+  return tops.where((dy) => dy - minY < 0.5).length;
+}
+
+SliverGridDelegateWithMaxCrossAxisExtent _gridDelegate(WidgetTester tester) =>
+    tester.widget<SliverGrid>(find.byType(SliverGrid).first).gridDelegate
+        as SliverGridDelegateWithMaxCrossAxisExtent;
+
+void main() {
+  testWidgets('宽 ≥1080 双栏：详情面板空态 → 点 #001 内联渲染且不导航',
+      (tester) async {
+    final (container, favorites) =
+        await _pumpApp(tester, size: const Size(1200, 900));
+
+    // 双栏结构：NavigationRail + 列表面板（含标题行 / 搜索）+ 空态详情面板。
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.text('图鉴'), findsWidgets);
+    expect(find.text('从左侧选择宝可梦'), findsOneWidget);
+    expect(find.text('查看详情'), findsOneWidget);
+    expect(find.byType(BackButton), findsNothing);
+    expect(_location(container), '/');
+
+    // 点 #001 卡片：写选中态，详情面板内联出现妙蛙种子，路由不变化。
+    await tester.tap(find.text('妙蛙种子').first);
+    await tester.pump();
+    expect(container.read(paneSelectionProvider), 1);
+    await _pumpDetailReady(tester);
+
+    expect(find.text('妙蛙种子'), findsWidgets);
+    expect(find.text('#001'), findsWidgets);
+    expect(_location(container), '/'); // 未发生路由 push
+    expect(favorites.recents, [1]); // 点选仍记录最近浏览
+    // 列表面板仍在原位（没有整页详情覆盖窗口）。
+    expect(find.text('搜索 名称 / 编号'), findsOneWidget);
+    expect(find.byType(BackButton), findsNothing); // 面板嵌入无返回按钮
+  });
+
+  testWidgets('宽 <1080 单栏：点卡片推入详情路由（行为不变）', (tester) async {
+    final (container, _) = await _pumpApp(tester, size: const Size(800, 600));
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.text('从左侧选择宝可梦'), findsNothing); // 无双栏空态
+    expect(container.read(paneSelectionProvider), isNull);
+
+    await tester.tap(find.text('妙蛙种子').first);
+    await _pumpDetailReady(tester);
+
+    expect(_location(container), '/pokemon/1'); // 正常 push
+    expect(find.byType(BackButton), findsOneWidget); // 全页详情有返回
+    expect(find.text('妙蛙种子'), findsWidgets);
+  });
+
+  testWidgets('1200 宽：卡片密度切换 舒适 200/244 ↔ 紧凑 156/200', (tester) async {
+    final (container, _) =
+        await _pumpApp(tester, size: const Size(1200, 900));
+
+    // 舒适档：extent 200 + 固定卡高 244（两档密度均弃用宽高比）。
+    expect(_gridDelegate(tester).maxCrossAxisExtent, 200);
+    expect(_gridDelegate(tester).mainAxisExtent, 244);
+
+    container.read(cardDensityProvider.notifier).set(CardDensity.compact);
+    await tester.pump();
+
+    // 紧凑档：extent 156 + 固定卡高 200。
+    expect(_gridDelegate(tester).maxCrossAxisExtent, 156);
+    expect(_gridDelegate(tester).mainAxisExtent, 200);
+
+    container.read(cardDensityProvider.notifier).set(CardDensity.comfortable);
+    await tester.pump();
+    expect(_gridDelegate(tester).maxCrossAxisExtent, 200);
+    expect(_gridDelegate(tester).mainAxisExtent, 244);
+  });
+
+  testWidgets('小屏 360×800（MuMu 逻辑宽）舒适档：网格无纵向溢出', (tester) async {
+    await _pumpApp(tester, size: const Size(360, 800));
+
+    // 首屏渲染 ≥6 张卡片，无任何布局异常。
+    expect(tester.takeException(), isNull);
+    expect(find.byType(PokemonCard), findsAtLeastNWidgets(6));
+
+    // 直达底部强制构建全部卡片，全程无布局异常。
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -60000));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.takeException(), isNull);
+    expect(find.byType(PokemonCard), findsWidgets);
+  });
+
+  testWidgets('最小支持宽 320×700 舒适档：网格无纵向溢出', (tester) async {
+    await _pumpApp(tester, size: const Size(320, 700));
+
+    expect(tester.takeException(), isNull);
+    // 视口更矮：首屏惰性构建 4 张（固定卡高 244），无异常即可。
+    expect(find.byType(PokemonCard), findsAtLeastNWidgets(4));
+
+    // 直达底部强制构建全部卡片（含最窄列布局），全程无布局异常。
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -60000));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.takeException(), isNull);
+    expect(find.byType(PokemonCard), findsWidgets);
+  });
+
+  testWidgets('紧凑档列数多于舒适档（1400 宽双栏面板内）', (tester) async {
+    final (container, _) =
+        await _pumpApp(tester, size: const Size(1400, 900));
+
+    final comfortableColumns = _gridColumnCount(tester);
+    expect(comfortableColumns, greaterThan(1));
+
+    container.read(cardDensityProvider.notifier).set(CardDensity.compact);
+    await tester.pump();
+
+    final compactColumns = _gridColumnCount(tester);
+    expect(compactColumns, greaterThan(comfortableColumns));
+  });
+
+  testWidgets('键盘：/ 聚焦搜索框，Esc 清空搜索并失焦', (tester) async {
+    final (container, favorites) =
+        await _pumpApp(tester, size: const Size(800, 600));
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.focusNode, isNotNull);
+    expect(field.focusNode!.hasFocus, isFalse);
+
+    // `/`：聚焦搜索框（字符不被插入）。
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash);
+    await tester.pump();
+    expect(field.focusNode!.hasFocus, isTrue);
+
+    // 输入搜索词，防抖落盘。
+    await tester.enterText(find.byType(TextField), '皮卡');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(filterProvider).query, '皮卡');
+
+    // Esc：清空输入框 + 立即重载 + 失焦。
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final after = tester.widget<TextField>(find.byType(TextField));
+    expect(after.controller!.text, isEmpty);
+    expect(field.focusNode!.hasFocus, isFalse);
+    expect(container.read(filterProvider).query, isEmpty);
+    expect(favorites.recents, isEmpty);
+  });
+}
