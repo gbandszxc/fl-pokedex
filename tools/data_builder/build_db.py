@@ -309,6 +309,13 @@ class Builder:
         for r in self.read("move_names.csv"):
             names[int(r["move_id"])][int(r["local_language_id"])] = r["name"]
         targets = {r["id"]: r["identifier"] for r in self.read("move_targets.csv")}
+        # 伤害分类以上游 move_damage_classes.csv 为唯一事实（A2：1=status, 2=physical, 3=special），
+        # 禁止硬编码 id 映射（历史缺陷即由此而来）
+        damage_classes = {
+            int(r["id"]): r["identifier"] for r in self.read("move_damage_classes.csv")
+        }
+        assert set(damage_classes.values()) >= {"physical", "special", "status"}, \
+            "move_damage_classes.csv 缺少三类枚举值"
         prose_en: dict[int, str] = {}
         for r in self.read("move_effect_prose.csv"):
             if int(r["local_language_id"]) == 9 and int(r["move_effect_id"]) not in prose_en:
@@ -321,11 +328,14 @@ class Builder:
                     flavor_zh[mid] = (vg, clean_flavor(r["flavor_text"]))
         for r in self.read("moves.csv"):
             mid = int(r["id"])
+            damage_class = damage_classes[int(r["damage_class_id"])]
+            assert damage_class in ("physical", "special", "status"), \
+                f"招式 {mid} 伤害分类异常: {damage_class}"
             en = self.name_with_fallback(names[mid], 9, r["identifier"], "missing_move_name_en", mid)
             effect = prose_en.get(int(r["effect_id"])) if r["effect_id"] else None
             self.rows["moves"].append((
                 mid, r["identifier"], int(r["generation_id"]), int(r["type_id"]),
-                cfg.DAMAGE_CLASS_MAP[int(r["damage_class_id"])],
+                damage_class,
                 _int(r["power"]), _int(r["pp"]), _int(r["accuracy"]),
                 int(r["priority"] or 0), targets[r["target_id"]], _int(r["effect_chance"]),
                 self.name_with_fallback(names[mid], 12, en, "missing_move_name_zh_hans", mid),

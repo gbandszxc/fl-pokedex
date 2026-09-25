@@ -94,8 +94,9 @@ LEARNSET_FALLBACK_VG = "scarlet-violet"
 # pokemon_moves.pokemon_move_method_id → method
 METHOD_MAP = {1: "level_up", 2: "egg", 3: "machine", 4: "tutor"}
 
-# moves.damage_class_id → damage_class
-DAMAGE_CLASS_MAP = {1: "physical", 2: "special", 3: "status"}
+# moves.damage_class 不做硬编码映射：直接读上游 move_damage_classes.csv 的
+# id→identifier（1=status, 2=physical, 3=special）。
+# 历史：A2 修复前此处曾硬编码 {1:physical,...} 与上游错位，导致全列错乱。
 
 # 世代 → 地区（generations.region）
 GENERATION_REGION = {

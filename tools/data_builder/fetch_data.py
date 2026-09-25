@@ -39,6 +39,7 @@ CSV_FILES = [
     "growth_rates.csv",
     "items.csv",
     "locations.csv",
+    "move_damage_classes.csv",
     "move_effect_prose.csv",
     "move_flavor_text.csv",
     "move_names.csv",

@@ -270,6 +270,44 @@ void main() {
     });
   });
 
+  group('招式伤害分类（A2 回归：上游 move_damage_classes 1=status/2=physical/3=special）', () {
+    test('抽样：tackle=physical(威力40)、thunderbolt=special(威力90)、growl/hypnosis=status',
+        () async {
+      final tackle = await repo.getMoveDetail(33);
+      expect(tackle, isNotNull);
+      expect(tackle!.damageClass, 'physical', reason: '撞击是物理招式');
+      expect(tackle.power, 40);
+
+      final thunderbolt = await repo.getMoveDetail(85);
+      expect(thunderbolt, isNotNull);
+      expect(thunderbolt!.damageClass, 'special', reason: '十万伏特是特殊招式');
+      expect(thunderbolt.power, 90);
+
+      final growl = await repo.getMoveDetail(45);
+      expect(growl!.damageClass, 'status', reason: '叫声是变化招式');
+
+      final hypnosis = await repo.getMoveDetail(95);
+      expect(hypnosis!.damageClass, 'status', reason: '催眠术是变化招式');
+    });
+
+    test('三类分布与上游 CSV 一致：status 277 / physical 395 / special 265', () async {
+      // 回归锚（2026-09 上游 @ca0a21b3）；上游新增招式后数字变化需人工确认
+      final rows = await db
+          .customSelect(
+            'SELECT damage_class, COUNT(*) AS n FROM moves GROUP BY damage_class',
+          )
+          .get();
+      final dist = {
+        for (final row in rows)
+          row.data['damage_class'] as String: row.data['n'] as int,
+      };
+      expect(dist['status'], 277);
+      expect(dist['physical'], 395);
+      expect(dist['special'], 265);
+      expect(dist.values.fold<int>(0, (sum, n) => sum + n), 937);
+    });
+  });
+
   group('形态', () {
     test('喷火龙(#6)：≥3 个形态且超级进化存在、默认形态唯一', () async {
       final forms = await repo.getForms(6);

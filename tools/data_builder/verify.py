@@ -139,6 +139,38 @@ def main(argv: list[str] | None = None) -> int:
             empty_zh == 0 and len(fallback_moves) > 0,
             f"空名 {empty_zh} 个，英文回退 {len(fallback_moves)} 个")
 
+    # ---- 7b. 伤害分类（A2 回归：PokeAPI 1=status, 2=physical, 3=special）----
+    known = {  # identifier -> (damage_class, power 或 None)
+        "tackle": ("physical", 40), "growl": ("status", None),
+        "thunderbolt": ("special", 90), "hypnosis": ("status", None),
+    }
+    for ident, (dc, power) in known.items():
+        row = q("SELECT id, damage_class, power FROM moves WHERE identifier = ?",
+                (ident,)).fetchone()
+        ok = (row is not None and row["damage_class"] == dc
+              and (power is None or row["power"] == power))
+        c.check(f"§8.7b {ident} → {dc}" + (f"(威力{power})" if power else ""),
+                ok, f"{tuple(row) if row else '缺失'}")
+    # 三类分布与上游 CSV 按 id 重算对比（防再次错位）
+    csv_moves = cfg.CACHE_CSV_DIR / "moves.csv"
+    csv_dc = cfg.CACHE_CSV_DIR / "move_damage_classes.csv"
+    if csv_moves.exists() and csv_dc.exists():
+        import csv as _csv
+        with open(csv_dc, encoding="utf-8", newline="") as f:
+            dc_names = {r["id"]: r["identifier"] for r in _csv.DictReader(f)}
+        expect_dist: dict[str, int] = {}
+        with open(csv_moves, encoding="utf-8", newline="") as f:
+            for r in _csv.DictReader(f):
+                name = dc_names[r["damage_class_id"]]
+                expect_dist[name] = expect_dist.get(name, 0) + 1
+        actual = dict(q("SELECT damage_class, COUNT(*) FROM moves "
+                        "GROUP BY damage_class").fetchall())
+        c.check("§8.7b 三类分布与上游 CSV 按 id 复核一致",
+                actual == expect_dist, f"db={actual} 上游={expect_dist}")
+    else:
+        c.check("§8.7b 三类分布与上游 CSV 按 id 复核一致", False,
+                "缺少 .cache/csv/{moves,move_damage_classes}.csv，请先运行 fetch_data.py")
+
     # ---- 8. 学习集：3 只样本 × 版本组 ----
     vgs = json.loads(meta.get("learnset_version_groups", "[]"))
     c.check("§8.8 meta.learnset_version_groups 共 9 组", len(vgs) == 9, str(vgs))
