@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/di.dart';
-import '../../domain/models/filters.dart';
 import '../../domain/models/flavor_entry.dart';
 import '../../domain/models/form_summary.dart';
 import 'detail_data.dart';
@@ -18,20 +17,17 @@ class SpeciesNotFoundException implements Exception {
 
 /// species 级详情（architecture.md §5 命名锁死）。
 ///
-/// species 基本字段取自列表查询：data-contract 约定 species.id 即
-/// national_dex，故用编号区间 [id, id] 精确取该只，避免按名称检索。
+/// 名称与存在性走 `getPokemonSummaries([id])`（缺失 id 跳过 → 空列表可判
+/// 不存在）；编号 / 世代 / 分类走 `getSpeciesInfo`。均为按 id 的正式接口。
 final pokemonDetailProvider = FutureProvider.autoDispose
     .family<PokemonDetailData, int>((ref, speciesId) async {
   final repo = ref.watch(pokedexRepositoryProvider);
-  final summaries = await repo.queryPokemon(
-    FilterState(dexMin: speciesId, dexMax: speciesId),
-    limit: 1,
-    offset: 0,
-  );
+  final summaries = await repo.getPokemonSummaries([speciesId]);
   if (summaries.isEmpty) {
     throw SpeciesNotFoundException(speciesId);
   }
   final summary = summaries.single;
+  final info = await repo.getSpeciesInfo(speciesId);
   final forms = await repo.getForms(speciesId);
   if (forms.isEmpty) {
     // data-contract 保证每只 species 都有默认形态；缺失视为数据损坏。
@@ -39,11 +35,13 @@ final pokemonDetailProvider = FutureProvider.autoDispose
   }
   return PokemonDetailData(
     speciesId: summary.speciesId,
-    nationalDex: summary.nationalDex,
+    nationalDex: info.nationalDex,
     nameZhHans: summary.nameZh,
     nameEn: summary.nameEn,
     nameJa: summary.nameJa,
-    generationId: summary.generationId,
+    genusZh: info.genusZh,
+    genusEn: info.genusEn,
+    generationId: info.generationId,
     forms: forms,
   );
 });
@@ -56,11 +54,11 @@ final selectedFormIdProvider = StateProvider.autoDispose.family<int?, int>(
   (ref, speciesId) => null,
 );
 
-/// 形态级详情：种族值 / 特性按形态惰性取回；属性与立绘直接取自
-/// [FormSummary]（仓储接口里只有它带这两样）。
+/// 形态级详情：种族值 / 特性按形态惰性取回；属性、立绘与身高体重直接
+/// 取自 [FormSummary]（C2 起它携带这三样）。
 ///
 /// family 参数用 FormSummary（freezed 值语义）而非裸 formId：
-/// 仅凭 formId 无法解析属性与立绘路径。
+/// 仅凭 formId 无法解析属性、立绘与身高体重。
 final formDetailProvider = FutureProvider.autoDispose
     .family<FormDetailData, FormSummary>((ref, form) async {
   final repo = ref.watch(pokedexRepositoryProvider);
@@ -70,10 +68,9 @@ final formDetailProvider = FutureProvider.autoDispose
     typeIds: form.typeIds,
     stats: stats,
     abilities: abilities,
-    // forms.height / weight 列存在但仓储接口未暴露（architecture.md §4
-    // 锁定），待接口扩展后在 ÷10 换算处填充。
-    heightM: null,
-    weightKg: null,
+    // 上游缺失或为 0 视为无数据（UI 显示 —）。
+    heightM: (form.heightM != null && form.heightM! > 0) ? form.heightM : null,
+    weightKg: (form.weightKg != null && form.weightKg! > 0) ? form.weightKg : null,
     artworkAsset: form.artworkAsset,
   );
 });

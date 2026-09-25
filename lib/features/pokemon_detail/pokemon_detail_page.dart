@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme/theme.dart';
 import '../../core/di.dart';
+import '../../domain/models/ability_ref.dart';
 import '../../domain/models/form_summary.dart';
 import '../../shared/responsive/breakpoints.dart';
 import '../../shared/widgets/widgets.dart';
@@ -13,9 +14,19 @@ import 'evolution_section_placeholder.dart';
 import 'moves_section_placeholder.dart';
 import 'providers.dart';
 
-/// 详情页立绘容器高（design-ui.md §3：compact≈260 / expanded≈320）。
-const double _kArtworkHeight = 260;
+/// 详情页立绘容器高（design-ui.md §3：expanded≈320；compact/medium 折叠
+/// 头部内自适应展开）。
 const double _kArtworkHeightExpanded = 320;
+
+/// compact/medium 折叠头部展开后的目标高度（含工具栏）；
+/// 超出可视高度时收窄，保证 pinned TabBar 之下始终留有内容空间。
+const double _kHeaderExpandedHeight = 512;
+
+/// 折叠头部的最小展开高度（矮视口兜底）。
+const double _kHeaderMinHeight = 340;
+
+/// 常驻 TabBar 高度附近值（折叠头部预留量计算用）。
+const double _kTabBarExtent = 48;
 
 /// 立绘解码参考宽（逻辑像素）：cacheWidth = 360 × dpr。
 const int _kArtworkRefWidth = 360;
@@ -38,6 +49,10 @@ String _generationLabel(int generationId) =>
     generationId >= 1 && generationId <= _kGenerationZh.length
         ? '第${_kGenerationZh[generationId - 1]}世代'
         : '第$generationId 世代';
+
+/// 身高 / 体重显示：缺失或为 0 视为无数据（—），否则保留 1 位小数。
+String _measureLabel(double? value, String unit) =>
+    (value == null || value <= 0) ? '—' : '${value.toStringAsFixed(1)} $unit';
 
 /// 宝可梦详情页（compact/medium 全页 Tab 布局；expanded 单页滚动分区；
 /// 宽 ≥1080 的 master-detail 双栏由集成单元处理）。
@@ -142,7 +157,7 @@ class _DetailSkeleton extends StatelessWidget {
             children: [
               SkeletonBox(
                 height:
-                    isExpanded ? _kArtworkHeightExpanded : _kArtworkHeight,
+                    isExpanded ? _kArtworkHeightExpanded : _kHeaderMinHeight - 80,
                 borderRadius:
                     const BorderRadius.all(Radius.circular(AppRadius.card)),
               ),
@@ -187,88 +202,106 @@ class _DetailScaffold extends ConsumerWidget {
     final pad = pagePaddingFor(context);
     final isExpanded =
         windowSizeFor(MediaQuery.sizeOf(context).width) == WindowSize.expanded;
-    final artworkHeight =
-        isExpanded ? _kArtworkHeightExpanded : _kArtworkHeight;
 
     final header = _Header(
       detail: detail,
       selectedForm: selectedForm,
-      artworkHeight: artworkHeight,
+      artworkHeight: isExpanded ? _kArtworkHeightExpanded : null,
     );
     final formChips = _FormChips(detail: detail, selectedForm: selectedForm);
     final favoriteAction = _FavoriteAction(speciesId: detail.speciesId);
 
     if (!isExpanded) {
-      // compact / medium：头部随滚动收起 + 常驻 TabBar + TabBarView。
-      return DefaultTabController(
-        length: _tabLabels.length,
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) => [
-            SliverAppBar(pinned: true, actions: [favoriteAction]),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(pad, AppSpacing.s, pad, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [header, formChips],
+      // compact / medium：头部收进折叠式 SliverAppBar（滚动收起），
+      // pinned TabBar + TabBarView 始终保有视口剩余空间。
+      final expandedHeight = (MediaQuery.sizeOf(context).height - _kTabBarExtent)
+          .clamp(_kHeaderMinHeight, _kHeaderExpandedHeight);
+      return Scaffold(
+        body: DefaultTabController(
+          length: _tabLabels.length,
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              SliverAppBar(
+                pinned: true,
+                expandedHeight: expandedHeight,
+                actions: [favoriteAction],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      pad,
+                      kToolbarHeight,
+                      pad,
+                      AppSpacing.s,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: header),
+                        formChips,
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _TabBarDelegate(_tabLabels),
-            ),
-          ],
-          body: TabBarView(
-            children: [
-              _tabPage(pad, _FlavorSection(speciesId: detail.speciesId)),
-              _tabPage(pad, _StatsSection(selectedForm: selectedForm)),
-              _tabPage(pad, const EvolutionSectionPlaceholder()),
-              _tabPage(pad, const MovesSectionPlaceholder()),
-              _tabPage(
-                pad,
-                _InfoSection(detail: detail, selectedForm: selectedForm),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _TabBarDelegate(_tabLabels),
               ),
             ],
+            body: TabBarView(
+              children: [
+                _tabPage(pad, _FlavorSection(speciesId: detail.speciesId)),
+                _tabPage(pad, _StatsSection(selectedForm: selectedForm)),
+                _tabPage(pad, const EvolutionSectionPlaceholder()),
+                _tabPage(pad, const MovesSectionPlaceholder()),
+                _tabPage(
+                  pad,
+                  _InfoSection(detail: detail, selectedForm: selectedForm),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
     // expanded：单页滚动 + SectionTitle 分区（twoPane 双栏由集成单元处理）。
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar(pinned: true, actions: [favoriteAction]),
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(pad, AppSpacing.s, pad, AppSpacing.xxl),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                header,
-                formChips,
-                const SizedBox(height: AppSpacing.xl),
-                _FlavorSection(
-                  speciesId: detail.speciesId,
-                  showTitle: true,
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                _StatsSection(selectedForm: selectedForm),
-                const SizedBox(height: AppSpacing.xxl),
-                const EvolutionSectionPlaceholder(),
-                const SizedBox(height: AppSpacing.xxl),
-                const MovesSectionPlaceholder(),
-                const SizedBox(height: AppSpacing.xxl),
-                _InfoSection(
-                  detail: detail,
-                  selectedForm: selectedForm,
-                  showTitle: true,
-                ),
-              ],
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(pinned: true, actions: [favoriteAction]),
+          SliverPadding(
+            padding:
+                EdgeInsets.fromLTRB(pad, AppSpacing.s, pad, AppSpacing.xxl),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  header,
+                  formChips,
+                  const SizedBox(height: AppSpacing.xl),
+                  _FlavorSection(
+                    speciesId: detail.speciesId,
+                    showTitle: true,
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  _StatsSection(selectedForm: selectedForm),
+                  const SizedBox(height: AppSpacing.xxl),
+                  const EvolutionSectionPlaceholder(),
+                  const SizedBox(height: AppSpacing.xxl),
+                  const MovesSectionPlaceholder(),
+                  const SizedBox(height: AppSpacing.xxl),
+                  _InfoSection(
+                    detail: detail,
+                    selectedForm: selectedForm,
+                    showTitle: true,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -315,7 +348,10 @@ class _Header extends StatelessWidget {
 
   final PokemonDetailData detail;
   final FormSummary selectedForm;
-  final double artworkHeight;
+
+  /// 立绘容器固定高；null 表示在父级弹性空间内自适应填满
+  /// （compact/medium 折叠头部场景）。
+  final double? artworkHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -332,15 +368,16 @@ class _Header extends StatelessWidget {
       }
     }
     final artworkPath = selectedForm.artworkAsset ?? defaultFormArtwork;
+    final artwork = _Artwork(
+      key: ValueKey(artworkPath),
+      path: artworkPath,
+      height: artworkHeight,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _Artwork(
-          key: ValueKey(artworkPath),
-          path: artworkPath,
-          height: artworkHeight,
-        ),
+        if (artworkHeight == null) Expanded(child: artwork) else artwork,
         const SizedBox(height: AppSpacing.s),
         Text(
           formatDexNumber(detail.nationalDex),
@@ -364,9 +401,13 @@ class _Header extends StatelessWidget {
               TypeBadge(type: typeId),
           ],
         ),
-        if (detail.genusZh != null) ...[
+        if (detail.genusZh != null || detail.genusEn != null) ...[
           const SizedBox(height: AppSpacing.xs),
-          Text(detail.genusZh!, style: textTheme.bodySmall),
+          // 分类 caption：简中优先，缺简中回退英文。
+          Text(
+            (detail.genusZh ?? detail.genusEn)!,
+            style: textTheme.bodySmall,
+          ),
         ],
       ],
     );
@@ -384,7 +425,8 @@ class _Artwork extends StatefulWidget {
 
   final String? path;
 
-  final double height;
+  /// 固定容器高；null 表示由父级（Expanded 等）决定。
+  final double? height;
 
   @override
   State<_Artwork> createState() => _ArtworkState();
@@ -444,8 +486,7 @@ class _ArtworkState extends State<_Artwork>
     return Container(
       height: widget.height,
       width: double.infinity,
-      alignment: Alignment.center,
-      child: widget.path == null
+      alignment: Alignment.center,      child: widget.path == null
           ? placeholder
           : AnimatedBuilder(
               animation: _curve,
@@ -754,42 +795,28 @@ class _InfoSection extends ConsumerWidget {
         children: [
           _InfoRow(
             label: '身高',
-            value: formDetail.heightM == null
-                ? null
-                : '${formDetail.heightM!.toStringAsFixed(1)} m',
+            value: _measureLabel(formDetail.heightM, 'm'),
           ),
           _InfoRow(
             label: '体重',
-            value: formDetail.weightKg == null
-                ? null
-                : '${formDetail.weightKg!.toStringAsFixed(1)} kg',
+            value: _measureLabel(formDetail.weightKg, 'kg'),
           ),
           _InfoRow(label: '世代', value: _generationLabel(detail.generationId)),
-          if (detail.genusZh != null)
-            _InfoRow(label: '分类', value: detail.genusZh!),
+          if (detail.genusZh != null || detail.genusEn != null)
+            _InfoRow(
+              label: '分类',
+              value: (detail.genusZh ?? detail.genusEn)!,
+            ),
           _InfoRow(
             label: '特性',
             value: null,
             child: formDetail.abilities.isEmpty
                 ? const Text('—')
-                : Wrap(
-                    spacing: AppSpacing.m,
-                    runSpacing: AppSpacing.s,
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       for (final ability in formDetail.abilities)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              ability.nameZh,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            if (ability.isHidden) ...[
-                              const SizedBox(width: AppSpacing.xs),
-                              const ConditionChip(label: '隐藏'),
-                            ],
-                          ],
-                        ),
+                        _AbilityTile(ability: ability),
                     ],
                   ),
           ),
@@ -836,6 +863,83 @@ class _InfoRow extends StatelessWidget {
                 Text(value ?? '—', style: textTheme.bodyMedium),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 特性行：有说明文本时可点按展开；仅英文说明时上方加 caption 提示。
+class _AbilityTile extends StatefulWidget {
+  const _AbilityTile({required this.ability});
+
+  final AbilityRef ability;
+
+  @override
+  State<_AbilityTile> createState() => _AbilityTileState();
+}
+
+class _AbilityTileState extends State<_AbilityTile> {
+  var _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final ability = widget.ability;
+    final description = ability.descriptionZh ?? ability.descriptionEn;
+
+    final head = Row(
+      children: [
+        Text(ability.nameZh, style: textTheme.bodyMedium),
+        if (ability.isHidden) ...[
+          const SizedBox(width: AppSpacing.xs),
+          const ConditionChip(label: '隐藏'),
+        ],
+        if (description != null) ...[
+          const Spacer(),
+          AnimatedRotation(
+            turns: _expanded ? 0.5 : 0,
+            duration: AppMotion.fast,
+            curve: AppMotion.curve,
+            child: Icon(
+              Icons.expand_more,
+              size: 16,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+
+    if (description == null) {
+      // 无任何说明：仅名称，不可展开。
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: head,
+      );
+    }
+    return InkWell(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            head,
+            if (_expanded) ...[
+              const SizedBox(height: AppSpacing.xs),
+              if (ability.descriptionZh == null) ...[
+                Text('暂无简体中文说明', style: textTheme.bodySmall),
+                const SizedBox(height: AppSpacing.xs),
+              ],
+              Text(
+                description,
+                style: textTheme.bodyMedium
+                    ?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

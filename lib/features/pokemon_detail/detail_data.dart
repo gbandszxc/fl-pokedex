@@ -19,8 +19,8 @@ class PokemonDetailData {
     required this.nameJa,
     required this.generationId,
     required this.forms,
-    this.nameZhHant,
     this.genusZh,
+    this.genusEn,
   });
 
   final int speciesId;
@@ -31,21 +31,19 @@ class PokemonDetailData {
   /// 简体中文名。
   final String nameZhHans;
 
-  /// 繁体中文名。仓储接口（architecture.md §4）未暴露 species.name_zh_hant，
-  /// 当前恒为 null；字段预留，待接口扩展后由 provider 填充。
-  final String? nameZhHant;
-
   final String nameEn;
 
   final String nameJa;
 
-  /// 分类（如「种子宝可梦」）。仓储接口未暴露 species.genus_zh_hans，
-  /// 当前恒为 null；字段预留。
+  /// 分类（如「种子宝可梦」，来自 SpeciesInfo.genusZh）。
   final String? genusZh;
+
+  /// 分类英文名（来自 SpeciesInfo.genusEn，简中缺失时的回退）。
+  final String? genusEn;
 
   final int generationId;
 
-  /// 全部形态（form_order 排序，含 typeIds 与立绘路径）。
+  /// 全部形态（form_order 排序，含 typeIds / 立绘路径 / 身高体重）。
   final List<FormSummary> forms;
 }
 
@@ -65,15 +63,13 @@ class FormDetailData {
 
   final StatBlock stats;
 
-  /// 特性（非隐藏在前）。仓储接口的 AbilityRef 不含说明文本，
-  /// 如需「展开显示说明」须先扩展接口。
+  /// 特性（非隐藏在前），含说明文本（descriptionZh/descriptionEn）。
   final List<AbilityRef> abilities;
 
-  /// 身高（m，forms.height ÷ 10）。forms 表有该列但仓储接口未暴露，
-  /// 当前恒为 null（UI 显示 —）；字段预留。
+  /// 身高（m，取自 FormSummary.heightM）；上游缺失或为 0 时为 null（UI 显示 —）。
   final double? heightM;
 
-  /// 体重（kg，forms.weight ÷ 10）。同 [heightM]。
+  /// 体重（kg，取自 FormSummary.weightKg）；上游缺失时为 null（UI 显示 —）。
   final double? weightKg;
 
   /// 本形态立绘资产路径；数据缺失时为 null（UI 回退默认形态或占位图）。

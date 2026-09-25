@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/favorites/favorites_page.dart';
+import '../features/moves/move_detail_page.dart';
 import '../features/pokedex/pokedex_home_page.dart';
 import '../features/pokemon_detail/pokemon_detail_page.dart';
 import '../features/settings/settings_page.dart';
-import 'placeholder/move_detail_placeholder_page.dart';
 import 'shell/adaptive_scaffold.dart';
 
 /// 路由表（architecture.md §9，路径锁死）：
@@ -56,9 +56,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/move/:moveId',
-        builder: (context, state) => MoveDetailPlaceholderPage(
-          moveId: int.parse(state.pathParameters['moveId']!),
-        ),
+        builder: (context, state) {
+          final moveId = int.tryParse(state.pathParameters['moveId'] ?? '');
+          return moveId == null
+              ? const MoveDetailPage.notFound()
+              : MoveDetailPage(moveId: moveId);
+        },
       ),
     ],
   );

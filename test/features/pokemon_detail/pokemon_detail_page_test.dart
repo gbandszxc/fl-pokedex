@@ -50,8 +50,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// 向上拖动收起折叠头部，让 TabBarView 内容区完整露出。
+  Future<void> collapseHeader(WidgetTester tester) async {
+    await tester.drag(find.text('#001'), const Offset(0, -600));
+    await tester.pumpAndSettle();
+  }
+
   group('详情页头部', () {
-    testWidgets('渲染编号 / 中文名 / 英日文名 / 属性徽章', (tester) async {
+    testWidgets('渲染编号 / 中文名 / 英日文名 / 属性徽章 / 分类', (tester) async {
       await pumpPage(tester);
 
       expect(find.text('#001'), findsOneWidget);
@@ -60,6 +66,8 @@ void main() {
       expect(find.text('Bulbasaur · フシギダネ'), findsOneWidget);
       expect(find.text('草'), findsOneWidget);
       expect(find.text('毒'), findsOneWidget);
+      // 头部分类 caption（SpeciesInfo.genusZh）。
+      expect(find.text('种子宝可梦'), findsOneWidget);
     });
 
     testWidgets('light / dark 主题均正确渲染关键内容', (tester) async {
@@ -107,8 +115,10 @@ void main() {
     testWidgets('切换到超级形态后种族值随之变化', (tester) async {
       await pumpPage(tester);
 
+      // 形态 chips 位于展开头部内：先点选，再收起头部切到种族值。
       await tester.tap(find.text('超级妙蛙花'));
       await tester.pumpAndSettle();
+      await collapseHeader(tester);
       await tester.tap(find.text('种族值'));
       await tester.pumpAndSettle();
 
@@ -121,6 +131,7 @@ void main() {
     testWidgets('默认形态显示 45/49/49/65/65/45 与总和 318', (tester) async {
       await pumpPage(tester);
 
+      await collapseHeader(tester);
       await tester.tap(find.text('种族值'));
       await tester.pumpAndSettle();
 
@@ -145,6 +156,7 @@ void main() {
     testWidgets('选中仅英文版本时出现语言回退提示', (tester) async {
       await pumpPage(tester);
 
+      await collapseHeader(tester);
       await tester.ensureVisible(find.text('朱'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('朱'));
@@ -164,24 +176,75 @@ void main() {
       }
     });
 
-    testWidgets('进化 / 招式为建设占位，资料 tab 展示特性', (tester) async {
+    testWidgets('进化 / 招式为空态占位，资料 tab 展示身高体重与特性', (tester) async {
       await pumpPage(tester);
+      await collapseHeader(tester);
 
       await tester.tap(find.text('进化'));
       await tester.pumpAndSettle();
-      expect(find.text('进化图 · 建设中'), findsOneWidget);
+      expect(find.text('该宝可梦没有进化关系'), findsOneWidget);
 
       await tester.tap(find.text('招式'));
       await tester.pumpAndSettle();
-      expect(find.text('招式表 · 建设中'), findsOneWidget);
+      expect(find.text('暂无招式'), findsOneWidget);
 
       await tester.tap(find.text('资料'));
       await tester.pumpAndSettle();
       expect(find.text('身高'), findsOneWidget);
       expect(find.text('体重'), findsOneWidget);
+      // 妙蛙种子默认形态：0.7m / 6.9kg（保留 1 位小数）。
+      expect(find.text('0.7 m'), findsOneWidget);
+      expect(find.text('6.9 kg'), findsOneWidget);
       expect(find.text('茂盛'), findsOneWidget);
       expect(find.text('叶绿素'), findsOneWidget);
       expect(find.text('隐藏'), findsOneWidget);
+      // 未展开时不显示说明。
+      expect(find.textContaining('草属性招式'), findsNothing);
+    });
+
+    testWidgets('特性行展开显示简中说明', (tester) async {
+      await pumpPage(tester);
+      await collapseHeader(tester);
+
+      await tester.tap(find.text('资料'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('茂盛'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('茂盛'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('HP 较低时，草属性招式威力提高。'), findsOneWidget);
+      expect(find.text('暂无简体中文说明'), findsNothing);
+    });
+
+    testWidgets('仅英文说明的特性展开时出现语言提示', (tester) async {
+      await pumpPage(tester);
+      await collapseHeader(tester);
+
+      await tester.tap(find.text('资料'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('叶绿素'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('叶绿素'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('暂无简体中文说明'), findsOneWidget);
+      expect(find.text('Boosts Speed in harsh sunlight.'), findsOneWidget);
+    });
+
+    testWidgets('身高为 0 / 体重缺失的形态显示 —', (tester) async {
+      await pumpPage(tester);
+
+      // 形态 chips 位于展开头部内：先点选，再收起头部。
+      await tester.tap(find.text('帕底亚的妙蛙种子'));
+      await tester.pumpAndSettle();
+      await collapseHeader(tester);
+      await tester.tap(find.text('资料'));
+      await tester.pumpAndSettle();
+
+      // 身高（0）与体重（缺失）均回退为 —。
+      expect(find.text('—'), findsNWidgets(2));
+      expect(find.text('0.7 m'), findsNothing);
     });
   });
 

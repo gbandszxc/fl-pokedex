@@ -16,8 +16,9 @@ import 'package:fl_pokedex/domain/repositories/favorites_repository.dart';
 import 'package:fl_pokedex/domain/repositories/pokedex_repository.dart';
 
 /// 妙蛙种子 fixture：
-/// - 3 形态：默认（草/毒，种族值 45/49/49/65/65/45，总和 318）、
-///   超级（80/82/83/100/100/80，总和 525）、地区形态；
+/// - 3 形态：默认（草/毒，种族值 45/49/49/65/65/45，总和 318，0.7m/6.9kg）、
+///   超级（总和 525，2.4m/155.5kg）、地区形态（身高 0 / 体重缺失 → —）；
+/// - 2 特性：茂盛（简中+英文说明）、叶绿素（仅英文说明）；
 /// - 2 版本图鉴说明：gen1「红」= 简中，gen9「朱」= 仅英文
 ///   （默认应选中最新含简中的版本，即 gen1）。
 class FakePokedexRepository implements PokedexRepository {
@@ -55,6 +56,8 @@ class FakePokedexRepository implements PokedexRepository {
       isRegional: false,
       artworkAsset: 'assets/pokemon/full/1.webp',
       typeIds: ['grass', 'poison'],
+      heightM: 0.7,
+      weightKg: 6.9,
     ),
     FormSummary(
       formId: 10033,
@@ -68,6 +71,8 @@ class FakePokedexRepository implements PokedexRepository {
       isRegional: false,
       artworkAsset: null,
       typeIds: ['grass', 'poison'],
+      heightM: 2.4,
+      weightKg: 155.5,
     ),
     FormSummary(
       formId: 10195,
@@ -81,6 +86,9 @@ class FakePokedexRepository implements PokedexRepository {
       isRegional: true,
       artworkAsset: null,
       typeIds: ['grass'],
+      // 覆盖「身高 0 / 体重缺失 → 显示 —」的回退分支。
+      heightM: 0.0,
+      weightKg: null,
     ),
   ];
 
@@ -113,9 +121,46 @@ class FakePokedexRepository implements PokedexRepository {
 
   final abilitiesByFormId = <int, List<AbilityRef>>{
     1: [
-      AbilityRef(id: 65, nameZh: '茂盛', nameEn: 'Overgrow', isHidden: false),
-      AbilityRef(id: 34, nameZh: '叶绿素', nameEn: 'Chlorophyll', isHidden: true),
+      const AbilityRef(
+        id: 65,
+        nameZh: '茂盛',
+        nameEn: 'Overgrow',
+        isHidden: false,
+        descriptionZh: 'HP 较低时，草属性招式威力提高。',
+        descriptionEn: 'Powers up Grass-type moves when HP is low.',
+      ),
+      // 仅英文说明：展开时应出现「暂无简体中文说明」提示。
+      const AbilityRef(
+        id: 34,
+        nameZh: '叶绿素',
+        nameEn: 'Chlorophyll',
+        isHidden: true,
+        descriptionZh: null,
+        descriptionEn: 'Boosts Speed in harsh sunlight.',
+      ),
     ],
+    // 地区形态也有特性，保证资料页不会落入「特性 —」空态。
+    10195: [
+      const AbilityRef(
+        id: 65,
+        nameZh: '茂盛',
+        nameEn: 'Overgrow',
+        isHidden: false,
+        descriptionZh: 'HP 较低时，草属性招式威力提高。',
+        descriptionEn: 'Powers up Grass-type moves when HP is low.',
+      ),
+    ],
+  };
+
+  /// species 基础信息（C2 接口）。
+  final speciesInfo = <int, SpeciesInfo>{
+    1: const SpeciesInfo(
+      speciesId: 1,
+      nationalDex: 1,
+      generationId: 1,
+      genusZh: '种子宝可梦',
+      genusEn: 'Seed Pokémon',
+    ),
   };
 
   final flavorTexts = <FlavorEntry>[
@@ -217,12 +262,25 @@ class FakePokedexRepository implements PokedexRepository {
   Future<List<PokedexRef>> getPokedexes() => throw UnimplementedError();
 
   @override
-  Future<SpeciesInfo> getSpeciesInfo(int speciesId) =>
-      throw UnimplementedError();
+  Future<SpeciesInfo> getSpeciesInfo(int speciesId) async =>
+      speciesInfo[speciesId] ??
+      (throw StateError('species 表不存在 id=$speciesId'));
 
   @override
-  Future<List<PokemonSummary>> getPokemonSummaries(List<int> speciesIds) =>
-      throw UnimplementedError();
+  Future<List<PokemonSummary>> getPokemonSummaries(
+    List<int> speciesIds,
+  ) async {
+    final error = queryError;
+    if (error != null) {
+      throw error;
+    }
+    // 与真实现一致：缺失 id 跳过，按入参顺序返回。
+    return [
+      for (final id in speciesIds)
+        for (final summary in summaries)
+          if (summary.speciesId == id) summary,
+    ];
+  }
 
   @override
   Future<DataManifest> getManifest() => throw UnimplementedError();
