@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 
 import '../features/favorites/favorites_page.dart';
 import '../features/pokedex/pokedex_home_page.dart';
+import '../features/pokemon_detail/pokemon_detail_page.dart';
 import '../features/settings/settings_page.dart';
 import 'placeholder/move_detail_placeholder_page.dart';
-import 'placeholder/pokemon_detail_placeholder_page.dart';
 import 'shell/adaptive_scaffold.dart';
 
 /// 路由表（architecture.md §9，路径锁死）：
@@ -46,9 +46,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/pokemon/:speciesId',
-        builder: (context, state) => PokemonDetailPlaceholderPage(
-          speciesId: int.parse(state.pathParameters['speciesId']!),
-        ),
+        builder: (context, state) {
+          final speciesId =
+              int.tryParse(state.pathParameters['speciesId'] ?? '');
+          return speciesId == null
+              ? const PokemonDetailPage.notFound()
+              : PokemonDetailPage(speciesId: speciesId);
+        },
       ),
       GoRoute(
         path: '/move/:moveId',
