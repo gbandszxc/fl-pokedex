@@ -16,8 +16,8 @@
 - 终端命令用跨平台写法；Python 一律走 uv：`uv run <script>.py`。
 - **运行任何 Python 前先 `export PYTHONUTF8=1`**（GBK 编码坑）。
 - 数据构建脚本在 `tools/data_builder/`，上游数据缓存在 `.cache/`（已 gitignore，可随时重建）。
-- Flutter 3.47 stable；Android 构建用 `flutter build apk --release --target-platform android-x64`（MuMu 为 x86_64）。
-- MuMu 模拟器 adb：`adb connect 127.0.0.1:7555`（另有 127.0.0.1:16416 实例），安装后 `adb -s <serial> shell monkey -p com.amberdex.app 1` 启动。
+- Flutter 3.47 stable；Android 构建用 `flutter build apk --release --target-platform android-x64`（MuMu 为 x86_64）。**Gradle 构建需会话级环境变量**：`JAVA_HOME=D:\Develop\Java\jdk-21.0.7+6`、`GRADLE_USER_HOME=C:\Users\gbandszxc\.gradle`、`PUB_CACHE=D:\pub-cache`（跨盘符 Kotlin 增量编译崩溃的规避，已在 android/gradle.properties 加 `kotlin.incremental=false`）。应用包名 `com.amberdex.fl_pokedex`。
+- MuMu 模拟器 adb：`adb connect 127.0.0.1:7555`（另有 127.0.0.1:16416 实例），安装后 `adb -s <serial> shell monkey -p com.amberdex.fl_pokedex 1` 启动；**换库重装后须 `pm clear` 清数据**（首启复制的 DB 副本按 schemaVersion 判断是否覆盖）。
 - Windows 宿主跑 drift 测试需要 `tool/sqlite3/windows/sqlite3.dll`（已入库，勿删）。
 
 ## 硬性规则

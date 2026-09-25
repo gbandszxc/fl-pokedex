@@ -186,6 +186,8 @@ CREATE INDEX idx_sdn_species ON species_dex_numbers(species_id);
 | 9 | the-indigo-disk（若上游无此组数据则回退 scarlet-violet 并记录进 meta） |
 
 method 映射：1→level_up, 2→egg, 3→machine, 4→tutor, 其余(5+)→other。
+damage_class 映射**必须**从上游 `move_damage_classes.csv` 数据驱动（1=status, 2=physical, 3=special，禁止硬编码）；verify 断言 tackle=physical、thunderbolt=special、growl/hypnosis=status，且三类分布与上游按 id 重算一致。
+进化边根节点行：from_species_id=NULL 且 trigger='root'。
 构建时断言：每个代表性 version_group 在 pokemon_moves.csv 中确有数据。
 
 ## 5. 形态中文名映射（forms.form_name_zh）

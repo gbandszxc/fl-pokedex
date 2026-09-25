@@ -197,3 +197,13 @@ open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open('tool/sqlite
 ## 11. 质量门槛
 
 `flutter analyze` 0 error 0 warning；`flutter test` 全绿；`flutter build apk --release --target-platform android-x64` 成功。UI 代码遵守 DESIGN.md，禁止硬编码颜色/时长/圆角。
+
+## 12. 实施偏差记录（与上文契约的最终落地产物）
+
+- **codegen 白名单**：仓库根 `build.yaml` 把 freezed/json_serializable/drift_dev 限定在 `lib/domain/models/**`、`lib/data/**`、`lib/core/db/**`（Flutter 3.47 的 dot-shorthand 语法会使旧 analyzer 崩溃，features 内禁放 codegen 文件）。数据层保持纯 Dart，Flutter 胶水在 `lib/core/di.dart`。
+- **drift 命名**：drift 2.28 无 `@Table(name:)`/`@ColumnInfo(name:)`，用 `tableName` override + `.named('snake_name')` 达成同等效果；只读打开用 `enableMigrations:false` + `PRAGMA query_only`。
+- **Provider**：`listViewModeProvider` 等用 `Notifier`（而非 §5 所写 StateProvider）；`formDetailProvider` family 参数为 `FormSummary` 值对象；分页用 `AsyncNotifier` + 代数计数防竞态。
+- **接口增补（主会话裁决）**：`getSpeciesInfo` / `getPokemonSummaries` / FormSummary.heightM/weightKg / AbilityRef.descriptionZh|En / EvolutionTree.nodesBySpeciesId。
+- **详情页折叠头**：compact/medium 高度 = `clamp(视口高×0.5, 300, 440)`（非固定 512）。
+- **网格**：两档密度用固定 `mainAxisExtent`（244/200），弃用 childAspectRatio（防小屏溢出）。
+- **离线库副本**：按 `meta.schema_version` 与 manifest 比对决定是否覆盖；换数据重装需 `pm clear`。

@@ -32,6 +32,19 @@ dev_dependencies:
   drift_dev: ^2.28.0
   freezed: ^2.5.7
   json_serializable: ^6.9.0
+  flutter_launcher_icons: ^0.14.4
+
+# 应用图标生成：dart run flutter_launcher_icons（源文件 assets/icon/，均为本项目原创）
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon_1024.png"
+  adaptive_icon_background: "#262115"
+  adaptive_icon_foreground: "assets/icon/app_icon_fg_1024.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon_1024.png"
+    icon_size: 256
+  macos:
+    generate: true
 
 flutter:
   uses-material-design: true
