@@ -1,0 +1,123 @@
+import '../../domain/models/ability_ref.dart';
+import '../../domain/models/evolution.dart';
+import '../../domain/models/filters.dart';
+import '../../domain/models/flavor_entry.dart';
+import '../../domain/models/form_summary.dart';
+import '../../domain/models/manifest.dart';
+import '../../domain/models/move_detail.dart';
+import '../../domain/models/move_entry.dart';
+import '../../domain/models/pokemon_summary.dart';
+import '../../domain/models/refs.dart';
+import '../../domain/models/stat_block.dart';
+import '../../domain/repositories/pokedex_repository.dart';
+import '../database/pokedex_database.dart';
+
+/// [PokedexRepository] 的 SQLite 实现：SQL 聚合在 DAO 内完成（单查询、
+/// 无 N+1），本类只做编排（进化树组装、manifest 读取）。
+///
+/// 本文件位于 drift_dev 的 codegen 白名单内，须保持纯 Dart 依赖：
+/// manifest 的 JSON 读取由外部（lib/core/di.dart）以回调注入。
+class PokedexRepositoryImpl implements PokedexRepository {
+  PokedexRepositoryImpl(
+    this._db, {
+    Future<Map<String, dynamic>> Function()? loadManifestJson,
+  }) : _loadManifestJson =
+            loadManifestJson ?? (() => throw StateError('未注入 manifest 读取器'));
+
+  final PokedexDatabase _db;
+
+  /// 返回 manifest.json 反序列化后的 JSON 对象。
+  final Future<Map<String, dynamic>> Function() _loadManifestJson;
+
+  PokedexDao get _pokedexDao => _db.pokedexDao;
+  MoveDao get _moveDao => _db.moveDao;
+  EvolutionDao get _evolutionDao => _db.evolutionDao;
+
+  @override
+  Future<List<PokemonSummary>> queryPokemon(
+    FilterState f, {
+    required int limit,
+    required int offset,
+  }) =>
+      _pokedexDao.queryPokemon(f, limit: limit, offset: offset);
+
+  @override
+  Future<int> countPokemon(FilterState f) => _pokedexDao.countPokemon(f);
+
+  @override
+  Future<List<FormSummary>> getForms(int speciesId) =>
+      _pokedexDao.getForms(speciesId);
+
+  @override
+  Future<StatBlock> getFormStats(int formId) =>
+      _pokedexDao.getFormStats(formId);
+
+  @override
+  Future<List<AbilityRef>> getFormAbilities(int formId) =>
+      _pokedexDao.getFormAbilities(formId);
+
+  @override
+  Future<List<FlavorEntry>> getFlavorTexts(int speciesId) =>
+      _pokedexDao.getFlavorTexts(speciesId);
+
+  @override
+  Future<EvolutionTree?> getEvolutionTree(int speciesId) async {
+    final chainId = await _evolutionDao.getEvolutionChainId(speciesId);
+    if (chainId == null) return null;
+
+    // 该链全部边 + 各边 to 端 species 的展示信息（每只 species 至少作为
+    // 一条边的 to 端出现，含根自指行，因此展示信息完整）。
+    final edges = await _evolutionDao.getChainEdges(chainId);
+    if (edges.isEmpty) return null;
+
+    final rootEdge = edges.firstWhere(
+      (edge) => edge.isRootRow || edge.fromSpeciesId == edge.toSpeciesId,
+    );
+    final displayBySpecies = {
+      for (final edge in edges) edge.toSpeciesId: edge,
+    };
+    final rootData = displayBySpecies[rootEdge.toSpeciesId]!;
+
+    return EvolutionTree(
+      root: EvolutionNode(
+        speciesId: rootData.toSpeciesId,
+        nationalDex: rootData.toNationalDex,
+        nameZh: rootData.toNameZh,
+        thumbAsset: rootData.toThumbAsset,
+        children: edges
+            .where((edge) => !edge.isRootRow)
+            .map((edge) => edge.toDomain())
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  @override
+  Future<List<VersionGroupRef>> getFormVersionGroups(int formId) =>
+      _pokedexDao.getFormVersionGroups(formId);
+
+  @override
+  Future<List<MoveEntry>> getLearnset(
+    int formId,
+    String versionGroup, {
+    Set<String>? methods,
+  }) =>
+      _moveDao.getLearnset(formId, versionGroup, methods: methods);
+
+  @override
+  Future<MoveDetail?> getMoveDetail(int moveId) =>
+      _moveDao.getMoveDetail(moveId);
+
+  @override
+  Future<List<TypeRef>> getTypes() => _pokedexDao.getTypes();
+
+  @override
+  Future<List<GenerationRef>> getGenerations() => _pokedexDao.getGenerations();
+
+  @override
+  Future<List<PokedexRef>> getPokedexes() => _pokedexDao.getPokedexes();
+
+  @override
+  Future<DataManifest> getManifest() async =>
+      DataManifest.fromJson(await _loadManifestJson());
+}
