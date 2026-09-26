@@ -79,7 +79,7 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
   final bool showBackButton;
 
   /// 「上一只 / 下一只」切换到目标 species 的动作。null = 全页路由模式
-  /// （`context.go('/pokemon/$id')` 替换栈顶，返回键仍回列表页）；
+  /// （`context.pushReplacement('/pokemon/$id')` 替换栈顶，保留栈底列表页）；
   /// 双栏详情面板由壳层注入「写双栏选中态」回调（features 互不 import，
   /// 见 adaptive_scaffold），切换不导航、左列表选中态随之跟随。
   final ValueChanged<int>? onSwitchSpecies;
@@ -142,9 +142,10 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
       onSwitch(targetSpeciesId);
       return;
     }
-    // 全页路由：go 替换栈顶（/pokemon/1 → /pokemon/2 保留列表页在栈底，
-    // 返回键仍回列表）；新路由页重建，滚动位置自然回到顶部。
-    context.go('/pokemon/$targetSpeciesId');
+    // 全页路由：pushReplacement 替换栈顶详情（列表页仍在栈底，返回键仍
+    // 回列表；不能 go——/pokemon/:id 是根级路由，go 会把栈重建成只剩详情，
+    // 返回键与底部导航随之消失）；新路由页重建，滚动位置自然回到顶部。
+    context.pushReplacement('/pokemon/$targetSpeciesId');
   }
 
   /// 页面级按键：仅锚点自身持焦时消费 ←/→；其余情况 ignored 让事件
