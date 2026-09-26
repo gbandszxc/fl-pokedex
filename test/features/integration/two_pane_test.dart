@@ -15,6 +15,7 @@ import 'package:fl_pokedex/domain/models/pokemon_summary.dart';
 import 'package:fl_pokedex/domain/models/species_info.dart';
 import 'package:fl_pokedex/domain/models/stat_block.dart';
 import 'package:fl_pokedex/features/pokedex/providers.dart';
+import 'package:fl_pokedex/features/pokemon_detail/pokemon_detail_page.dart';
 import 'package:fl_pokedex/features/settings/providers.dart';
 import 'package:fl_pokedex/shared/widgets/widgets.dart';
 
@@ -251,7 +252,7 @@ void main() {
     expect(find.byType(BackButton), findsNothing); // 面板嵌入无返回按钮
   });
 
-  testWidgets('双栏：详情面板「下一只」写选中态，面板与列表选中跟随且不导航',
+  testWidgets('双栏：详情面板滑动切换写选中态，面板与列表选中跟随且不导航',
       (tester) async {
     final (container, favorites) =
         await _pumpApp(tester, size: const Size(1200, 900));
@@ -262,9 +263,16 @@ void main() {
     await _pumpDetailReady(tester);
     expect(container.read(paneSelectionProvider), 1);
 
-    // 面板工具栏「下一只」：写 paneSelectionProvider（不导航），
-    // KeyedSubtree 按 ValueKey 重建面板为 #002，列表选中描边随之跟随。
-    await tester.tap(find.byTooltip('下一只'));
+    // 面板内水平滑动切换：左滑 = 下一只。定位用面板头的编号文本
+    // （直接 find.text 会同时命中列表卡片，故收窄到详情页子树）。
+    Finder paneDexNumber(String label) => find.descendant(
+          of: find.byType(PokemonDetailPage),
+          matching: find.text(label),
+        );
+
+    // 左滑：写 paneSelectionProvider（不导航），KeyedSubtree 按 ValueKey
+    // 重建面板为 #002，列表选中描边随之跟随。
+    await tester.drag(paneDexNumber('#001'), const Offset(-150, 0));
     await _pumpDetailReady(tester);
 
     expect(container.read(paneSelectionProvider), 2);
@@ -272,6 +280,17 @@ void main() {
     expect(find.text('#002'), findsWidgets); // 面板头部 + 列表卡片
     // 面板切换按新条目记录最近浏览。
     expect(favorites.recents, [1, 2]);
+
+    // 反向右滑（= 上一只）：回 #001。
+    await tester.drag(paneDexNumber('#002'), const Offset(150, 0));
+    await _pumpDetailReady(tester);
+    expect(container.read(paneSelectionProvider), 1);
+    expect(find.text('#001'), findsWidgets);
+
+    // 边界：#001 已是首位，右滑越界原地不动。
+    await tester.drag(paneDexNumber('#001'), const Offset(150, 0));
+    await _pumpDetailReady(tester);
+    expect(container.read(paneSelectionProvider), 1);
   });
 
   testWidgets('宽 <1080 单栏：点卡片推入详情路由（行为不变）', (tester) async {

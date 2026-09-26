@@ -41,9 +41,25 @@ const double _kInfoLabelWidth = 56;
 /// 种族值并排雷达图的最小区块宽（design-ui.md §4：宽 ≥840 右侧并排）。
 const double _kStatsRadarBreakpoint = 840;
 
+/// 滑动切换的位移阈值（逻辑像素）：单次手势累计 |dx| 超过即触发切换。
+const double _kSwipeDistanceThreshold = 72;
+
+/// 滑动切换的速度阈值（逻辑像素/秒）：位移不足但快甩（|primaryVelocity|
+/// 超过）也触发，与移动系统列表的快甩手感对齐。
+const double _kSwipeVelocityThreshold = 700;
+
 /// 世代序号中文（generation_id 1..N）。
 const List<String> _kGenerationZh = [
-  '一', '二', '三', '四', '五', '六', '七', '八', '九', '十',
+  '一',
+  '二',
+  '三',
+  '四',
+  '五',
+  '六',
+  '七',
+  '八',
+  '九',
+  '十',
 ];
 
 String _generationLabel(int generationId) =>
@@ -85,14 +101,14 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
   final ValueChanged<int>? onSwitchSpecies;
 
   @override
-  ConsumerState<PokemonDetailPage> createState() =>
-      _PokemonDetailPageState();
+  ConsumerState<PokemonDetailPage> createState() => _PokemonDetailPageState();
 }
 
 class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
   /// 页面键盘锚点：全页路由模式下自动持焦；←/→ 仅在锚点自身持焦时
   /// 切换上/下一只，焦点在 Tab / 按钮等控件上时放行给默认焦点遍历
-  /// （TabBar 左右箭头切 tab 的行为不受影响）。
+  /// （TabBar 左右箭头切 tab 的行为不受影响）。点按页面空白处会把焦点
+  /// 收回锚点（见 build 里的 onTap），键盘切换因此不依赖初始 autofocus。
   final FocusNode _keyboardAnchor =
       FocusNode(debugLabel: 'pokemon_detail_keyboard_anchor');
 
@@ -100,6 +116,12 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
   /// null = 边界禁用或序列未就绪。
   int? _prevSpeciesId;
   int? _nextSpeciesId;
+
+  /// 当前水平手势的累计位移（onHorizontalDragUpdate 累加）。
+  double _swipeDx = 0;
+
+  /// 本次水平手势是否已触发过切换（一次手势最多切一只）。
+  bool _swipeTriggered = false;
 
   @override
   void initState() {
@@ -146,6 +168,45 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
     // 回列表；不能 go——/pokemon/:id 是根级路由，go 会把栈重建成只剩详情，
     // 返回键与底部导航随之消失）；新路由页重建，滚动位置自然回到顶部。
     context.pushReplacement('/pokemon/$targetSpeciesId');
+  }
+
+  /// 水平滑动切换（触摸设备）：向左滑 = 下一只，向右滑 = 上一只；
+  /// 目标为 null（首尾边界）时原地不动。位移超阈值即触发；一次手势
+  /// 最多触发一次（[_swipeTriggered] 防重），快甩由 dragEnd 兜底。
+  void _handleSwipeUpdate(DragUpdateDetails details) {
+    if (_swipeTriggered) {
+      return;
+    }
+    _swipeDx += details.delta.dx;
+    if (_swipeDx.abs() > _kSwipeDistanceThreshold) {
+      _swipeTriggered = true;
+      _switchToNeighbor(_swipeDx < 0);
+    }
+  }
+
+  /// 快甩兜底：位移未达阈值但松手速度够快时同样切换。
+  void _handleSwipeEnd(DragEndDetails details) {
+    if (!_swipeTriggered) {
+      final velocity = details.primaryVelocity;
+      if (velocity != null && velocity.abs() > _kSwipeVelocityThreshold) {
+        _swipeTriggered = true;
+        _switchToNeighbor(velocity < 0);
+      }
+    }
+    _resetSwipe();
+  }
+
+  void _resetSwipe() {
+    _swipeDx = 0;
+    _swipeTriggered = false;
+  }
+
+  /// [toNext] = 切下一只（滑动向左 / 快甩向左），否则切上一只。
+  void _switchToNeighbor(bool toNext) {
+    final target = toNext ? _nextSpeciesId : _prevSpeciesId;
+    if (target != null) {
+      _switchTo(target);
+    }
   }
 
   /// 页面级按键：仅锚点自身持焦时消费 ←/→；其余情况 ignored 让事件
@@ -212,8 +273,7 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
             message: '数据读取出现问题，请检查本地数据后重试。',
             icon: Icons.error_outline,
             action: FilledButton(
-              onPressed: () =>
-                  ref.invalidate(pokemonDetailProvider(speciesId)),
+              onPressed: () => ref.invalidate(pokemonDetailProvider(speciesId)),
               child: const Text('重试'),
             ),
           ),
@@ -222,19 +282,27 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
       data: (detail) => _DetailScaffold(
         detail: detail,
         showBackButton: widget.showBackButton,
-        prevSpeciesId: _prevSpeciesId,
-        nextSpeciesId: _nextSpeciesId,
-        onSwitchSpecies: _switchTo,
       ),
     );
     // 双栏嵌入不 autofocus：避免抢走列表面板搜索框的初始焦点；
-    // 此时锚点不持焦，键盘切换自然由全页路由模式独占。
+    // 此时锚点不持焦，键盘切换可由点按面板空白处唤回（onTap）。
     return Focus(
       focusNode: _keyboardAnchor,
       autofocus: widget.showBackButton,
       skipTraversal: true,
       onKeyEvent: _handleKeyEvent,
-      child: page,
+      child: GestureDetector(
+        // opaque：空白区域（非可点控件）也是命中目标，tap 收焦点与
+        // 滑动切换在整个页面生效。
+        behavior: HitTestBehavior.opaque,
+        // 点空白处把键盘焦点收回锚点：点在按钮 / Tab / 输入框上时
+        // tap 被它们消费，不会落到此处。双栏面板同样受益。
+        onTap: () => _keyboardAnchor.requestFocus(),
+        onHorizontalDragUpdate: _handleSwipeUpdate,
+        onHorizontalDragEnd: _handleSwipeEnd,
+        onHorizontalDragCancel: _resetSwipe,
+        child: page,
+      ),
     );
   }
 }
@@ -257,8 +325,9 @@ class _DetailSkeleton extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SkeletonBox(
-                height:
-                    isExpanded ? _kArtworkHeightExpanded : _kHeaderMinHeight - 80,
+                height: isExpanded
+                    ? _kArtworkHeightExpanded
+                    : _kHeaderMinHeight - 80,
                 borderRadius:
                     const BorderRadius.all(Radius.circular(AppRadius.card)),
               ),
@@ -291,9 +360,6 @@ class _DetailScaffold extends ConsumerWidget {
   const _DetailScaffold({
     required this.detail,
     required this.showBackButton,
-    required this.prevSpeciesId,
-    required this.nextSpeciesId,
-    required this.onSwitchSpecies,
   });
 
   final PokemonDetailData detail;
@@ -301,30 +367,11 @@ class _DetailScaffold extends ConsumerWidget {
   /// false = 嵌入双栏详情面板：SliverAppBar 不自动补返回按钮。
   final bool showBackButton;
 
-  /// 上一只 / 下一只的 speciesId（null = 边界禁用或序列未就绪）。
-  final int? prevSpeciesId;
-  final int? nextSpeciesId;
-
-  final ValueChanged<int> onSwitchSpecies;
-
   static const _tabLabels = ['图鉴说明', '种族值', '进化', '招式', '资料'];
-
-  /// 「上一只 / 下一只」两端对齐地挂在工具栏行：‹ 与返回键同排（leading），
-  /// › 与收藏键同排（actions 首位），对应设计基线
-  /// `← ‹ …… › ⭐`。
-  List<Widget> _toolbarActions() => [
-        _SpeciesSwitchButton(
-          isPrevious: false,
-          targetSpeciesId: nextSpeciesId,
-          onSwitchSpecies: onSwitchSpecies,
-        ),
-        _FavoriteAction(speciesId: detail.speciesId),
-      ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedId =
-        ref.watch(selectedFormIdProvider(detail.speciesId));
+    final selectedId = ref.watch(selectedFormIdProvider(detail.speciesId));
     final selectedForm = resolveSelectedForm(detail.forms, selectedId);
 
     final pad = pagePaddingFor(context);
@@ -339,13 +386,8 @@ class _DetailScaffold extends ConsumerWidget {
     final formChips = _FormChips(detail: detail, selectedForm: selectedForm);
 
     // 返回键仅在真有路由栈时出现（与自动 leading 的 canPop 行为一致）；
-    // leadingWidth 装下「返回键 + 上一只」并排（48×2 + 余量），否则只装上一只。
+    // 双栏面板（无路由栈）则无 leading。
     final canPop = showBackButton && Navigator.of(context).canPop();
-    final leading = _DetailLeading(
-      showBackButton: canPop,
-      prevSpeciesId: prevSpeciesId,
-      onSwitchSpecies: onSwitchSpecies,
-    );
 
     if (!isExpanded) {
       // compact / medium：头部收进折叠式 SliverAppBar（滚动收起），
@@ -361,9 +403,10 @@ class _DetailScaffold extends ConsumerWidget {
                 pinned: true,
                 expandedHeight: expandedHeight,
                 automaticallyImplyLeading: false,
-                leading: leading,
-                leadingWidth: canPop ? 104 : 48,
-                actions: _toolbarActions(),
+                leading: canPop ? const BackButton() : null,
+                actions: [
+                  _FavoriteAction(speciesId: detail.speciesId),
+                ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Padding(
                     padding: EdgeInsets.fromLTRB(
@@ -418,9 +461,10 @@ class _DetailScaffold extends ConsumerWidget {
           SliverAppBar(
             pinned: true,
             automaticallyImplyLeading: false,
-            leading: leading,
-            leadingWidth: canPop ? 104 : 48,
-            actions: _toolbarActions(),
+            leading: canPop ? const BackButton() : null,
+            actions: [
+              _FavoriteAction(speciesId: detail.speciesId),
+            ],
           ),
           SliverPadding(
             padding:
@@ -462,67 +506,6 @@ class _DetailScaffold extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(pad, AppSpacing.m, pad, AppSpacing.xl),
         child: child,
       );
-}
-
-/// AppBar leading：返回键（有路由栈时）+「上一只」并排，
-/// 两端对齐基线的左端（`← ‹`）；SliverAppBar 的 leadingWidth 按是否
-/// 带返回键给足 104 / 48。
-class _DetailLeading extends StatelessWidget {
-  const _DetailLeading({
-    required this.showBackButton,
-    required this.prevSpeciesId,
-    required this.onSwitchSpecies,
-  });
-
-  /// 是否带返回键（Navigator.canPop，与自动 leading 行为一致）。
-  final bool showBackButton;
-
-  final int? prevSpeciesId;
-
-  final ValueChanged<int> onSwitchSpecies;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // BackButton 默认行为即 Navigator.maybePop。
-        if (showBackButton) const BackButton(),
-        _SpeciesSwitchButton(
-          isPrevious: true,
-          targetSpeciesId: prevSpeciesId,
-          onSwitchSpecies: onSwitchSpecies,
-        ),
-      ],
-    );
-  }
-}
-
-/// 「上一只 / 下一只」切换按钮：无目标（首尾边界 / 序列未就绪）时
-/// 禁用置灰（onPressed null，走 Material 主题的 disabled 前景色）。
-/// tooltip 即屏幕阅读器朗读的语义名称。
-class _SpeciesSwitchButton extends StatelessWidget {
-  const _SpeciesSwitchButton({
-    required this.isPrevious,
-    required this.targetSpeciesId,
-    required this.onSwitchSpecies,
-  });
-
-  final bool isPrevious;
-
-  final int? targetSpeciesId;
-
-  final ValueChanged<int> onSwitchSpecies;
-
-  @override
-  Widget build(BuildContext context) {
-    final target = targetSpeciesId;
-    return IconButton(
-      tooltip: isPrevious ? '上一只' : '下一只',
-      onPressed: target == null ? null : () => onSwitchSpecies(target),
-      icon: Icon(isPrevious ? Icons.chevron_left : Icons.chevron_right),
-    );
-  }
 }
 
 /// 常驻收藏心（AppBar action）。
@@ -705,7 +688,8 @@ class _ArtworkState extends State<_Artwork>
     return Container(
       height: widget.height,
       width: double.infinity,
-      alignment: Alignment.center,      child: widget.path == null
+      alignment: Alignment.center,
+      child: widget.path == null
           ? placeholder
           : AnimatedBuilder(
               animation: _curve,
@@ -715,9 +699,9 @@ class _ArtworkState extends State<_Artwork>
               ),
               child: Image.asset(
                 widget.path!,
-                cacheWidth: (_kArtworkRefWidth *
-                        MediaQuery.devicePixelRatioOf(context))
-                    .round(),
+                cacheWidth:
+                    (_kArtworkRefWidth * MediaQuery.devicePixelRatioOf(context))
+                        .round(),
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => placeholder,
               ),
@@ -831,8 +815,7 @@ class _FlavorSection extends ConsumerWidget {
         _ => formAsync, // loading / error 保持当前形态自身状态
       };
     }
-    final selectedVersionId =
-        ref.watch(flavorSelectionProvider(speciesId));
+    final selectedVersionId = ref.watch(flavorSelectionProvider(speciesId));
     final content = entriesAsync.when(
       loading: () => const Skeleton(
         child: Column(
@@ -1132,8 +1115,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(label, style: textTheme.labelMedium),
           ),
           Expanded(
-            child: child ??
-                Text(value ?? '—', style: textTheme.bodyMedium),
+            child: child ?? Text(value ?? '—', style: textTheme.bodyMedium),
           ),
         ],
       ),
