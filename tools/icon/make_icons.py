@@ -4,33 +4,37 @@
 # ///
 """Fl-PokeDex 应用图标生成器：docs/icon/raw.png → assets/icon 三件套与预览。
 
-白底-前景混合模型抠底（raw.png 为不透明白底源图，背景白逐次实测）：
+源图 raw.png 为 1254×1254 带 alpha 通道的圆角矩形瓦片（瓦片外全透明、
+边缘无白边），无需抠底，流程：
 
-    C = F·α + W·(1−α)
+    1. 主图   按 alpha>ALPHA_BBOX 求内容 bbox → 裁除四周透明边距 →
+              预乘 alpha 域 LANCZOS 拉伸到恰好 1024×1024（内容宽高比
+              偏差 ~2.6% < 3%，直接拉伸视觉不可察），四面顶边、四角
+              保留瓦片自身圆角透明；
+    2. 自适应前景 launcher 遮罩只保证中心约 61% 圆形安全区可见，且
+              flutter_launcher_icons 不做缩放，故自行把完整瓦片缩到
+              FG_TILE_RATIO(60%) 画布宽、居中、透明补边，瓦片边中点
+              恰落在安全区圆内；
+    3. 背景   纯色 = 瓦片边缘主色（bbox 内缩 2px 环带不透明像素的
+              中位色），须与 pubspec 的 adaptive_icon_background 一致。
 
-逐像素反解透明度 α，并还原去污染前景色 F = W + (C−W)/α：圆角方块与
-精灵球边缘的抗锯齿半透明像素得以保留，白底抠图残留的白色半透明
-像素（白圈）被除净。所有缩放均在预乘 alpha 域做 LANCZOS，避免
-透明边缘出现颜色光晕。
-
-自适应前景为书封中央精灵球（raw.png 中无钻石；沿用旧版前景 44% 画布
-宽、居中的布局参数），采用解析圆掩码给出 α、仅边缘环带按上式对书封
-米底还原 F，天然不含投影与米底残留。
+所有缩放均在预乘 alpha 域做 LANCZOS，透明边缘不产生颜色光晕。
 
 用法:
-    uv run tools/icon/make_icons.py
+    export PYTHONUTF8=1; uv run tools/icon/make_icons.py
 
 产物:
-    assets/icon/app_icon_1024.png    完整 tile（圆角方块）裁紧 bbox 后贴满 1024 画布（RGBA）
-    assets/icon/app_icon_fg_1024.png 自适应前景：仅精灵球，约 44% 画布宽、居中
-    assets/icon/app_icon_bg_1024.png 自适应背景：纯色 #262115（与 pubspec 配置一致）
-    .cache/icon_preview_dark.png     tile 深底(#262115) 256px 预览
-    .cache/icon_preview_white.png    tile 纯白底 256px 预览
-    .cache/icon_fg_preview_dark.png  精灵球前景深底 256px 诊断预览
+    assets/icon/app_icon_1024.png    完整瓦片裁紧 bbox 后贴满 1024 画布（RGBA）
+    assets/icon/app_icon_fg_1024.png 自适应前景：完整瓦片 60% 画布宽、居中
+    assets/icon/app_icon_bg_1024.png 自适应背景：纯色（实测边缘主色）
+    .cache/icon_preview_dark.png     主图纯黑底 256px 预览
+    .cache/icon_preview_white.png    主图纯白底 256px 预览
+    .cache/icon_mask_preview.png     自适应圆形遮罩模拟（中心 61% 圆外涂灰）
 
 自检（不达标即非零退出）:
-    预览源 tile（256px 与所存 1024px）上「圆角方块边缘 2px 环带内
-    近白(min RGB≥240) 且 alpha>10」的像素数必须为 0。
+    1. 主图内容 bbox 覆盖整幅画布（四边中点处存在 alpha>ALPHA_BBOX 像素）；
+    2. 主图边缘 2px 环带内近白(min RGB≥240) 且 alpha>10 的像素数为 0；
+    3. 自适应前景非透明内容完全落在中心 66% 方形内。
 
 生成平台图标请在跑通本脚本后执行: dart run flutter_launcher_icons
 """
@@ -50,11 +54,12 @@ CACHE = ROOT / ".cache"
 
 CANVAS = 1024
 PREVIEW = 256
-BG_COLOR = (0x26, 0x21, 0x15)
-FG_BALL_WIDTH = 450  # 前景精灵球目标宽度 ≈ 44% 画布（旧版钻石 447px 布局参考）
 
-# 精灵球提取参数
-BALL_ROI = (300, 260, 900, 920)  # raw 坐标 (x0, y0, x1, y1)，须含整球、远离书签/徽章
+ALPHA_BBOX = 8  # 内容 bbox 判定阈值：alpha > 8 视为内容
+FG_TILE_RATIO = 0.60  # 自适应前景：瓦片占画布宽度比例（边中点恰入 61% 安全区圆）
+SAFE_ZONE_RATIO = 0.61  # launcher 保证可见的中心圆直径比例（66dp/108dp）
+CONTAIN_RATIO = 0.66  # 自检：前景内容须完全落在中心 66% 方形内
+MASK_PREVIEW_RATIO = 0.61  # 遮罩模拟图：可见圆直径比例
 
 # 自检参数：边缘环带宽 2px；近白 = min(R,G,B) ≥ 240；计入条件 alpha > 10
 BAND_PX = 2
@@ -62,22 +67,30 @@ NEAR_WHITE_MIN = 240
 ALPHA_MIN = 10
 
 
-def border_white(raw: Image.Image) -> tuple[float, float, float]:
-    """实测源图背景白：四周边框 6px 的逐通道中位数。"""
-    a = np.asarray(raw.convert("RGB"), dtype=np.float64)
-    border = np.concatenate(
-        [
-            a[:6].reshape(-1, 3),
-            a[-6:].reshape(-1, 3),
-            a[:, :6].reshape(-1, 3),
-            a[:, -6:].reshape(-1, 3),
-        ]
-    )
-    return np.median(border, axis=0)
+def content_bbox(img: Image.Image) -> tuple[int, int, int, int]:
+    """alpha > ALPHA_BBOX 的内容 bbox，返回 (x0, y0, x1_excl, y1_excl)。"""
+    a = np.asarray(img.convert("RGBA"))[..., 3]
+    mask = a > ALPHA_BBOX
+    ys = np.flatnonzero(mask.any(axis=1))
+    xs = np.flatnonzero(mask.any(axis=0))
+    assert ys.size and xs.size, "源图无内容（alpha 全低于阈值）"
+    return int(xs[0]), int(ys[0]), int(xs[-1]) + 1, int(ys[-1]) + 1
+
+
+def edge_color(tile: Image.Image) -> tuple[int, int, int]:
+    """瓦片边缘主色：bbox 内缩 2px 环带中不透明(alpha>128)像素的逐通道中位数。"""
+    a = np.asarray(tile.convert("RGBA"), dtype=np.uint8)
+    h, w = a.shape[:2]
+    ring = np.ones((h, w), dtype=bool)
+    ring[BAND_PX : h - BAND_PX, BAND_PX : w - BAND_PX] = False
+    ring &= a[..., 3] > 128
+    assert ring.sum() > 100, "边缘环带不透明像素过少，源图非预期布局"
+    med = np.median(a[..., :3][ring], axis=0)
+    return tuple(int(round(v)) for v in med)
 
 
 def resize_premultiplied(img: Image.Image, size: int) -> Image.Image:
-    """预乘 alpha 域 LANCZOS 缩放，返回 RGBA。"""
+    """预乘 alpha 域 LANCZOS 缩放到 size×size，返回 RGBA。"""
     a = np.asarray(img, dtype=np.float64)
     prem = a[..., :3] * (a[..., 3:] / 255.0)
     planes = [prem[..., i] for i in range(3)] + [a[..., 3]]
@@ -98,235 +111,18 @@ def resize_premultiplied(img: Image.Image, size: int) -> Image.Image:
     return Image.fromarray(np.round(out).astype(np.uint8), mode="RGBA")
 
 
-def _box_blur1(plane: np.ndarray) -> np.ndarray:
-    """3×3 盒滤波（边缘复制填充），Pillow 的 BoxBlur 不支持 F 模式故自行实现。"""
-    h, w = plane.shape
-    p = np.pad(plane, 1, mode="edge")
-    s = np.zeros_like(plane)
-    for dy in range(3):
-        for dx in range(3):
-            s += p[dy : dy + h, dx : dx + w]
-    return s / 9.0
-
-
-def _flood(seed: np.ndarray, wall: np.ndarray, max_iter: int) -> np.ndarray:
-    """4 邻域洪泛：从 seed 在 wall 内扩散。"""
-    reach = seed & wall
-    for _ in range(max_iter):
-        grown = reach.copy()
-        grown[1:, :] |= reach[:-1, :]
-        grown[:-1, :] |= reach[1:, :]
-        grown[:, 1:] |= reach[:, :-1]
-        grown[:, :-1] |= reach[:, 1:]
-        grown &= wall
-        if (grown == reach).all():
-            break
-        reach = grown
-    return reach
-
-
-def _fill_nearest_interior(rgb: np.ndarray, interior: np.ndarray, steps: int = 6) -> np.ndarray:
-    """将 interior 的颜色逐层外扩（3×3 均值），逼近每个像素的最近内部色。"""
-    filled = rgb * interior[..., None]
-    weight = interior.astype(np.float64)
-    for _ in range(steps):
-        f_blur = np.stack([_box_blur1(filled[..., c]) for c in range(3)], axis=-1)
-        w_blur = _box_blur1(weight)
-        fresh = (weight == 0) & (w_blur > 1e-6)
-        filled[fresh] = f_blur[fresh] / w_blur[fresh, None]
-        weight[fresh] = 1.0
-    return filled
-
-
-def unblend_from_white(raw: Image.Image) -> Image.Image:
-    """整图白底抠底：tile 边缘反解 α 并去污染前景色，确信内部保持原色。
-
-    tile 主体用「背景洪泛不可达连通域」判定（与颜色无关，内部奶白封面、
-    书页等浅色区不会被误当背景抠穿），仅最外圈边界带按混合模型反解。
-    """
-    c = np.asarray(raw.convert("RGB"), dtype=np.float64)
-    h, w = c.shape[:2]
-    w0 = border_white(raw)
-
-    # α 初判：暗端参考色取深色像素的 1% 分位；tileish 阈值须低于最浅内容像素
-    dist_from_white = 255.0 - c.min(axis=2)
-    f_ref = np.percentile(c[dist_from_white > 60], 1, axis=0)
-    a0 = np.clip(((w0 - c) / np.maximum(w0 - f_ref, 8.0)).max(axis=2), 0.0, 1.0)
-    tileish = a0 > 0.07
-
-    border = np.zeros_like(tileish)
-    border[0, :] = border[-1, :] = border[:, 0] = border[:, -1] = True
-    bg = _flood(border & ~tileish, ~tileish, max(h, w))
-    region = ~bg  # tile 全体（已填掉内部浅色"洞"）
-
-    region_img = Image.fromarray(region.astype(np.uint8) * 255, mode="L")
-    interior = np.asarray(region_img.filter(ImageFilter.MinFilter(7)), dtype=np.uint8) > 127
-    ring = (
-        np.asarray(region_img.filter(ImageFilter.MaxFilter(5)), dtype=np.uint8) > 127
-    ) & ~interior & (a0 > 0.015)
-
-    f_near = _fill_nearest_interior(c, interior)[ring]
-    fw = f_near - w0
-    cw = c[ring] - w0
-    alpha = np.clip(
-        (fw * cw).sum(axis=1) / np.maximum((fw * fw).sum(axis=1), 1e-6), 0.0, 1.0
-    )
-
-    out = np.zeros((h, w, 4), dtype=np.float64)
-    out[..., :3][interior] = c[interior]
-    out[..., 3][interior] = 255.0
-    keep = alpha >= 0.02
-    flat = out.reshape(-1, 4)
-    idx = np.flatnonzero(ring.reshape(-1))[keep]
-    a_ring = alpha[keep]
-    # 去污染前景：F = W + (C−W)/α，白 fringe 由此除净
-    flat[idx, :3] = np.clip(
-        w0 + (c.reshape(-1, 3)[idx] - w0) / a_ring[:, None], 0.0, 255.0
-    )
-    flat[idx, 3] = np.round(a_ring * 255.0)
-    return Image.fromarray(np.round(out).astype(np.uint8), mode="RGBA")
-
-
-def crop_alpha_bbox(img: Image.Image) -> Image.Image:
-    a = np.asarray(img)[..., 3]
-    ys = np.flatnonzero((a > 0).any(axis=1))
-    xs = np.flatnonzero((a > 0).any(axis=0))
-    return img.crop((int(xs[0]), int(ys[0]), int(xs[-1]) + 1, int(ys[-1]) + 1))
-
-
-def _cover_color(c: np.ndarray) -> np.ndarray:
-    """实测书封米底：球顶上方带状区 + 球右侧窄条（均为纯封面区域）的中位数。"""
-    x0, y0, x1, _ = BALL_ROI
-    top = c[y0 : y0 + 40, x0 + 50 : x1 - 50].reshape(-1, 3)
-    right = c[430:530, 868:893].reshape(-1, 3)
-    return np.median(np.concatenate([top, right]), axis=0)
-
-
-def _ball_mask(c: np.ndarray, b0: np.ndarray) -> np.ndarray:
-    """精灵球掩码：与书封米底色距 >15 的像素（白下半球/反光全部入掩码，米底排除）。
-
-    ROI 内自中心洪泛取连通域；书签、徽章、取景框角等均为独立色块不会并入。
-    贴球阴影色距亦 >15 会并入，但圆拟合只取上半弧与两侧极值点，不受影响。
-    """
-    x0, y0, x1, y1 = BALL_ROI
-    roi = c[y0:y1, x0:x1]
-    mask = np.sqrt(((roi - b0) ** 2).sum(axis=2)) > 15.0
-
-    h, w = mask.shape
-    cy, cx = h // 2, w // 2  # ROI 中心落在球体按钮附近，必在掩码内
-    win = mask[cy - 90 : cy + 90, cx - 90 : cx + 90]
-    wy, wx = np.nonzero(win)
-    assert wy.size > 0, "ROI 中心附近无特征像素，BALL_ROI 需复核"
-    d2 = (wy - 90) ** 2 + (wx - 90) ** 2
-    seed = np.zeros_like(mask)
-    seed[cy - 90 + wy[d2.argmin()], cx - 90 + wx[d2.argmin()]] = True
-    return _flood(seed, mask, max(h, w))
-
-
-def _dilate4(m: np.ndarray) -> np.ndarray:
-    d = m.copy()
-    d[1:, :] |= m[:-1, :]
-    d[:-1, :] |= m[1:, :]
-    d[:, 1:] |= m[:, :-1]
-    d[:, :-1] |= m[:, 1:]
-    return d
-
-
-def fit_ball_circle(c: np.ndarray, b0: np.ndarray) -> tuple[float, float, float]:
-    """拟合精灵球外轮廓圆：掩码逐行左右极值点（天然只落在外轮廓上）→ Kasa 拟合。"""
-    x0, y0, _, _ = BALL_ROI
-    comp = _ball_mask(c, b0)
-
-    rows = np.flatnonzero(comp.any(axis=1))
-    pts = []
-    for y in rows:
-        xs = np.flatnonzero(comp[y])
-        pts.append((x0 + xs[0], y0 + y))
-        pts.append((x0 + xs[-1], y0 + y))
-    pts = np.asarray(pts, dtype=np.float64)
-
-    y_top = pts[:, 1].min()
-    r0 = (pts[:, 0].max() - pts[:, 0].min()) / 2
-    cx0 = (pts[:, 0].max() + pts[:, 0].min()) / 2
-    cy0 = y_top + r0
-    px = py = np.empty(0)
-    for _ in range(3):
-        # 只取上半弧与两侧极值柱（y < cy+0.45r），剔除贴球阴影行；迭代剔离群点
-        keep = (pts[:, 1] < cy0 + 0.45 * r0) & (
-            (pts[:, 1] < cy0 + 0.3 * r0) | (np.abs(pts[:, 0] - cx0) > 0.9 * r0)
-        )
-        px, py = pts[keep, 0], pts[keep, 1]
-        m = np.stack([px, py, np.ones_like(px)], axis=1)
-        sol, *_ = np.linalg.lstsq(m, -(px * px + py * py), rcond=None)
-        cx0, cy0 = -sol[0] / 2, -sol[1] / 2
-        r0 = float(np.sqrt(cx0 * cx0 + cy0 * cy0 - sol[2]))
-        rad = np.hypot(px - cx0, py - cy0)
-        inlier = np.abs(rad - r0) < 2.0
-        if inlier.all():
-            break
-        px, py = px[inlier], py[inlier]
-
-    resid = np.abs(np.hypot(px - cx0, py - cy0) - r0)
-    print(
-        f"  精灵球圆拟合: center=({cx0:.1f},{cy0:.1f}) r={r0:.2f}px "
-        f"残差 p50={np.percentile(resid, 50):.2f}px max={resid.max():.2f}px (n={px.size})"
-    )
-    assert px.size >= 60 and resid.max() < 2.5 and resid.std() < 1.0, (
-        "圆拟合残差过大：外轮廓非圆或掩码混入杂点，需人工复核"
-    )
-    return cx0, cy0, r0
-
-
-def build_ball_fg(raw: Image.Image) -> Image.Image:
-    """抠出精灵球并居中贴到 1024 画布：解析圆掩码给 α，环带按米底混合模型还原 F。"""
-    c = np.asarray(raw.convert("RGB"), dtype=np.float64)
-    b0 = _cover_color(c)
-    print(f"  书封米底实测: {b0}")
-    cx, cy, r = fit_ball_circle(c, b0)
-
-    side = int(2 * r) + 8
-    bx, by = int(cx - side / 2), int(cy - side / 2)
-    crop = c[by : by + side, bx : bx + side]
-    yy, xx = np.mgrid[by : by + side, bx : bx + side].astype(np.float64)
-    sub = (np.arange(4) + 0.5) / 4 - 0.5
-    cov = np.zeros((side, side))
-    for dy in sub:
-        for dx in sub:
-            cov += (np.hypot(xx + dx - cx, yy + dy - cy) <= r) / sub.size
-
-    # 边缘带 α = min(圆覆盖度, 米底色距软阈值)： artwork 轮廓有 ±2px 手绘抖动，
-    # 软阈值连续剔除圆内混入的米底/圆外贴球阴影，覆盖度提供抗锯齿渐变
-    edge_zone = np.hypot(xx - cx, yy - cy) > r - 6
-    soft = np.clip((np.sqrt(((crop - b0) ** 2).sum(axis=2)) - 9.0) / 9.0, 0.0, 1.0)
-    cov = np.where(edge_zone, np.minimum(cov, soft), cov)
-
-    ring = (cov > 0.015) & (cov < 0.985)
-    a_ring = cov[ring][:, None]
-    f_ring = np.clip(b0 + (crop[ring] - b0) / a_ring, 0.0, 255.0)  # 去米底污染
-
-    out = np.zeros((side, side, 4), dtype=np.float64)
-    solid = cov >= 0.985
-    out[..., :3][solid] = crop[solid]
-    out[..., 3][solid] = 255.0
-    out[..., :3][ring] = f_ring
-    out[..., 3][ring] = np.round(cov[ring] * 255.0)
-    ball = Image.fromarray(np.round(out).astype(np.uint8), mode="RGBA")
-
-    fg = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
-    ball_scaled = resize_premultiplied(ball, FG_BALL_WIDTH)
-    off = (CANVAS - FG_BALL_WIDTH) // 2
-    fg.paste(ball_scaled, (off, off), ball_scaled)
-    print(f"  精灵球原生直径 {2 * r:.0f}px → 前景 {FG_BALL_WIDTH}px @({CANVAS // 2},{CANVAS // 2})")
-    return fg
-
-
 def edge_band_white_count(img: Image.Image) -> tuple[int, int]:
     """「边缘 2px 环带」内近白且 alpha>10 的像素数，返回 (违规数, 环带总数)。"""
     a = np.asarray(img.convert("RGBA"), dtype=np.uint8)
     mask = (a[..., 3] > ALPHA_MIN).astype(np.uint8) * 255
-    eroded = np.asarray(Image.fromarray(mask, mode="L").filter(ImageFilter.MinFilter(3)), dtype=np.uint8)
+    eroded = np.asarray(
+        Image.fromarray(mask, mode="L").filter(ImageFilter.MinFilter(3)), dtype=np.uint8
+    )
     for _ in range(BAND_PX - 1):
-        eroded = np.asarray(Image.fromarray(eroded, mode="L").filter(ImageFilter.MinFilter(3)), dtype=np.uint8)
+        eroded = np.asarray(
+            Image.fromarray(eroded, mode="L").filter(ImageFilter.MinFilter(3)),
+            dtype=np.uint8,
+        )
     band = (a[..., 3] > ALPHA_MIN) & (eroded == 0)
     near_white = a[..., :3].min(axis=2) >= NEAR_WHITE_MIN
     return int((band & near_white).sum()), int(band.sum())
@@ -339,40 +135,105 @@ def composite(img: Image.Image, bg: tuple[int, int, int], size: int) -> Image.Im
     return base.convert("RGB")
 
 
+def build_fg(tile: Image.Image) -> Image.Image:
+    """完整瓦片缩至 FG_TILE_RATIO 画布宽，居中贴到透明画布（自适应前景）。"""
+    width = round(CANVAS * FG_TILE_RATIO)
+    fg = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    scaled = resize_premultiplied(tile, width)
+    off = (CANVAS - width) // 2
+    fg.paste(scaled, (off, off), scaled)
+    print(f"  自适应前景: 瓦片 {width}px（{FG_TILE_RATIO:.0%} 画布宽）@({off},{off})")
+    return fg
+
+
+def mask_preview(fg: Image.Image, bg: tuple[int, int, int], size: int) -> Image.Image:
+    """圆形遮罩模拟：中心 SAFE_ZONE_RATIO 圆内为可见区（前景贴 bg），圆外涂灰。"""
+    arr = np.asarray(composite(fg, bg, size)).copy()
+    yy, xx = np.mgrid[0:size, 0:size].astype(np.float64)
+    r = size * MASK_PREVIEW_RATIO / 2
+    c = size / 2 - 0.5
+    outside = (xx - c) ** 2 + (yy - c) ** 2 > r * r
+    arr[outside] = (127, 127, 127)
+    return Image.fromarray(arr)
+
+
+def check_main(tile_1024: Image.Image) -> None:
+    """自检 1+2：主图四面顶边、边缘无白边。"""
+    a = np.asarray(tile_1024.convert("RGBA"))[..., 3]
+    bbox = content_bbox(tile_1024)
+    assert bbox == (0, 0, CANVAS, CANVAS), f"主图未顶满画布: bbox={bbox}"
+
+    h, w = a.shape
+    win = slice(w // 2 - 2, w // 2 + 2)  # 各边中点 ±2px 窗口
+    touched = {
+        "上": bool((a[0:2, win] > ALPHA_BBOX).any()),
+        "下": bool((a[h - 2 : h, win] > ALPHA_BBOX).any()),
+        "左": bool((a[win, 0:2] > ALPHA_BBOX).any()),
+        "右": bool((a[win, w - 2 : w] > ALPHA_BBOX).any()),
+    }
+    assert all(touched.values()), f"主图四边中点未覆盖: {touched}"
+
+    bad_1024, band_1024 = edge_band_white_count(tile_1024)
+    bad_prev, band_prev = edge_band_white_count(resize_premultiplied(tile_1024, PREVIEW))
+    print(
+        f"  自检(主图): 四边中点覆盖={touched}；边缘 {BAND_PX}px 环带近白且 alpha>{ALPHA_MIN}"
+        f"：1024px={bad_1024}/{band_1024}，256px={bad_prev}/{band_prev}"
+    )
+    assert bad_1024 == 0 and bad_prev == 0, "主图边缘存在白边残留"
+
+
+def check_fg(fg: Image.Image) -> None:
+    """自检 3：前景内容完全落在中心 66% 方形内。"""
+    a = np.asarray(fg.convert("RGBA"))[..., 3]
+    ys = np.flatnonzero((a > ALPHA_BBOX).any(axis=1))
+    xs = np.flatnonzero((a > ALPHA_BBOX).any(axis=0))
+    margin = int(CANVAS * (1 - CONTAIN_RATIO) / 2)
+    lo, hi = margin, CANVAS - margin
+    box = (int(xs[0]), int(ys[0]), int(xs[-1]) + 1, int(ys[-1]) + 1)
+    print(f"  自检(前景): 内容 bbox={box}，须落在中心 {CONTAIN_RATIO:.0%} 方形 [{lo},{hi})")
+    assert xs[0] >= lo and ys[0] >= lo and xs[-1] < hi and ys[-1] < hi, (
+        f"前景内容超出中心 {CONTAIN_RATIO:.0%} 方形: bbox={box}"
+    )
+
+    # 诊断（非门禁）：内容最远点距中心 vs 61%/66.7% 遮罩圆半径
+    yy, xx = np.nonzero(a > ALPHA_BBOX)
+    r_max = float(np.hypot(xx - CANVAS / 2, yy - CANVAS / 2).max())
+    r_safe = CANVAS * SAFE_ZONE_RATIO / 2
+    print(
+        f"  诊断: 前景内容最远距中心 {r_max:.0f}px（61% 安全区圆半径 {r_safe:.0f}px，"
+        f"66.7% 圆 {CANVAS * 2 / 3 / 2:.0f}px）；圆角超出安全区属预期，直边中点均可见"
+    )
+
+
 def main() -> None:
     raw = Image.open(RAW)
-    assert raw.size == (1254, 1254), f"源图尺寸异常: {raw.size}"
-    print(f"源图: {RAW.relative_to(ROOT)} {raw.size} 背景白={border_white(raw)}")
+    assert raw.mode == "RGBA" and raw.size == (1254, 1254), (
+        f"源图异常: mode={raw.mode} size={raw.size}"
+    )
+    bbox = content_bbox(raw)
+    tile = raw.crop(bbox)
+    print(f"源图: {RAW.relative_to(ROOT)} {raw.size}，内容 bbox={bbox}，裁后 {tile.size}")
 
-    tile_native = crop_alpha_bbox(unblend_from_white(raw))
-    print(f"tile 原生内容 bbox: {tile_native.size}")
+    bg_color = edge_color(tile)
+    hex_color = "#%02X%02X%02X" % bg_color
+    print(f"瓦片边缘主色: {hex_color}（须与 pubspec adaptive_icon_background 一致）")
 
-    fg = build_ball_fg(raw)
+    tile_1024 = resize_premultiplied(tile, CANVAS)
+    fg = build_fg(tile)
+    bg = Image.new("RGBA", (CANVAS, CANVAS), bg_color + (255,))
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    tile_1024 = resize_premultiplied(tile_native, CANVAS)
-    bg = Image.new("RGBA", (CANVAS, CANVAS), BG_COLOR + (255,))
     tile_1024.save(OUT_DIR / "app_icon_1024.png")
     fg.save(OUT_DIR / "app_icon_fg_1024.png")
     bg.save(OUT_DIR / "app_icon_bg_1024.png")
 
     CACHE.mkdir(parents=True, exist_ok=True)
-    composite(tile_native, BG_COLOR, PREVIEW).save(CACHE / "icon_preview_dark.png")
-    composite(tile_native, (255, 255, 255), PREVIEW).save(CACHE / "icon_preview_white.png")
-    fg_base = Image.new("RGBA", (PREVIEW, PREVIEW), BG_COLOR + (255,))
-    fg_small = resize_premultiplied(fg, PREVIEW)
-    fg_base.paste(fg_small, (0, 0), fg_small)
-    fg_base.convert("RGB").save(CACHE / "icon_fg_preview_dark.png")
+    composite(tile_1024, (0, 0, 0), PREVIEW).save(CACHE / "icon_preview_dark.png")
+    composite(tile_1024, (255, 255, 255), PREVIEW).save(CACHE / "icon_preview_white.png")
+    mask_preview(fg, bg_color, PREVIEW).save(CACHE / "icon_mask_preview.png")
 
-    bad, band = edge_band_white_count(resize_premultiplied(tile_native, PREVIEW))
-    bad_1024, band_1024 = edge_band_white_count(tile_1024)
-    print(
-        f"自检(tile): 边缘 {BAND_PX}px 环带(256px 共 {band}px) 近白且 alpha>{ALPHA_MIN} = {bad}；"
-        f"1024px 环带 {band_1024}px 同判 = {bad_1024}"
-    )
-    if bad > 0 or bad_1024 > 0:
-        print("自检未达标：白圈残留，需迭代抠底算法")
-        sys.exit(1)
+    check_main(tile_1024)
+    check_fg(fg)
     print("自检通过 → assets/icon/{app_icon_1024,app_icon_fg_1024,app_icon_bg_1024}.png + .cache 预览 ×3")
 
 
