@@ -54,3 +54,6 @@ Thumbs.db
 
 # Gradle/Kotlin 运行日志
 android/.kotlin/
+
+# MSI 打包工具缓存（WiX 独立二进制）
+tools/msi/.cache/
