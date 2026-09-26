@@ -148,6 +148,9 @@ class PokedexRepositoryImpl implements PokedexRepository {
       _pokedexDao.getSpeciesInfo(speciesId);
 
   @override
+  Future<List<int>> getAllSpeciesIds() => _pokedexDao.getAllSpeciesIds();
+
+  @override
   Future<List<PokemonSummary>> getPokemonSummaries(List<int> speciesIds) =>
       _pokedexDao.getPokemonSummaries(speciesIds);
 

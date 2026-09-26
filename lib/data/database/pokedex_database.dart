@@ -255,6 +255,15 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     );
   }
 
+  /// 全部 species 的 id，按 national_dex 升序（详情页上一只/下一只切换用）。
+  Future<List<int>> getAllSpeciesIds() async {
+    final rows = await customSelect(
+      'SELECT id FROM species ORDER BY national_dex ASC',
+      readsFrom: {attachedDatabase.species},
+    ).get();
+    return [for (final row in rows) row.data['id'] as int];
+  }
+
   /// 与 [queryPokemon] 相同 WHERE 的总数（分页用）。
   Future<int> countPokemon(FilterState f) async {
     final (whereSql, variables) = _buildWhere(f);

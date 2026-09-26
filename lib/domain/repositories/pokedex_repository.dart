@@ -57,6 +57,9 @@ abstract class PokedexRepository {
   /// species 基础信息（编号/世代/分类）。
   Future<SpeciesInfo> getSpeciesInfo(int speciesId);
 
+  /// 全部 species 的 id，按 national_dex 升序（详情页上一只/下一只切换用）。
+  Future<List<int>> getAllSpeciesIds();
+
   /// 按一批 speciesId 取列表摘要（收藏/最近浏览用）：单条 SQL IN 查询，
   /// 结果按入参顺序返回，缺失的 id 跳过。
   Future<List<PokemonSummary>> getPokemonSummaries(List<int> speciesIds);

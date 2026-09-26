@@ -96,6 +96,14 @@ final flavorSelectionProvider = StateProvider.autoDispose.family<int?, int>(
   (ref, speciesId) => null,
 );
 
+/// 全部 species 的 id 序列（national_dex 升序，architecture.md §4
+/// `getAllSpeciesIds`）。详情页上一只/下一只切换用：取当前 id 的相邻项。
+///
+/// 不用 autoDispose：全序列 ~1k 个 int，缓存后多次切换免重复查询。
+final speciesDexOrderProvider = FutureProvider<List<int>>((ref) {
+  return ref.watch(pokedexRepositoryProvider).getAllSpeciesIds();
+});
+
 /// 收藏中的 speciesId 流（architecture.md §5 中归 G 单元
 /// favorites/providers.dart；为避免本单元被 G 阻塞先在此自建，
 /// 若同名冲突由主会话裁决合并）。

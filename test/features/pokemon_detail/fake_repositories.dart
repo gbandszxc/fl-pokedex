@@ -469,6 +469,11 @@ class FakePokedexRepository implements PokedexRepository {
   }
 
   @override
+  Future<List<int>> getAllSpeciesIds() async =>
+      // fixture 顺序即 national_dex 升序（1 → 25）。
+      [for (final summary in summaries) summary.speciesId];
+
+  @override
   Future<DataManifest> getManifest() => throw UnimplementedError();
 }
 

@@ -136,6 +136,12 @@ class _PokedexTwoPane extends ConsumerWidget {
                         child: PokemonDetailPage(
                           speciesId: selectedSpeciesId,
                           showBackButton: false,
+                          // 双栏详情面板的「上一只/下一只」写选中态而非
+                          // 导航（features 互不 import，壳层在此桥接）；
+                          // 左列表选中描边随 paneSelectionProvider 跟随。
+                          onSwitchSpecies: (speciesId) => ref
+                              .read(paneSelectionProvider.notifier)
+                              .state = speciesId,
                         ),
                       ),
               ),

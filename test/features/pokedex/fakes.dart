@@ -179,6 +179,13 @@ class FakePokedexRepository implements PokedexRepository {
       ];
 
   @override
+  Future<List<int>> getAllSpeciesIds() async =>
+      // 合成数据 _all 按编号生成；排序保证 national_dex 升序契约。
+      [
+        for (final summary in _all) summary.speciesId,
+      ]..sort();
+
+  @override
   Future<DataManifest> getManifest() async => DataManifest(
         schemaVersion: 1,
         dataVersion: 'test',

@@ -240,6 +240,9 @@ class _VersionGroupFake implements PokedexRepository {
     Future<List<PokedexRef>> getPokedexes() async => const [];
 
     @override
+    Future<List<int>> getAllSpeciesIds() => throw UnimplementedError();
+
+    @override
     Future<DataManifest> getManifest() async => DataManifest(
           schemaVersion: 1,
           dataVersion: 'test',

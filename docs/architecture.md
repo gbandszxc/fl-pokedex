@@ -132,7 +132,7 @@ abstract class FavoritesRepository {
 }
 ```
 
-修订记录：**接口增补**——`getFormFlavorTexts(int formId)` 返回地区形态专属图鉴说明（版本地区 == 地区形态的行，见 data-contract.md §6）；无归属文本返回空列表，由 UI 回退 species 级文本。
+修订记录：**接口增补**——`getFormFlavorTexts(int formId)` 返回地区形态专属图鉴说明（版本地区 == 地区形态的行，见 data-contract.md §6）；无归属文本返回空列表，由 UI 回退 species 级文本。**接口增补（详情页上一只/下一只）**——`getAllSpeciesIds()` 返回全部 species 的 id，按 national_dex 升序（data-contract：species.id == national_dex）；详情页据此取相邻项做直接切换，无合适现有接口（queryPokemon 为分页列表语义且需硬编码上限）故新增最小只读查询。
 
 ## 5. Riverpod Provider（命名锁死，跨文件引用）
 

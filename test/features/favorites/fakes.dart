@@ -84,6 +84,10 @@ class FakeSummariesPokedexRepository implements PokedexRepository {
   }
 
   @override
+  Future<List<int>> getAllSpeciesIds() async =>
+      _summaries.keys.toList()..sort();
+
+  @override
   Future<DataManifest> getManifest() async {
     final error = _manifestError;
     if (error != null) {

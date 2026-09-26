@@ -141,6 +141,9 @@ class FakeMoveRepository implements PokedexRepository {
       throw UnimplementedError();
 
   @override
+  Future<List<int>> getAllSpeciesIds() => throw UnimplementedError();
+
+  @override
   Future<DataManifest> getManifest() => throw UnimplementedError();
 }
 

@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -60,12 +61,14 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
     super.key,
     required this.speciesId,
     this.showBackButton = true,
+    this.onSwitchSpecies,
   });
 
   /// 路由参数不是合法整数时的「未找到」态。
   const PokemonDetailPage.notFound({super.key})
       : speciesId = null,
-        showBackButton = true;
+        showBackButton = true,
+        onSwitchSpecies = null;
 
   /// null 表示路由参数非法（渲染未找到空态）。
   final int? speciesId;
@@ -74,12 +77,29 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
   /// 嵌入双栏详情面板时传 false（面板无路由栈，不提供返回）。
   final bool showBackButton;
 
+  /// 「上一只 / 下一只」切换到目标 species 的动作。null = 全页路由模式
+  /// （`context.go('/pokemon/$id')` 替换栈顶，返回键仍回列表页）；
+  /// 双栏详情面板由壳层注入「写双栏选中态」回调（features 互不 import，
+  /// 见 adaptive_scaffold），切换不导航、左列表选中态随之跟随。
+  final ValueChanged<int>? onSwitchSpecies;
+
   @override
   ConsumerState<PokemonDetailPage> createState() =>
       _PokemonDetailPageState();
 }
 
 class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
+  /// 页面键盘锚点：全页路由模式下自动持焦；←/→ 仅在锚点自身持焦时
+  /// 切换上/下一只，焦点在 Tab / 按钮等控件上时放行给默认焦点遍历
+  /// （TabBar 左右箭头切 tab 的行为不受影响）。
+  final FocusNode _keyboardAnchor =
+      FocusNode(debugLabel: 'pokemon_detail_keyboard_anchor');
+
+  /// 编号序列解析出的相邻 speciesId（build 时刷新）；
+  /// null = 边界禁用或序列未就绪。
+  int? _prevSpeciesId;
+  int? _nextSpeciesId;
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +113,59 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _keyboardAnchor.dispose();
+    super.dispose();
+  }
+
+  /// 由编号序列取当前 species 的相邻项（顺序 = national_dex，见
+  /// data-contract：species.id 与 national_dex 一致）。
+  void _resolveNeighbors(List<int>? order, int speciesId) {
+    if (order == null) {
+      _prevSpeciesId = null;
+      _nextSpeciesId = null;
+      return;
+    }
+    final index = order.indexOf(speciesId);
+    _prevSpeciesId = index > 0 ? order[index - 1] : null;
+    _nextSpeciesId =
+        index >= 0 && index < order.length - 1 ? order[index + 1] : null;
+  }
+
+  void _switchTo(int targetSpeciesId) {
+    final onSwitch = widget.onSwitchSpecies;
+    if (onSwitch != null) {
+      onSwitch(targetSpeciesId);
+      return;
+    }
+    // 全页路由：go 替换栈顶（/pokemon/1 → /pokemon/2 保留列表页在栈底，
+    // 返回键仍回列表）；新路由页重建，滚动位置自然回到顶部。
+    context.go('/pokemon/$targetSpeciesId');
+  }
+
+  /// 页面级按键：仅锚点自身持焦时消费 ←/→；其余情况 ignored 让事件
+  /// 继续冒泡（焦点在 Tab 上时由 WidgetsApp 默认快捷键走方向遍历）。
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (FocusManager.instance.primaryFocus != node) {
+      return KeyEventResult.ignored;
+    }
+    final target = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowLeft => _prevSpeciesId,
+      LogicalKeyboardKey.arrowRight => _nextSpeciesId,
+      _ => null,
+    };
+    if (target == null) {
+      // 边界禁用：按键原地吞掉（锚点是跳过遍历的叶子，无邻居可交给遍历）。
+      return KeyEventResult.handled;
+    }
+    _switchTo(target);
+    return KeyEventResult.handled;
   }
 
   @override
@@ -111,8 +184,10 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
         ),
       );
     }
+    final dexOrder = ref.watch(speciesDexOrderProvider).valueOrNull;
+    _resolveNeighbors(dexOrder, speciesId);
     final detailAsync = ref.watch(pokemonDetailProvider(speciesId));
-    return detailAsync.when(
+    final page = detailAsync.when(
       loading: () => const _DetailSkeleton(),
       error: (error, stackTrace) {
         if (error is SpeciesNotFoundException) {
@@ -145,7 +220,19 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
       data: (detail) => _DetailScaffold(
         detail: detail,
         showBackButton: widget.showBackButton,
+        prevSpeciesId: _prevSpeciesId,
+        nextSpeciesId: _nextSpeciesId,
+        onSwitchSpecies: _switchTo,
       ),
+    );
+    // 双栏嵌入不 autofocus：避免抢走列表面板搜索框的初始焦点；
+    // 此时锚点不持焦，键盘切换自然由全页路由模式独占。
+    return Focus(
+      focusNode: _keyboardAnchor,
+      autofocus: widget.showBackButton,
+      skipTraversal: true,
+      onKeyEvent: _handleKeyEvent,
+      child: page,
     );
   }
 }
@@ -199,14 +286,38 @@ class _DetailSkeleton extends StatelessWidget {
 
 /// 详情页主体：解析选中形态并组织布局。
 class _DetailScaffold extends ConsumerWidget {
-  const _DetailScaffold({required this.detail, required this.showBackButton});
+  const _DetailScaffold({
+    required this.detail,
+    required this.showBackButton,
+    required this.prevSpeciesId,
+    required this.nextSpeciesId,
+    required this.onSwitchSpecies,
+  });
 
   final PokemonDetailData detail;
 
   /// false = 嵌入双栏详情面板：SliverAppBar 不自动补返回按钮。
   final bool showBackButton;
 
+  /// 上一只 / 下一只的 speciesId（null = 边界禁用或序列未就绪）。
+  final int? prevSpeciesId;
+  final int? nextSpeciesId;
+
+  final ValueChanged<int> onSwitchSpecies;
+
   static const _tabLabels = ['图鉴说明', '种族值', '进化', '招式', '资料'];
+
+  /// 「上一只 / 下一只」两端对齐地挂在工具栏行：‹ 与返回键同排（leading），
+  /// › 与收藏键同排（actions 首位），对应设计基线
+  /// `← ‹ …… › ⭐`。
+  List<Widget> _toolbarActions() => [
+        _SpeciesSwitchButton(
+          isPrevious: false,
+          targetSpeciesId: nextSpeciesId,
+          onSwitchSpecies: onSwitchSpecies,
+        ),
+        _FavoriteAction(speciesId: detail.speciesId),
+      ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -224,7 +335,15 @@ class _DetailScaffold extends ConsumerWidget {
       artworkHeight: isExpanded ? _kArtworkHeightExpanded : null,
     );
     final formChips = _FormChips(detail: detail, selectedForm: selectedForm);
-    final favoriteAction = _FavoriteAction(speciesId: detail.speciesId);
+
+    // 返回键仅在真有路由栈时出现（与自动 leading 的 canPop 行为一致）；
+    // leadingWidth 装下「返回键 + 上一只」并排（48×2 + 余量），否则只装上一只。
+    final canPop = showBackButton && Navigator.of(context).canPop();
+    final leading = _DetailLeading(
+      showBackButton: canPop,
+      prevSpeciesId: prevSpeciesId,
+      onSwitchSpecies: onSwitchSpecies,
+    );
 
     if (!isExpanded) {
       // compact / medium：头部收进折叠式 SliverAppBar（滚动收起），
@@ -239,8 +358,10 @@ class _DetailScaffold extends ConsumerWidget {
               SliverAppBar(
                 pinned: true,
                 expandedHeight: expandedHeight,
-                automaticallyImplyLeading: showBackButton,
-                actions: [favoriteAction],
+                automaticallyImplyLeading: false,
+                leading: leading,
+                leadingWidth: canPop ? 104 : 48,
+                actions: _toolbarActions(),
                 flexibleSpace: FlexibleSpaceBar(
                   background: Padding(
                     padding: EdgeInsets.fromLTRB(
@@ -294,8 +415,10 @@ class _DetailScaffold extends ConsumerWidget {
         slivers: [
           SliverAppBar(
             pinned: true,
-            automaticallyImplyLeading: showBackButton,
-            actions: [favoriteAction],
+            automaticallyImplyLeading: false,
+            leading: leading,
+            leadingWidth: canPop ? 104 : 48,
+            actions: _toolbarActions(),
           ),
           SliverPadding(
             padding:
@@ -337,6 +460,67 @@ class _DetailScaffold extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(pad, AppSpacing.m, pad, AppSpacing.xl),
         child: child,
       );
+}
+
+/// AppBar leading：返回键（有路由栈时）+「上一只」并排，
+/// 两端对齐基线的左端（`← ‹`）；SliverAppBar 的 leadingWidth 按是否
+/// 带返回键给足 104 / 48。
+class _DetailLeading extends StatelessWidget {
+  const _DetailLeading({
+    required this.showBackButton,
+    required this.prevSpeciesId,
+    required this.onSwitchSpecies,
+  });
+
+  /// 是否带返回键（Navigator.canPop，与自动 leading 行为一致）。
+  final bool showBackButton;
+
+  final int? prevSpeciesId;
+
+  final ValueChanged<int> onSwitchSpecies;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // BackButton 默认行为即 Navigator.maybePop。
+        if (showBackButton) const BackButton(),
+        _SpeciesSwitchButton(
+          isPrevious: true,
+          targetSpeciesId: prevSpeciesId,
+          onSwitchSpecies: onSwitchSpecies,
+        ),
+      ],
+    );
+  }
+}
+
+/// 「上一只 / 下一只」切换按钮：无目标（首尾边界 / 序列未就绪）时
+/// 禁用置灰（onPressed null，走 Material 主题的 disabled 前景色）。
+/// tooltip 即屏幕阅读器朗读的语义名称。
+class _SpeciesSwitchButton extends StatelessWidget {
+  const _SpeciesSwitchButton({
+    required this.isPrevious,
+    required this.targetSpeciesId,
+    required this.onSwitchSpecies,
+  });
+
+  final bool isPrevious;
+
+  final int? targetSpeciesId;
+
+  final ValueChanged<int> onSwitchSpecies;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = targetSpeciesId;
+    return IconButton(
+      tooltip: isPrevious ? '上一只' : '下一只',
+      onPressed: target == null ? null : () => onSwitchSpecies(target),
+      icon: Icon(isPrevious ? Icons.chevron_left : Icons.chevron_right),
+    );
+  }
 }
 
 /// 常驻收藏心（AppBar action）。

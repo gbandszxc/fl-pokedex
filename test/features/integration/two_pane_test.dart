@@ -67,26 +67,47 @@ class _TwoPaneFakePokedexRepository extends FakePokedexRepository {
 
   @override
   Future<List<FormSummary>> getForms(int speciesId) async {
-    if (speciesId != 1) {
-      throw StateError('fixture 只有 species 1 的形态');
+    if (speciesId == 1) {
+      return const [
+        FormSummary(
+          formId: 1,
+          speciesId: 1,
+          formIdentifier: null,
+          formNameZh: '妙蛙种子',
+          formNameEn: 'Bulbasaur',
+          isDefault: true,
+          isMega: false,
+          isGmax: false,
+          isRegional: false,
+          artworkAsset: null,
+          typeIds: ['grass', 'poison'],
+          heightM: 0.7,
+          weightKg: 6.9,
+        ),
+      ];
     }
-    return const [
-      FormSummary(
-        formId: 1,
-        speciesId: 1,
-        formIdentifier: null,
-        formNameZh: '妙蛙种子',
-        formNameEn: 'Bulbasaur',
-        isDefault: true,
-        isMega: false,
-        isGmax: false,
-        isRegional: false,
-        artworkAsset: null,
-        typeIds: ['grass', 'poison'],
-        heightM: 0.7,
-        weightKg: 6.9,
-      ),
-    ];
+    if (speciesId == 2) {
+      // #002 通用默认形态（typeCycle[2 % 4] = water，与列表 fixture 一致），
+      // 供双栏「下一只」切换后的面板渲染。
+      return const [
+        FormSummary(
+          formId: 2,
+          speciesId: 2,
+          formIdentifier: null,
+          formNameZh: '宝可梦002',
+          formNameEn: 'Pokemon002',
+          isDefault: true,
+          isMega: false,
+          isGmax: false,
+          isRegional: false,
+          artworkAsset: null,
+          typeIds: ['water'],
+          heightM: null,
+          weightKg: null,
+        ),
+      ];
+    }
+    throw StateError('fixture 只有 species 1 / 2 的形态');
   }
 
   @override
@@ -113,7 +134,7 @@ class _TwoPaneFakePokedexRepository extends FakePokedexRepository {
           versionNameEn: 'Red',
           generationId: 1,
           language: 'zh_hans',
-          text: '种子在出生时埋在土里。',
+          text: speciesId == 1 ? '种子在出生时埋在土里。' : '通用说明。',
         ),
       ];
 
@@ -228,6 +249,29 @@ void main() {
     // 列表面板仍在原位（没有整页详情覆盖窗口）。
     expect(find.text('搜索 名称 / 编号'), findsOneWidget);
     expect(find.byType(BackButton), findsNothing); // 面板嵌入无返回按钮
+  });
+
+  testWidgets('双栏：详情面板「下一只」写选中态，面板与列表选中跟随且不导航',
+      (tester) async {
+    final (container, favorites) =
+        await _pumpApp(tester, size: const Size(1200, 900));
+
+    // 选中 #001 → 详情面板内联渲染。
+    await tester.tap(find.text('妙蛙种子').first);
+    await tester.pump();
+    await _pumpDetailReady(tester);
+    expect(container.read(paneSelectionProvider), 1);
+
+    // 面板工具栏「下一只」：写 paneSelectionProvider（不导航），
+    // KeyedSubtree 按 ValueKey 重建面板为 #002，列表选中描边随之跟随。
+    await tester.tap(find.byTooltip('下一只'));
+    await _pumpDetailReady(tester);
+
+    expect(container.read(paneSelectionProvider), 2);
+    expect(_location(container), '/'); // 切换不走路由
+    expect(find.text('#002'), findsWidgets); // 面板头部 + 列表卡片
+    // 面板切换按新条目记录最近浏览。
+    expect(favorites.recents, [1, 2]);
   });
 
   testWidgets('宽 <1080 单栏：点卡片推入详情路由（行为不变）', (tester) async {
