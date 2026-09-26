@@ -15,6 +15,7 @@ import 'detail_data.dart';
 import 'evolution_section_placeholder.dart';
 import 'moves_section_placeholder.dart';
 import 'providers.dart';
+import 'speak_button.dart';
 
 /// 详情页立绘容器高（design-ui.md §3：expanded≈320；compact/medium 折叠
 /// 头部内自适应展开）。
@@ -904,6 +905,9 @@ class _FlavorContent extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final displayEntry = selected.entryForDisplay();
     final fallbackLabel = flavorFallbackLanguageLabel(selected);
+    // 朗读语言码：null = 不支持的文本语言（不渲染朗读按钮）。
+    final ttsLanguage =
+        displayEntry == null ? null : ttsLanguageCode(displayEntry.language);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,7 +939,27 @@ class _FlavorContent extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.s),
         ],
-        if (displayEntry != null)
+        if (displayEntry != null) ...[
+          // 版本标题行 + 行尾朗读按钮（与正文同宽 ≤640）。
+          if (ttsLanguage != null) ...[
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: _kFlavorMaxWidth,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(selected.label, style: textTheme.bodySmall),
+                  ),
+                  SpeakButton(
+                    text: displayEntry.text,
+                    language: displayEntry.language,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+          ],
           Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
@@ -948,6 +972,7 @@ class _FlavorContent extends ConsumerWidget {
               ),
             ),
           ),
+        ],
       ],
     );
   }

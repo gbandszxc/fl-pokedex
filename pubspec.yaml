@@ -22,6 +22,9 @@ dependencies:
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
   collection: ^1.19.0
+  # 本地 TTS 朗读（平台引擎：Android SpeechTts / Windows SAPI / Apple AVSpeech），
+  # 纯 MethodChannel 无 HTTP 依赖，满足运行时 0 网络红线。
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:
