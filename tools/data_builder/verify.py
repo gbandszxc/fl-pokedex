@@ -10,11 +10,13 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import sqlite3
 import sys
 from pathlib import Path
 
+import build_db as bdb
 import config as cfg
 
 DB_META_KEYS_REQUIRED = (
@@ -67,10 +69,27 @@ def main(argv: list[str] | None = None) -> int:
     c.check("§8.1 每 species 恰有 1 个 is_default 形态", orphan_default == 0,
             f"异常 {orphan_default} 个")
 
-    # ---- 2. 每 species ≥1 条 zh_hans flavor 或已记录到 meta ----
+    # ---- 1b. forms 图片路径回填完整（process_images 语义：NULL ⇔ 缺图且已记录）----
+    missing_list = list(manifest.get("missingArtwork", []))
+    null_art = {r[0] for r in q(
+        "SELECT id FROM forms WHERE artwork_asset IS NULL").fetchall()}
+    c.check("§8.1 artwork_asset 为 NULL 的形态 == manifest.missingArtwork",
+            null_art == set(missing_list),
+            f"NULL {len(null_art)} 个 vs 记录 {len(missing_list)} 个")
+    # 回填语义：非缺图（artwork 非空）的默认形态必带 thumb_asset；
+    # 防止 build_db 后漏跑 process_images 导致全库 NULL 静默通过。
+    broken_thumb = q("SELECT COUNT(*) FROM forms WHERE is_default = 1 "
+                     "AND thumb_asset IS NULL AND artwork_asset IS NOT NULL").fetchone()[0]
+    c.check("§8.1 默认形态 thumb_asset 无漏回填", broken_thumb == 0,
+            f"异常 {broken_thumb} 个")
+
+    # ---- 2. 每 species ≥1 条 zh_hans flavor（species 级 ∪ 地区形态级）或已记录到 meta ----
     no_zh_flavor = [r[0] for r in q(
         "SELECT s.id FROM species s WHERE NOT EXISTS "
-        "(SELECT 1 FROM flavor_texts ft WHERE ft.species_id = s.id AND ft.language = 'zh_hans')"
+        "(SELECT 1 FROM flavor_texts ft WHERE ft.species_id = s.id AND ft.language = 'zh_hans') "
+        "AND NOT EXISTS "
+        "(SELECT 1 FROM form_flavor_texts ff JOIN forms f ON f.id = ff.form_id "
+        " WHERE f.species_id = s.id AND ff.language = 'zh_hans')"
     ).fetchall()]
     recorded = json.loads(meta.get("missing_json", "{}")).get(
         "species_without_zh_hans_flavor", [])
@@ -208,6 +227,11 @@ def main(argv: list[str] | None = None) -> int:
          "SELECT COUNT(*) FROM flavor_texts x LEFT JOIN species s ON s.id = x.species_id WHERE s.id IS NULL"),
         ("flavor_texts.version_id → versions",
          "SELECT COUNT(*) FROM flavor_texts x LEFT JOIN versions v ON v.id = x.version_id WHERE v.id IS NULL"),
+        ("form_flavor_texts.form_id → forms（且 is_regional=1）",
+         "SELECT COUNT(*) FROM form_flavor_texts x LEFT JOIN forms f ON f.id = x.form_id "
+         "WHERE f.id IS NULL OR f.is_regional <> 1"),
+        ("form_flavor_texts.version_id → versions",
+         "SELECT COUNT(*) FROM form_flavor_texts x LEFT JOIN versions v ON v.id = x.version_id WHERE v.id IS NULL"),
         ("evolution_edges.chain_id → evolution_chains",
          "SELECT COUNT(*) FROM evolution_edges x LEFT JOIN evolution_chains c ON c.id = x.chain_id WHERE c.id IS NULL"),
         ("evolution_edges.to_species_id → species",
@@ -240,6 +264,132 @@ def main(argv: list[str] | None = None) -> int:
     kanto = q("SELECT COUNT(*) FROM species_dex_numbers WHERE pokedex_id = "
               "(SELECT id FROM pokedexes WHERE identifier = 'kanto')").fetchone()[0]
     c.check("§8.10 关都图鉴 151 只", kanto == 151, f"实际 {kanto}")
+
+    # ---- 11. 地区形态文本归属（契约 §6：地区图鉴登记的是地区形态）----
+    # 11a. flavor_texts ∪ form_flavor_texts 与归属前的 species 文本集合一一对应
+    lang_map = {int(k): v for k, v in cfg.LANGUAGE_MAP.items()}
+    kept_langs = {"zh_hans", "zh_hant", "en", "ja"}
+    csv_flavor = cfg.CACHE_CSV_DIR / "pokemon_species_flavor_text.csv"
+    if csv_flavor.exists():
+        before: set[tuple] = set()
+        seen: set[tuple] = set()
+        with open(csv_flavor, encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f):
+                lang = lang_map.get(int(r["language_id"]))
+                if lang not in kept_langs:
+                    continue
+                key = (int(r["species_id"]), int(r["version_id"]), lang)
+                if key in seen:  # 与构建侧同规则去重
+                    continue
+                seen.add(key)
+                text = bdb.clean_flavor(r["flavor_text"])
+                if text:
+                    before.add((*key, text))
+        after = {
+            (r[0], r[1], r[2], r[3]) for r in q(
+                "SELECT species_id, version_id, language, flavor_text FROM flavor_texts"
+            ).fetchall()
+        } | {
+            (r[0], r[1], r[2], r[3]) for r in q(
+                "SELECT f.species_id, ff.version_id, ff.language, ff.flavor_text "
+                "FROM form_flavor_texts ff JOIN forms f ON f.id = ff.form_id"
+            ).fetchall()
+        }
+        only_before = sorted(before - after)[:3]
+        only_after = sorted(after - before)[:3]
+        c.check("§8.11a flavor_texts ∪ form_flavor_texts == 归属前 species 文本集合（不多不少）",
+                before == after,
+                f"归属前 {len(before)} / 归属后 {len(after)}"
+                + (f"；仅归属前 {only_before}" if only_before else "")
+                + (f"；仅归属后 {only_after}" if only_after else ""))
+
+        # 11b. 呆呆兽(79)：剑/盾文本归属伽勒尔形态，species 级不再有剑/盾行
+        slowpoke_galar = q(
+            "SELECT id FROM forms WHERE species_id = 79 AND form_identifier = 'galar' "
+            "AND is_regional = 1").fetchall()
+        c.check("§8.11b 呆呆兽存在伽勒尔形态（唯一）", len(slowpoke_galar) == 1,
+                f"{[r[0] for r in slowpoke_galar]}")
+        if len(slowpoke_galar) == 1:
+            galar_id = slowpoke_galar[0][0]
+            ff_sword = q(
+                "SELECT v.identifier, ff.flavor_text FROM form_flavor_texts ff "
+                "JOIN versions v ON v.id = ff.version_id "
+                "WHERE ff.form_id = ? AND ff.language = 'zh_hans' "
+                "AND v.identifier IN ('sword', 'shield')", (galar_id,)).fetchall()
+            c.check("§8.11b 呆呆兽剑/盾简中文本在伽勒尔形态名下",
+                    {r[0] for r in ff_sword} == {"sword", "shield"},
+                    f"命中 {sorted(r[0] for r in ff_sword)}")
+            ft_sword = q(
+                "SELECT v.identifier FROM flavor_texts ft "
+                "JOIN versions v ON v.id = ft.version_id "
+                "WHERE ft.species_id = 79 AND v.identifier IN ('sword', 'shield')").fetchall()
+            c.check("§8.11b flavor_texts 已无呆呆兽剑/盾行（任何语言）",
+                    not ft_sword, f"残留 {[r[0] for r in ft_sword]}")
+            # species 级仍保留非伽勒尔版本（描述默认形态）
+            ft_kept = q(
+                "SELECT v.identifier FROM flavor_texts ft "
+                "JOIN versions v ON v.id = ft.version_id WHERE ft.species_id = 79").fetchall()
+            c.check("§8.11b 呆呆兽 species 级仍保留非剑/盾文本", len(ft_kept) > 0,
+                    f"{[r[0] for r in ft_kept]}")
+
+        # 11c. 喵喵(52)：sun/moon/ultra 系→阿罗拉；剑/盾→伽勒尔；lets-go 及更早→默认形态
+        meowth = {r[0]: r[1] for r in q(
+            "SELECT form_identifier, id FROM forms WHERE species_id = 52 "
+            "AND is_regional = 1 AND form_identifier IN ('alola', 'galar')").fetchall()}
+        c.check("§8.11c 喵喵存在阿罗拉+伽勒尔形态", set(meowth) == {"alola", "galar"},
+                str(meowth))
+        if set(meowth) == {"alola", "galar"}:
+
+            def ff_has(form_id: int, version: str) -> bool:
+                return q("SELECT 1 FROM form_flavor_texts ff "
+                         "JOIN versions v ON v.id = ff.version_id "
+                         "WHERE ff.form_id = ? AND ff.language = 'zh_hans' "
+                         "AND v.identifier = ?", (form_id, version)).fetchone() is not None
+
+            def ft_has(version: str) -> bool:
+                return q("SELECT 1 FROM flavor_texts ft "
+                         "JOIN versions v ON v.id = ft.version_id "
+                         "WHERE ft.species_id = 52 AND ft.language = 'zh_hans' "
+                         "AND v.identifier = ?", (version,)).fetchone() is not None
+
+            alola_ok = all(ff_has(meowth['alola'], v) and not ft_has(v)
+                           for v in ("sun", "moon", "ultra-sun", "ultra-moon"))
+            c.check("§8.11c 喵喵 sun/moon/ultra 系简中文本归阿罗拉形态",
+                    alola_ok, f"alola 形态 id={meowth['alola']}")
+            galar_ok = (ff_has(meowth['galar'], 'sword') and ff_has(meowth['galar'], 'shield')
+                        and not ft_has('sword') and not ft_has('shield'))
+            c.check("§8.11c 喵喵剑/盾简中文本归伽勒尔形态",
+                    galar_ok, f"galar 形态 id={meowth['galar']}")
+            lets_go = q(
+                "SELECT v.identifier FROM flavor_texts ft "
+                "JOIN versions v ON v.id = ft.version_id "
+                "WHERE ft.species_id = 52 AND ft.language = 'zh_hans' "
+                "AND v.identifier IN ('lets-go-pikachu', 'lets-go-eevee')").fetchall()
+            c.check("§8.11c 喵喵 lets-go 简中文本留在 species 级（关都=默认形态）",
+                    {r[0] for r in lets_go} == {"lets-go-pikachu", "lets-go-eevee"},
+                    f"{sorted(r[0] for r in lets_go)}")
+            # gen<7 无官方简中（官方简中自 sun/moon 起），改用任意语言断言：
+            # 更早版本文本全部留在 species 级，且从未归属到地区形态名下
+            early_ff = q(
+                "SELECT COUNT(*) FROM form_flavor_texts ff "
+                "JOIN versions v ON v.id = ff.version_id "
+                "WHERE ff.form_id IN (?, ?) AND v.generation_id < 7",
+                (meowth['alola'], meowth['galar'])).fetchone()[0]
+            early_ft = q(
+                "SELECT COUNT(*) FROM flavor_texts ft "
+                "JOIN versions v ON v.id = ft.version_id "
+                "WHERE ft.species_id = 52 AND v.generation_id < 7").fetchone()[0]
+            c.check("§8.11c 喵喵第 7 世代前文本留在 species 级（默认形态）",
+                    early_ff == 0 and early_ft > 0,
+                    f"species 级 {early_ft} 行，误归属 {early_ff} 行")
+
+        # 11d. 归属只针对地区形态：form_flavor_texts 的 form 全部 is_regional=1
+        # 且 form_identifier 恰为地区名（不含 mega/gmax 等其他形态）
+        bad_form = q(
+            "SELECT COUNT(*) FROM form_flavor_texts ff JOIN forms f ON f.id = ff.form_id "
+            "WHERE f.is_regional <> 1 OR f.form_identifier NOT IN ('alola','galar','hisui','paldea')"
+        ).fetchone()[0]
+        c.check("§8.11d form_flavor_texts 只挂地区形态", bad_form == 0, f"异常 {bad_form} 行")
 
     conn.close()
 

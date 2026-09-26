@@ -222,6 +222,9 @@ class _VersionGroupFake implements PokedexRepository {
     Future<List<FlavorEntry>> getFlavorTexts(int speciesId) async => const [];
 
     @override
+    Future<List<FlavorEntry>> getFormFlavorTexts(int formId) async => const [];
+
+    @override
     Future<EvolutionTree?> getEvolutionTree(int speciesId) async => null;
 
     @override

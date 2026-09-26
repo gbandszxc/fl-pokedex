@@ -60,7 +60,7 @@ MANIFEST_PATH = ASSETS_DB_DIR / "manifest.json"
 ASSETS_FULL_DIR = REPO_ROOT / "assets" / "pokemon" / "full"
 ASSETS_THUMB_DIR = REPO_ROOT / "assets" / "pokemon" / "thumb"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 新增 form_flavor_texts（地区形态专属说明）时 +1
 
 # ---------------------------------------------------------------------------
 # 数据契约常量（docs/data-contract.md §2/§4/§5）

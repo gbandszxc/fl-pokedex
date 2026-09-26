@@ -6971,6 +6971,283 @@ class FlavorTextsCompanion extends UpdateCompanion<FlavorTextsRow> {
   }
 }
 
+class $FormFlavorTextsTable extends FormFlavorTexts
+    with TableInfo<$FormFlavorTextsTable, FormFlavorTextsRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FormFlavorTextsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _formIdMeta = const VerificationMeta('formId');
+  @override
+  late final GeneratedColumn<int> formId = GeneratedColumn<int>(
+      'form_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _versionIdMeta =
+      const VerificationMeta('versionId');
+  @override
+  late final GeneratedColumn<int> versionId = GeneratedColumn<int>(
+      'version_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _languageMeta =
+      const VerificationMeta('language');
+  @override
+  late final GeneratedColumn<String> language = GeneratedColumn<String>(
+      'language', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _flavorTextMeta =
+      const VerificationMeta('flavorText');
+  @override
+  late final GeneratedColumn<String> flavorText = GeneratedColumn<String>(
+      'flavor_text', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [formId, versionId, language, flavorText];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'form_flavor_texts';
+  @override
+  VerificationContext validateIntegrity(Insertable<FormFlavorTextsRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('form_id')) {
+      context.handle(_formIdMeta,
+          formId.isAcceptableOrUnknown(data['form_id']!, _formIdMeta));
+    } else if (isInserting) {
+      context.missing(_formIdMeta);
+    }
+    if (data.containsKey('version_id')) {
+      context.handle(_versionIdMeta,
+          versionId.isAcceptableOrUnknown(data['version_id']!, _versionIdMeta));
+    } else if (isInserting) {
+      context.missing(_versionIdMeta);
+    }
+    if (data.containsKey('language')) {
+      context.handle(_languageMeta,
+          language.isAcceptableOrUnknown(data['language']!, _languageMeta));
+    } else if (isInserting) {
+      context.missing(_languageMeta);
+    }
+    if (data.containsKey('flavor_text')) {
+      context.handle(
+          _flavorTextMeta,
+          flavorText.isAcceptableOrUnknown(
+              data['flavor_text']!, _flavorTextMeta));
+    } else if (isInserting) {
+      context.missing(_flavorTextMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {formId, versionId, language};
+  @override
+  FormFlavorTextsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FormFlavorTextsRow(
+      formId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}form_id'])!,
+      versionId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}version_id'])!,
+      language: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}language'])!,
+      flavorText: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}flavor_text'])!,
+    );
+  }
+
+  @override
+  $FormFlavorTextsTable createAlias(String alias) {
+    return $FormFlavorTextsTable(attachedDatabase, alias);
+  }
+}
+
+class FormFlavorTextsRow extends DataClass
+    implements Insertable<FormFlavorTextsRow> {
+  final int formId;
+  final int versionId;
+  final String language;
+  final String flavorText;
+  const FormFlavorTextsRow(
+      {required this.formId,
+      required this.versionId,
+      required this.language,
+      required this.flavorText});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['form_id'] = Variable<int>(formId);
+    map['version_id'] = Variable<int>(versionId);
+    map['language'] = Variable<String>(language);
+    map['flavor_text'] = Variable<String>(flavorText);
+    return map;
+  }
+
+  FormFlavorTextsCompanion toCompanion(bool nullToAbsent) {
+    return FormFlavorTextsCompanion(
+      formId: Value(formId),
+      versionId: Value(versionId),
+      language: Value(language),
+      flavorText: Value(flavorText),
+    );
+  }
+
+  factory FormFlavorTextsRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FormFlavorTextsRow(
+      formId: serializer.fromJson<int>(json['formId']),
+      versionId: serializer.fromJson<int>(json['versionId']),
+      language: serializer.fromJson<String>(json['language']),
+      flavorText: serializer.fromJson<String>(json['flavorText']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'formId': serializer.toJson<int>(formId),
+      'versionId': serializer.toJson<int>(versionId),
+      'language': serializer.toJson<String>(language),
+      'flavorText': serializer.toJson<String>(flavorText),
+    };
+  }
+
+  FormFlavorTextsRow copyWith(
+          {int? formId,
+          int? versionId,
+          String? language,
+          String? flavorText}) =>
+      FormFlavorTextsRow(
+        formId: formId ?? this.formId,
+        versionId: versionId ?? this.versionId,
+        language: language ?? this.language,
+        flavorText: flavorText ?? this.flavorText,
+      );
+  FormFlavorTextsRow copyWithCompanion(FormFlavorTextsCompanion data) {
+    return FormFlavorTextsRow(
+      formId: data.formId.present ? data.formId.value : this.formId,
+      versionId: data.versionId.present ? data.versionId.value : this.versionId,
+      language: data.language.present ? data.language.value : this.language,
+      flavorText:
+          data.flavorText.present ? data.flavorText.value : this.flavorText,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FormFlavorTextsRow(')
+          ..write('formId: $formId, ')
+          ..write('versionId: $versionId, ')
+          ..write('language: $language, ')
+          ..write('flavorText: $flavorText')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(formId, versionId, language, flavorText);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FormFlavorTextsRow &&
+          other.formId == this.formId &&
+          other.versionId == this.versionId &&
+          other.language == this.language &&
+          other.flavorText == this.flavorText);
+}
+
+class FormFlavorTextsCompanion extends UpdateCompanion<FormFlavorTextsRow> {
+  final Value<int> formId;
+  final Value<int> versionId;
+  final Value<String> language;
+  final Value<String> flavorText;
+  final Value<int> rowid;
+  const FormFlavorTextsCompanion({
+    this.formId = const Value.absent(),
+    this.versionId = const Value.absent(),
+    this.language = const Value.absent(),
+    this.flavorText = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FormFlavorTextsCompanion.insert({
+    required int formId,
+    required int versionId,
+    required String language,
+    required String flavorText,
+    this.rowid = const Value.absent(),
+  })  : formId = Value(formId),
+        versionId = Value(versionId),
+        language = Value(language),
+        flavorText = Value(flavorText);
+  static Insertable<FormFlavorTextsRow> custom({
+    Expression<int>? formId,
+    Expression<int>? versionId,
+    Expression<String>? language,
+    Expression<String>? flavorText,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (formId != null) 'form_id': formId,
+      if (versionId != null) 'version_id': versionId,
+      if (language != null) 'language': language,
+      if (flavorText != null) 'flavor_text': flavorText,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FormFlavorTextsCompanion copyWith(
+      {Value<int>? formId,
+      Value<int>? versionId,
+      Value<String>? language,
+      Value<String>? flavorText,
+      Value<int>? rowid}) {
+    return FormFlavorTextsCompanion(
+      formId: formId ?? this.formId,
+      versionId: versionId ?? this.versionId,
+      language: language ?? this.language,
+      flavorText: flavorText ?? this.flavorText,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (formId.present) {
+      map['form_id'] = Variable<int>(formId.value);
+    }
+    if (versionId.present) {
+      map['version_id'] = Variable<int>(versionId.value);
+    }
+    if (language.present) {
+      map['language'] = Variable<String>(language.value);
+    }
+    if (flavorText.present) {
+      map['flavor_text'] = Variable<String>(flavorText.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FormFlavorTextsCompanion(')
+          ..write('formId: $formId, ')
+          ..write('versionId: $versionId, ')
+          ..write('language: $language, ')
+          ..write('flavorText: $flavorText, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $PokedexesTable extends Pokedexes
     with TableInfo<$PokedexesTable, PokedexesRow> {
   @override
@@ -7511,6 +7788,8 @@ abstract class _$PokedexDatabase extends GeneratedDatabase {
   late final $EvolutionEdgesTable evolutionEdges = $EvolutionEdgesTable(this);
   late final $VersionsTable versions = $VersionsTable(this);
   late final $FlavorTextsTable flavorTexts = $FlavorTextsTable(this);
+  late final $FormFlavorTextsTable formFlavorTexts =
+      $FormFlavorTextsTable(this);
   late final $PokedexesTable pokedexes = $PokedexesTable(this);
   late final $SpeciesDexNumbersTable speciesDexNumbers =
       $SpeciesDexNumbersTable(this);
@@ -7538,6 +7817,7 @@ abstract class _$PokedexDatabase extends GeneratedDatabase {
         evolutionEdges,
         versions,
         flavorTexts,
+        formFlavorTexts,
         pokedexes,
         speciesDexNumbers
       ];
@@ -10912,6 +11192,167 @@ typedef $$FlavorTextsTableProcessedTableManager = ProcessedTableManager<
     ),
     FlavorTextsRow,
     PrefetchHooks Function()>;
+typedef $$FormFlavorTextsTableCreateCompanionBuilder = FormFlavorTextsCompanion
+    Function({
+  required int formId,
+  required int versionId,
+  required String language,
+  required String flavorText,
+  Value<int> rowid,
+});
+typedef $$FormFlavorTextsTableUpdateCompanionBuilder = FormFlavorTextsCompanion
+    Function({
+  Value<int> formId,
+  Value<int> versionId,
+  Value<String> language,
+  Value<String> flavorText,
+  Value<int> rowid,
+});
+
+class $$FormFlavorTextsTableFilterComposer
+    extends Composer<_$PokedexDatabase, $FormFlavorTextsTable> {
+  $$FormFlavorTextsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get formId => $composableBuilder(
+      column: $table.formId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get versionId => $composableBuilder(
+      column: $table.versionId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get language => $composableBuilder(
+      column: $table.language, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get flavorText => $composableBuilder(
+      column: $table.flavorText, builder: (column) => ColumnFilters(column));
+}
+
+class $$FormFlavorTextsTableOrderingComposer
+    extends Composer<_$PokedexDatabase, $FormFlavorTextsTable> {
+  $$FormFlavorTextsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get formId => $composableBuilder(
+      column: $table.formId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get versionId => $composableBuilder(
+      column: $table.versionId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get language => $composableBuilder(
+      column: $table.language, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get flavorText => $composableBuilder(
+      column: $table.flavorText, builder: (column) => ColumnOrderings(column));
+}
+
+class $$FormFlavorTextsTableAnnotationComposer
+    extends Composer<_$PokedexDatabase, $FormFlavorTextsTable> {
+  $$FormFlavorTextsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get formId =>
+      $composableBuilder(column: $table.formId, builder: (column) => column);
+
+  GeneratedColumn<int> get versionId =>
+      $composableBuilder(column: $table.versionId, builder: (column) => column);
+
+  GeneratedColumn<String> get language =>
+      $composableBuilder(column: $table.language, builder: (column) => column);
+
+  GeneratedColumn<String> get flavorText => $composableBuilder(
+      column: $table.flavorText, builder: (column) => column);
+}
+
+class $$FormFlavorTextsTableTableManager extends RootTableManager<
+    _$PokedexDatabase,
+    $FormFlavorTextsTable,
+    FormFlavorTextsRow,
+    $$FormFlavorTextsTableFilterComposer,
+    $$FormFlavorTextsTableOrderingComposer,
+    $$FormFlavorTextsTableAnnotationComposer,
+    $$FormFlavorTextsTableCreateCompanionBuilder,
+    $$FormFlavorTextsTableUpdateCompanionBuilder,
+    (
+      FormFlavorTextsRow,
+      BaseReferences<_$PokedexDatabase, $FormFlavorTextsTable,
+          FormFlavorTextsRow>
+    ),
+    FormFlavorTextsRow,
+    PrefetchHooks Function()> {
+  $$FormFlavorTextsTableTableManager(
+      _$PokedexDatabase db, $FormFlavorTextsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FormFlavorTextsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FormFlavorTextsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FormFlavorTextsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> formId = const Value.absent(),
+            Value<int> versionId = const Value.absent(),
+            Value<String> language = const Value.absent(),
+            Value<String> flavorText = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FormFlavorTextsCompanion(
+            formId: formId,
+            versionId: versionId,
+            language: language,
+            flavorText: flavorText,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required int formId,
+            required int versionId,
+            required String language,
+            required String flavorText,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FormFlavorTextsCompanion.insert(
+            formId: formId,
+            versionId: versionId,
+            language: language,
+            flavorText: flavorText,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$FormFlavorTextsTableProcessedTableManager = ProcessedTableManager<
+    _$PokedexDatabase,
+    $FormFlavorTextsTable,
+    FormFlavorTextsRow,
+    $$FormFlavorTextsTableFilterComposer,
+    $$FormFlavorTextsTableOrderingComposer,
+    $$FormFlavorTextsTableAnnotationComposer,
+    $$FormFlavorTextsTableCreateCompanionBuilder,
+    $$FormFlavorTextsTableUpdateCompanionBuilder,
+    (
+      FormFlavorTextsRow,
+      BaseReferences<_$PokedexDatabase, $FormFlavorTextsTable,
+          FormFlavorTextsRow>
+    ),
+    FormFlavorTextsRow,
+    PrefetchHooks Function()>;
 typedef $$PokedexesTableCreateCompanionBuilder = PokedexesCompanion Function({
   required int id,
   required String identifier,
@@ -11249,6 +11690,8 @@ class $PokedexDatabaseManager {
       $$VersionsTableTableManager(_db, _db.versions);
   $$FlavorTextsTableTableManager get flavorTexts =>
       $$FlavorTextsTableTableManager(_db, _db.flavorTexts);
+  $$FormFlavorTextsTableTableManager get formFlavorTexts =>
+      $$FormFlavorTextsTableTableManager(_db, _db.formFlavorTexts);
   $$PokedexesTableTableManager get pokedexes =>
       $$PokedexesTableTableManager(_db, _db.pokedexes);
   $$SpeciesDexNumbersTableTableManager get speciesDexNumbers =>

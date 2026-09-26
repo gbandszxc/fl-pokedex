@@ -30,6 +30,10 @@ abstract class PokedexRepository {
   /// zh 优先排序在 UI 做。
   Future<List<FlavorEntry>> getFlavorTexts(int speciesId);
 
+  /// 地区形态专属说明（data-contract §6）；无归属文本返回空列表，
+  /// 由 UI 回退 species 级文本。
+  Future<List<FlavorEntry>> getFormFlavorTexts(int formId);
+
   /// 无进化链返回 null。
   Future<EvolutionTree?> getEvolutionTree(int speciesId);
 

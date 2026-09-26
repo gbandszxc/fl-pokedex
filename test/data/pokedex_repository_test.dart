@@ -403,6 +403,84 @@ void main() {
     });
   });
 
+  group('地区形态专属说明（form_flavor_texts，data-contract §6）', () {
+    test('呆呆兽(#79) 伽勒尔形态(10164)：剑/盾简中文本可读', () async {
+      final forms = await repo.getForms(79);
+      final galarForm = forms.singleWhere((form) => form.formIdentifier == 'galar');
+      expect(galarForm.isRegional, isTrue);
+      expect(galarForm.formId, 10164);
+
+      final flavors = await repo.getFormFlavorTexts(galarForm.formId);
+      final swordZh = flavors.firstWhere(
+        (entry) =>
+            entry.versionIdentifier == 'sword' && entry.language == 'zh_hans',
+      );
+      final shieldZh = flavors.firstWhere(
+        (entry) =>
+            entry.versionIdentifier == 'shield' && entry.language == 'zh_hans',
+      );
+      expect(swordZh.text, isNotEmpty);
+      expect(shieldZh.text, isNotEmpty);
+      // 剑/盾地区图鉴登记的是伽勒尔形态：文本描述伽勒尔的样子
+      // （呆尾巴诱饵是伽勒尔形态特有习性，与 species 级文本不同）。
+      expect(swordZh.text, isNot(shieldZh.text));
+    });
+
+    test('呆呆兽(#79) species 级：剑/盾行已剔除，lets-go 仍在', () async {
+      final flavors = await repo.getFlavorTexts(79);
+      final versionIds = flavors.map((entry) => entry.versionIdentifier).toSet();
+      expect(versionIds.intersection(const {'sword', 'shield'}), isEmpty);
+      expect(versionIds, containsAll(['lets-go-pikachu', 'lets-go-eevee']));
+      // lets-go 简中文本描述默认形态（关都图鉴）。
+      final letsGoZh = flavors.firstWhere(
+        (entry) =>
+            entry.versionIdentifier == 'lets-go-pikachu' &&
+            entry.language == 'zh_hans',
+      );
+      expect(letsGoZh.text, contains('非常呆'));
+    });
+
+    test('喵喵(#52)：sun/moon→阿罗拉形态、剑/盾→伽勒尔形态', () async {
+      final forms = await repo.getForms(52);
+      final alola = forms.singleWhere((form) => form.formIdentifier == 'alola');
+      final galar = forms.singleWhere((form) => form.formIdentifier == 'galar');
+
+      final alolaVersions = (await repo.getFormFlavorTexts(alola.formId))
+          .map((entry) => entry.versionIdentifier)
+          .toSet();
+      expect(alolaVersions,
+          containsAll(['sun', 'moon', 'ultra-sun', 'ultra-moon']));
+      final galarVersions = (await repo.getFormFlavorTexts(galar.formId))
+          .map((entry) => entry.versionIdentifier)
+          .toSet();
+      expect(galarVersions, containsAll(['sword', 'shield']));
+
+      // species 级不保留这些版本的行。
+      final speciesVersions =
+          (await repo.getFlavorTexts(52)).map((e) => e.versionIdentifier).toSet();
+      expect(
+        speciesVersions.intersection(const {
+          'sun', 'moon', 'ultra-sun', 'ultra-moon', 'sword', 'shield',
+        }),
+        isEmpty,
+      );
+    });
+
+    test('非地区形态无专属文本：getFormFlavorTexts(1) 返回空列表', () async {
+      expect(await repo.getFormFlavorTexts(1), isEmpty);
+    });
+
+    test('外键可解析：form_flavor_texts.form_id 全部指向 is_regional 形态',
+        () async {
+      final rows = await db.customSelect(
+        'SELECT COUNT(*) AS n FROM form_flavor_texts x '
+        'LEFT JOIN forms f ON f.id = x.form_id '
+        'WHERE f.id IS NULL OR f.is_regional <> 1',
+      ).getSingle();
+      expect(rows.data['n'] as int, 0);
+    });
+  });
+
   group('基础引用', () {
     test('getTypes / getGenerations / getPokedexes', () async {
       final types = await repo.getTypes();
@@ -423,7 +501,7 @@ void main() {
   test('getManifest 解析成功且 pokemonCount=1025', () async {
     final manifest = await repo.getManifest();
     expect(manifest, isA<DataManifest>());
-    expect(manifest.schemaVersion, 1);
+    expect(manifest.schemaVersion, 2); // form_flavor_texts 引入时 +1
     expect(manifest.pokemonCount, 1025);
     expect(manifest.learnsetVersionGroups, contains('sword-shield'));
     expect(manifest.upstreamRevision, contains('pokeapi'));

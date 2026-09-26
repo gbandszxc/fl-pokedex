@@ -373,6 +373,10 @@ class FakeEvolutionMovesRepository implements PokedexRepository {
       throw UnimplementedError();
 
   @override
+  Future<List<FlavorEntry>> getFormFlavorTexts(int formId) =>
+      throw UnimplementedError();
+
+  @override
   Future<List<TypeRef>> getTypes() => throw UnimplementedError();
 
   @override

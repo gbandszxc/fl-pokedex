@@ -16,7 +16,7 @@ manifest.json：
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "dataVersion": "pokeapi@<short-sha>",
   "pokemonCount": 1025,
   "formCount": 0,
@@ -161,6 +161,10 @@ CREATE TABLE flavor_texts(
   PRIMARY KEY(species_id, version_id, language));
 CREATE INDEX idx_flavor_species ON flavor_texts(species_id);
 
+-- 地区形态专属说明（见 §6）：版本地区 == 地区形态的 species 文本移入本表
+CREATE TABLE form_flavor_texts(form_id INTEGER NOT NULL, version_id INTEGER NOT NULL, language TEXT NOT NULL CHECK(language IN ('zh_hans','zh_hant','en','ja')), flavor_text TEXT NOT NULL, PRIMARY KEY(form_id, version_id, language));
+CREATE INDEX idx_form_flavor_form ON form_flavor_texts(form_id);
+
 CREATE TABLE pokedexes(
   id INTEGER PRIMARY KEY, identifier TEXT NOT NULL UNIQUE,
   name_zh_hans TEXT NOT NULL, generation_id INTEGER);
@@ -195,12 +199,13 @@ damage_class 映射**必须**从上游 `move_damage_classes.csv` 数据驱动（
 identifier 后缀 → 官方中文：
 `-alola→阿罗拉的样子 -galar→伽勒尔的样子 -hisui→洗翠的样子 -paldea→帕底亚的样子 -mega→超级进化 -mega-x→超级进化Ｘ -mega-y→超级进化Ｙ -gmax→超极巨化 -primal→原始回归 -origin→起源形态 -therian→灵兽形态 -black→阿勃梭鲁(霸主?)…`（以 pokemon_form_names.csv 的 language 12/4 官方数据为准，取不到时用“地区名+的样子”模板，仍无则回退英文并在 meta 记录缺失清单）。is_regional 判定 = form_identifier ∈ {alola,galar,hisui,paldea}(含 -battle 变体归并)；is_gmax = identifier 以 -gmax 结尾；is_mega = pokemon_forms.is_mega。
 
-## 6. 图鉴说明（flavor_texts）
+## 6. 图鉴说明（flavor_texts / form_flavor_texts）
 
 - 来源 `pokemon_species_flavor_text.csv`，只保留 language ∈ {zh_hans, zh_hant, en, ja} 四行/版本。
 - 清洗：压平换行、去 U+0C/U+1C 控制符。
 - versions 表收录全部游戏版本（含无简中文本的旧版本）；version_names.csv 提供官方简中版本名（剑/盾/朱/紫…；无官方简中的版本 name_zh_hans 留空）。
 - **禁止生成/机翻“官方”文本**。缺简中由 UI 标注。
+- **地区形态归属**（构建期一次性完成）：仅当 species 存在地区形态（forms.is_regional=1 且 form_identifier ∈ {alola, galar, hisui, paldea}）时参与归属。版本 → 地区：version_group == `lets-go-pikachu-lets-go-eevee` → kanto；== `legends-arceus` → hisui；否则按 generation_id 映射 1:kanto 2:johto 3:hoenn 4:sinnoh 5:unova 6:kalos 7:alola 8:galar 9:paldea。文本 (species, version) 的版本地区 == 某地区形态的 form_identifier → 该行写入 form_flavor_texts（form_id=该形态 id），并从 flavor_texts 剔除；否则留在 flavor_texts（描述默认形态）。无地区形态的 species 全部维持原样；mega/gmax 等其他形态不建 form 文本，沿用 species 文本。上游地区图鉴登记的就是地区形态，对应版本文本实际描述地区形态（如剑/盾的呆呆兽）。
 
 ## 7. 图片
 
@@ -213,14 +218,15 @@ identifier 后缀 → 官方中文：
 ## 8. 构建校验（verify.py 必须全绿才允许输出到 assets/）
 
 1. species 行数 == 1025；forms ≥ species；每 species 有 is_default form。
-2. 每只 species 至少 1 行 zh_hans flavor 或标记到 meta（不可静默丢弃）。
+2. 每只 species 至少 1 行 zh_hans flavor（flavor_texts ∪ form_flavor_texts）或标记到 meta（不可静默丢弃）。
 3. 妙蛙种子(#1)：zh=妙蛙种子，en=Bulbasaur，ja=フシギダネ，types=草/毒，6 项种族值 45/49/49/65/65/45。
 4. 伊布(#133)进化链：eevee 为根，出边 8 条，各带 trigger/条件字段。
 5. 皮卡丘(#25)：forms ≥ 6（含超级/超极巨/原始戴鲁比无…以实际为准），默认形态 height=4, weight=60。
 6. 空手道王? 改为：吼爆弹/螺钉地鼠类分支进化（nuzleaf? 用 slowbro 线）验证 from→to 多分支存在；土居忍士 shed 边存在。
 7. 招式：moves ≥ 900；每招式 name_zh_hans 非空（“极巨化招式”类除外，若上游缺失记 meta）。
 8. 学习集：选取 3 只（妙蛙种子/皮卡丘/伊布）验证 yellow、sword-shield、the-indigo-disk 三组各 method 有行。
-9. 外键完整性：form_types/form_stats/form_abilities/pokemon_form_moves/flavor_texts 的 id 全部可解析到父表。
+9. 外键完整性：form_types/form_stats/form_abilities/pokemon_form_moves/flavor_texts/form_flavor_texts 的 id 全部可解析到父表（form_flavor_texts.form_id 还须 is_regional=1）。
 10. pokedexes 含 region kanto..paldea；species_dex_numbers 覆盖全部地区图鉴成员。
+11. 归属前后守恒：flavor_texts ∪ form_flavor_texts 的行集合与归属前的 species 文本集合一一对应（不多不少）。
 
 输出结束时打印：各表行数、db 文件大小、图片数量与总体积。

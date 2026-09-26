@@ -114,6 +114,7 @@ abstract class PokedexRepository {
   Future<StatBlock> getFormStats(int formId);
   Future<List<AbilityRef>> getFormAbilities(int formId);
   Future<List<FlavorEntry>> getFlavorTexts(int speciesId);          // zh 优先排序在 UI 做
+  Future<List<FlavorEntry>> getFormFlavorTexts(int formId);         // 地区形态专属说明（data-contract §6）；空列表 → UI 回退 species 文本
   Future<EvolutionTree?> getEvolutionTree(int speciesId);           // 无进化链返回 null
   Future<List<VersionGroupRef>> getFormVersionGroups(int formId);   // 该形态有学习集的组，新→旧
   Future<List<MoveEntry>> getLearnset(int formId, String versionGroup, {Set<String>? methods});
@@ -130,6 +131,8 @@ abstract class FavoritesRepository {
   Future<void> addRecent(int speciesId);                            // 上限 30，去重取最新
 }
 ```
+
+修订记录：**接口增补**——`getFormFlavorTexts(int formId)` 返回地区形态专属图鉴说明（版本地区 == 地区形态的行，见 data-contract.md §6）；无归属文本返回空列表，由 UI 回退 species 级文本。
 
 ## 5. Riverpod Provider（命名锁死，跨文件引用）
 

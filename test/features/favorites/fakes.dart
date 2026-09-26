@@ -119,6 +119,10 @@ class FakeSummariesPokedexRepository implements PokedexRepository {
       throw UnimplementedError();
 
   @override
+  Future<List<FlavorEntry>> getFormFlavorTexts(int formId) =>
+      throw UnimplementedError();
+
+  @override
   Future<EvolutionTree?> getEvolutionTree(int speciesId) =>
       throw UnimplementedError();
 

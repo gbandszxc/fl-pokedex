@@ -62,6 +62,10 @@ class PokedexRepositoryImpl implements PokedexRepository {
       _pokedexDao.getFlavorTexts(speciesId);
 
   @override
+  Future<List<FlavorEntry>> getFormFlavorTexts(int formId) =>
+      _pokedexDao.getFormFlavorTexts(formId);
+
+  @override
   Future<EvolutionTree?> getEvolutionTree(int speciesId) async {
     final chainId = await _evolutionDao.getEvolutionChainId(speciesId);
     if (chainId == null) return null;

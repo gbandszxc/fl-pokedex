@@ -1,4 +1,4 @@
-// pokedex.db 全部 17 张表的 drift 定义。
+// pokedex.db 全部 18 张表的 drift 定义。
 //
 // 与 docs/data-contract.md §3 的 DDL 逐字对齐：表名用 `tableName` 覆写、
 // 列名用 `.named()` 显式 snake_case 命名；复合主键表通过 `primaryKey`
@@ -418,6 +418,28 @@ class FlavorTexts extends Table {
 
   @override
   Set<Column> get primaryKey => {speciesId, versionId, language};
+}
+
+/// form_flavor_texts(form_id, version_id, language, flavor_text,
+///                   PRIMARY KEY(form_id, version_id, language))
+///
+/// 地区形态专属说明（data-contract §6）：版本地区 == 地区形态的 species
+/// 文本在构建期移入本表（如剑/盾的呆呆兽实际描述伽勒尔的样子）。
+@DataClassName('FormFlavorTextsRow')
+class FormFlavorTexts extends Table {
+  @override
+  String get tableName => 'form_flavor_texts';
+
+  IntColumn get formId => integer().named('form_id')();
+
+  IntColumn get versionId => integer().named('version_id')();
+
+  TextColumn get language => text().named('language')();
+
+  TextColumn get flavorText => text().named('flavor_text')();
+
+  @override
+  Set<Column> get primaryKey => {formId, versionId, language};
 }
 
 /// pokedexes(id, identifier, name_zh_hans, generation_id?)

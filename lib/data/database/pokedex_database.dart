@@ -42,6 +42,7 @@ part 'pokedex_database.g.dart';
     EvolutionEdges,
     Versions,
     FlavorTexts,
+    FormFlavorTexts,
     Pokedexes,
     SpeciesDexNumbers,
   ],
@@ -379,6 +380,37 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
       'ORDER BY v.generation_id ASC, ft.version_id ASC',
       variables: [Variable.withInt(speciesId)],
       readsFrom: {attachedDatabase.flavorTexts, attachedDatabase.versions},
+    ).get();
+    return rows
+        .map(
+          (row) => FlavorEntry(
+            versionId: row.data['version_id'] as int,
+            versionIdentifier: row.data['version_identifier'] as String,
+            versionNameZh: row.data['version_name_zh'] as String? ?? '',
+            versionNameEn: row.data['version_name_en'] as String,
+            generationId: row.data['generation_id'] as int,
+            language: row.data['language'] as String,
+            text: row.data['flavor_text'] as String,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  /// 地区形态专属图鉴文本（data-contract §6：仅版本地区 == 地区形态的行），
+  /// 排序与语言回退语义与 [getFlavorTexts] 一致；无文本返回空列表。
+  Future<List<FlavorEntry>> getFormFlavorTexts(int formId) async {
+    final rows = await customSelect(
+      'SELECT ff.version_id, v.identifier AS version_identifier, '
+      '       v.name_zh_hans AS version_name_zh, v.name_en AS version_name_en, '
+      '       v.generation_id, ff.language, ff.flavor_text '
+      'FROM form_flavor_texts ff JOIN versions v ON v.id = ff.version_id '
+      'WHERE ff.form_id = ? '
+      'ORDER BY v.generation_id ASC, ff.version_id ASC',
+      variables: [Variable.withInt(formId)],
+      readsFrom: {
+        attachedDatabase.formFlavorTexts,
+        attachedDatabase.versions,
+      },
     ).get();
     return rows
         .map(

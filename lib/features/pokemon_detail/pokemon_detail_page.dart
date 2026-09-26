@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/theme.dart';
 import '../../core/di.dart';
 import '../../domain/models/ability_ref.dart';
+import '../../domain/models/flavor_entry.dart';
 import '../../domain/models/form_summary.dart';
 import '../../shared/responsive/breakpoints.dart';
 import '../../shared/widgets/widgets.dart';
@@ -265,7 +266,13 @@ class _DetailScaffold extends ConsumerWidget {
             ],
             body: TabBarView(
               children: [
-                _tabPage(pad, _FlavorSection(speciesId: detail.speciesId)),
+                _tabPage(
+                  pad,
+                  _FlavorSection(
+                    speciesId: detail.speciesId,
+                    selectedForm: selectedForm,
+                  ),
+                ),
                 _tabPage(pad, _StatsSection(selectedForm: selectedForm)),
                 _tabPage(pad, const EvolutionSectionPlaceholder()),
                 _tabPage(pad, const MovesSectionPlaceholder()),
@@ -302,6 +309,7 @@ class _DetailScaffold extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.xl),
                   _FlavorSection(
                     speciesId: detail.speciesId,
+                    selectedForm: selectedForm,
                     showTitle: true,
                   ),
                   const SizedBox(height: AppSpacing.xxl),
@@ -603,16 +611,40 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 }
 
 /// 图鉴说明分区：版本 chips（按世代分组，新→旧）+ 语言回退正文。
+///
+/// 文本按形态归属（data-contract §6）：地区形态 → form 专属文本
+/// （空则回退 species 级）；默认 / 其他形态 → species 级文本。
 class _FlavorSection extends ConsumerWidget {
-  const _FlavorSection({required this.speciesId, this.showTitle = false});
+  const _FlavorSection({
+    required this.speciesId,
+    required this.selectedForm,
+    this.showTitle = false,
+  });
 
   final int speciesId;
+
+  final FormSummary selectedForm;
 
   final bool showTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entriesAsync = ref.watch(flavorTextsProvider(speciesId));
+    final speciesAsync = ref.watch(flavorTextsProvider(speciesId));
+    // 地区形态 watch 专属 provider：family 按 formId 区分，切换形态
+    // 天然进入 loading，不会残留上一形态的旧文本。
+    final AsyncValue<List<FlavorEntry>>? formAsync = selectedForm.isRegional
+        ? ref.watch(formFlavorTextsProvider(selectedForm.formId))
+        : null;
+    final AsyncValue<List<FlavorEntry>> entriesAsync;
+    if (formAsync == null) {
+      entriesAsync = speciesAsync;
+    } else {
+      entriesAsync = switch (formAsync) {
+        AsyncData(:final value) when value.isNotEmpty => formAsync,
+        AsyncData() => speciesAsync, // 该形态无归属文本 → 回退 species 级
+        _ => formAsync, // loading / error 保持当前形态自身状态
+      };
+    }
     final selectedVersionId =
         ref.watch(flavorSelectionProvider(speciesId));
     final content = entriesAsync.when(
@@ -633,7 +665,13 @@ class _FlavorSection extends ConsumerWidget {
         ),
       ),
       error: (error, stackTrace) => _SectionLoadError(
-        onRetry: () => ref.invalidate(flavorTextsProvider(speciesId)),
+        onRetry: () {
+          // 归属态下错误可能来自任一 provider，一并失效重试（幂等）。
+          ref.invalidate(flavorTextsProvider(speciesId));
+          if (formAsync != null) {
+            ref.invalidate(formFlavorTextsProvider(selectedForm.formId));
+          }
+        },
       ),
       data: (entries) {
         final selection = resolveFlavorSelection(entries, selectedVersionId);

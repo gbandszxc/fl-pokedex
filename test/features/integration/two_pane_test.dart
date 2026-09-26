@@ -118,6 +118,10 @@ class _TwoPaneFakePokedexRepository extends FakePokedexRepository {
       ];
 
   @override
+  Future<List<FlavorEntry>> getFormFlavorTexts(int formId) async =>
+      const [];
+
+  @override
   Future<EvolutionTree?> getEvolutionTree(int speciesId) async => null;
 }
 

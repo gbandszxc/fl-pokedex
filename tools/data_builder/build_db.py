@@ -140,6 +140,10 @@ CREATE TABLE flavor_texts(
   PRIMARY KEY(species_id, version_id, language));
 CREATE INDEX idx_flavor_species ON flavor_texts(species_id);
 
+-- 地区形态专属说明（契约 §6）：版本地区 == 地区形态的 species 文本移入本表
+CREATE TABLE form_flavor_texts(form_id INTEGER NOT NULL, version_id INTEGER NOT NULL, language TEXT NOT NULL CHECK(language IN ('zh_hans','zh_hant','en','ja')), flavor_text TEXT NOT NULL, PRIMARY KEY(form_id, version_id, language));
+CREATE INDEX idx_form_flavor_form ON form_flavor_texts(form_id);
+
 CREATE TABLE pokedexes(
   id INTEGER PRIMARY KEY, identifier TEXT NOT NULL UNIQUE,
   name_zh_hans TEXT NOT NULL, generation_id INTEGER);
@@ -154,7 +158,7 @@ TABLE_ORDER = [
     "meta", "generations", "types", "abilities", "moves", "species", "forms",
     "form_types", "form_stats", "form_abilities", "pokemon_form_moves",
     "evolution_chains", "evolution_edges", "versions", "flavor_texts",
-    "pokedexes", "species_dex_numbers",
+    "form_flavor_texts", "pokedexes", "species_dex_numbers",
 ]
 
 # ---------------------------------------------------------------------------
@@ -249,6 +253,7 @@ class Builder:
         self.build_moves_learnsets()
         self.build_evolution()
         self.build_versions_flavors()
+        self.attribute_form_flavors()
         self.build_pokedexes()
 
         self.finalize_meta()
@@ -691,6 +696,46 @@ class Builder:
         self.missing["species_without_zh_hans_flavor"] = sorted(all_species - species_with_zh)
         if dup:
             self.notes["flavor_duplicate_rows_dropped"] = dup
+
+    # -- 地区形态文本归属（契约 §6）--
+    def attribute_form_flavors(self) -> None:
+        """把「版本地区 == 地区形态」的 species 文本移入 form_flavor_texts。
+
+        上游地区图鉴登记的是地区形态，对应版本的 flavor 实际描述的是地区
+        形态（如剑/盾的呆呆兽登记的是伽勒尔的样子）；其余文本维持 species
+        级（描述默认形态）。mega/gmax 等其他形态不建 form 文本。
+        """
+        # 仅收地区形态：is_regional=1 且 form_identifier 恰为地区名
+        regional_forms: dict[int, dict[str, int]] = defaultdict(dict)
+        for row in self.rows["forms"]:
+            if row[8] and row[2] in cfg.REGIONAL_SUFFIXES:
+                regional_forms[row[1]][row[2]] = row[0]
+
+        # vid → (version_group, generation_id)
+        vg_gen = {row[0]: (row[3], row[2]) for row in self.rows["versions"]}
+
+        def version_region(vid: int) -> str | None:
+            vg, gen_id = vg_gen[vid]
+            if vg == "lets-go-pikachu-lets-go-eevee":
+                return "kanto"   # Let's Go 重访关都
+            if vg == "legends-arceus":
+                return "hisui"   # 传说阿尔宙斯在洗翠（上游归第 8 世代）
+            return cfg.GENERATION_REGION.get(gen_id)
+
+        kept: list[tuple] = []
+        for row in self.rows["flavor_texts"]:
+            sid, vid, lang, text = row
+            forms_of_species = regional_forms.get(sid)
+            region = version_region(vid)
+            form_id = (
+                forms_of_species.get(region)
+                if forms_of_species and region else None
+            )
+            if form_id is not None:
+                self.rows["form_flavor_texts"].append((form_id, vid, lang, text))
+            else:
+                kept.append(row)
+        self.rows["flavor_texts"] = kept
 
     # -- pokedexes --
     def build_pokedexes(self) -> None:

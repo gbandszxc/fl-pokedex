@@ -365,6 +365,12 @@ class FakePokedexRepository implements PokedexRepository {
       flavorTextsBySpecies[speciesId] ?? const <FlavorEntry>[];
 
   @override
+  Future<List<FlavorEntry>> getFormFlavorTexts(int formId) async =>
+      // fixture 无地区形态专属文本：帕底亚的妙蛙种子(10195) 选中后
+      // 走「form 文本为空 → 回退 species 级」分支。
+      const <FlavorEntry>[];
+
+  @override
   Future<EvolutionTree?> getEvolutionTree(int speciesId) async =>
       null; // fixture：妙蛙种子简化为无进化链（进化分区显示空态）。
 

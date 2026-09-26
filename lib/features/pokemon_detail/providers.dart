@@ -81,6 +81,13 @@ final flavorTextsProvider = FutureProvider.autoDispose
   return ref.watch(pokedexRepositoryProvider).getFlavorTexts(speciesId);
 });
 
+/// 地区形态专属图鉴说明文本（formId family；空列表时 UI 回退
+/// [flavorTextsProvider] 的 species 级文本）。
+final formFlavorTextsProvider = FutureProvider.autoDispose
+    .family<List<FlavorEntry>, int>((ref, formId) {
+  return ref.watch(pokedexRepositoryProvider).getFormFlavorTexts(formId);
+});
+
 /// 图鉴说明当前选中的版本（speciesId → versionId）。
 ///
 /// null 表示跟随默认：最新一个含 zh_hans 的版本，否则最新版本；
