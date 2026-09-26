@@ -57,3 +57,6 @@ android/.kotlin/
 
 # MSI 打包工具缓存（WiX 独立二进制）
 tools/msi/.cache/
+
+# 根级 .cache：图标等本地工具产物
+.cache/
