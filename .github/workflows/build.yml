@@ -46,7 +46,8 @@ jobs:
       - name: 解析版本号
         id: version
         shell: bash
-        run: echo "version=$(sed -n 's/^version: *\([0-9A-Za-z.]*\).*/\1/p' pubspec.yaml)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(sed -n 's/^version: *\([0-9A-Za-z.]*\).*/\1/p' pubspec.yaml)" >> "$GITHUB_OUTPUT"
 
       - name: 构建离线数据（fetch → db → images → verify）
         run: uv run tools/data_builder/build_all.py
