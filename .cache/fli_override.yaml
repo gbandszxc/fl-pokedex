@@ -1,0 +1,14 @@
+# 一次性覆盖配置：与 pubspec.yaml 的 flutter_launcher_icons 段完全一致，
+# 仅追加 android: true（0.14.4 中该键缺省即为 false，导致 mipmap 不重建）。
+# 用法: dart run flutter_launcher_icons -f .cache/fli_override.yaml
+flutter_launcher_icons:
+  android: true
+  image_path: "assets/icon/app_icon_1024.png"
+  adaptive_icon_background: "#262115"
+  adaptive_icon_foreground: "assets/icon/app_icon_fg_1024.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon_1024.png"
+    icon_size: 256
+  macos:
+    generate: true
