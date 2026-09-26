@@ -92,14 +92,14 @@ def ensure_wix() -> Path:
     if candle.exists() and light.exists():
         return WIX_DIR
 
-    print(f"Downloading WiX Toolset v3 standalone binaries from {WIX_URL} ...")
+    print(f"Downloading WiX Toolset v3 standalone binaries from {WIX3_URL} ...")
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     zip_path = CACHE_DIR / "wix311-binaries.zip"
     if not zip_path.exists():
         try:
             from urllib.request import Request, urlopen
 
-            req = Request(WIX_URL, headers={"User-Agent": "fl-pokedex-build"})
+            req = Request(WIX3_URL, headers={"User-Agent": "fl-pokedex-build"})
             with urlopen(req) as resp, open(zip_path, "wb") as out:
                 total = int(resp.headers.get("Content-Length") or 0)
                 done = 0
@@ -115,7 +115,7 @@ def ensure_wix() -> Path:
             print()
         except Exception as exc:  # noqa: BLE001 - report any download failure
             zip_path.unlink(missing_ok=True)
-            sys.exit(f"error: failed to download WiX binaries from {WIX_URL}: {exc}")
+            sys.exit(f"error: failed to download WiX binaries from {WIX3_URL}: {exc}")
 
     try:
         with zipfile.ZipFile(zip_path) as archive:
