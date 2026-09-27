@@ -212,7 +212,7 @@ solid 徽章底色 + 自动前景（白 / 深由亮度决定，见 tokens.dart �
 ## 4. 字体与排版
 
 - 字族 MiSans（内嵌 `assets/fonts/` 三档：MiSans-Regular=400 / MiSans-Medium=500 / MiSans-Demibold=600）。**不用展示字体做 UI 标签。**
-- 槽位映射依据 MiSans 官方 CSS 惯例（Thin=100 / ExtraLight=200 / Light=300 / Normal=350 / Regular=400 / Medium=500 / **Demibold=600** / Bold=700 / Heavy=900），而非字体 OS/2 表数值——MiSans 全族 `OS/2.usWeightClass` 为非标准刻度（实测 Regular=330 / Medium=380 / Demibold=450 / Semibold=520 / Bold=630 / Heavy=700）。同目录 Semibold 为 Demibold 同槽位的不同世代 cut，不嵌入。
+- 槽位映射依据 MiSans 官方 CSS 惯例（Thin=100 / ExtraLight=200 / Light=300 / Normal=350 / Regular=400 / Medium=500 / **Demibold=600** / Bold=700 / Heavy=900），而非字体 OS/2 表数值——MiSans 全族 `OS/2.usWeightClass` 为非标准刻度（实测 Regular=330 / Medium=380 / Demibold=450 / Semibold=520 / Bold=630 / Heavy=700）。同目录 Semibold 为官方 CSS 650 档（内部 520），本项目未用到、不嵌入。
 - 固定字号阶梯（比率 ≈1.18，不随窗口缩放）：
   display 32/38 w600 · title 22/28 w600 · heading 17/24 w600 · body 15/22 w400 ·
   label 13/18 w500 · caption 12/16 w400 · number-tabular 用于编号与数值（`FontFeature.tabularFigures`）。
