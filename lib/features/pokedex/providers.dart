@@ -76,8 +76,17 @@ class FilterNotifier extends Notifier<FilterState> {
     state = state.copyWith(typeMatchMode: mode);
   }
 
-  void togglePokedex(int id) {
-    state = state.copyWith(pokedexIds: _toggled(state.pokedexIds, id));
+  /// 成组开关地区图鉴：与当前选中集有交集则整组移除，否则整组加入
+  /// （组内 pokedex id 两两不相交，按任一成员判断与按全部等价）。
+  void togglePokedexGroup(Iterable<int> ids) {
+    final group = ids.toSet();
+    final next = Set<int>.of(state.pokedexIds);
+    if (next.intersection(group).isNotEmpty) {
+      next.removeAll(group);
+    } else {
+      next.addAll(group);
+    }
+    state = state.copyWith(pokedexIds: next);
   }
 
   void toggleTag(SpecialTag tag) {
@@ -250,34 +259,58 @@ final listViewModeProvider =
   ListViewModeNotifier.new,
 );
 
-/// 筛选面板引用数据：属性 / 世代 / 图鉴（主图鉴白名单过滤后）。
+/// 筛选面板引用数据：属性 / 世代 / 地区图鉴分组（主图鉴白名单聚合）。
 class PokedexRefs {
   const PokedexRefs({
     required this.types,
     required this.generations,
-    required this.pokedexes,
+    required this.regionGroups,
   });
 
   final List<TypeRef> types;
   final List<GenerationRef> generations;
-  final List<PokedexRef> pokedexes;
+  final List<RegionDexGroup> regionGroups;
 }
 
-/// 主图鉴 identifier 白名单（含子图鉴的全量 32 个中只留这 12 个）。
-const Set<String> primaryPokedexIds = {
-  'kanto',
-  'johto',
-  'hoenn',
-  'sinnoh',
-  'unova',
-  'kalos-central',
-  'kalos-coastal',
-  'kalos-mountain',
-  'alola',
-  'galar',
-  'hisui',
-  'paldea',
-};
+/// 地区图鉴分组视图模型：一个地区一枚芯片，点选=组内全部 pokedex id
+/// 成组写入 [FilterState.pokedexIds]（SQL `EXISTS ... IN` 并集语义）。
+///
+/// 子图鉴（岛图鉴 / DLC / Z-A）粒度低于用户心智，按地区聚合：
+/// 组内成员是同一地区的主图鉴与修订图鉴行，标签取官方地区名。
+class RegionDexGroup {
+  const RegionDexGroup({required this.labelZh, required this.pokedexes});
+
+  /// 地区标签（组内成员的官方简中名；构建脚本按地区命名，同组同名）。
+  final String labelZh;
+
+  /// 组内成员（getPokedexes 原序，即 pokedexes.id 升序）。
+  final List<PokedexRef> pokedexes;
+
+  /// 组内全部 pokedex id（成组写入的载荷；与 DB 主键一一对应）。
+  Set<int> get ids => pokedexes.map((e) => e.id).toSet();
+
+  /// 当前筛选是否选中本组（组内任一成员命中即视为选中）。
+  bool isSelected(FilterState filter) => ids.any(filter.pokedexIds.contains);
+}
+
+/// 地区主图鉴 identifier 分组（白名单，按世代序排列）。每组=一个地区，
+/// 组内为该地区的主图鉴与修订图鉴；显式排除岛图鉴（melemele 等 8 条）、
+/// DLC（isle-of-armor / crown-tundra / kitakami / blueberry）与 Z-A
+/// （lumiose-city / hyperspace）子图鉴。identifier 必须与随包 DB
+/// pokedexes 表逐字一致——防漂移回归锚：
+/// test/data/pokedex_repository_test.dart 对真实 DB 断言本表。
+const List<List<String>> primaryPokedexIdGroups = [
+  ['kanto', 'letsgo-kanto'],
+  ['original-johto', 'updated-johto'],
+  ['hoenn', 'updated-hoenn'],
+  ['original-sinnoh', 'extended-sinnoh'],
+  ['original-unova', 'updated-unova'],
+  ['kalos-central', 'kalos-coastal', 'kalos-mountain'],
+  ['original-alola', 'updated-alola'],
+  ['galar'],
+  ['hisui'],
+  ['paldea'],
+];
 
 /// 一次性取引用数据并缓存，供筛选面板（行 chips + BottomSheet）使用。
 final pokedexRefsProvider = FutureProvider<PokedexRefs>((ref) async {
@@ -285,13 +318,25 @@ final pokedexRefsProvider = FutureProvider<PokedexRefs>((ref) async {
   final types = await repo.getTypes();
   final generations = await repo.getGenerations();
   final allPokedexes = await repo.getPokedexes();
-  final pokedexes =
-      allPokedexes.where((p) => primaryPokedexIds.contains(p.identifier))
-          .toList();
+  final byIdentifier = {for (final p in allPokedexes) p.identifier: p};
+  final regionGroups = <RegionDexGroup>[];
+  for (final group in primaryPokedexIdGroups) {
+    final members = [
+      for (final identifier in group)
+        if (byIdentifier[identifier] != null) byIdentifier[identifier]!,
+    ];
+    // 组内任一成员存在即成组；整组缺失（上游漂移）则丢弃该地区。
+    if (members.isNotEmpty) {
+      regionGroups.add(RegionDexGroup(
+        labelZh: members.first.nameZh,
+        pokedexes: members,
+      ));
+    }
+  }
   return PokedexRefs(
     types: types,
     generations: generations,
-    pokedexes: pokedexes,
+    regionGroups: regionGroups,
   );
 });
 

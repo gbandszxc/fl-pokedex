@@ -160,22 +160,78 @@ class FakePokedexRepository implements PokedexRepository {
       ];
 
   @override
-  Future<List<PokedexRef>> getPokedexes() async => [
-        const PokedexRef(id: 1, identifier: 'kanto', nameZh: '关都', generationId: 1),
-        const PokedexRef(
-          id: 2,
-          identifier: 'kanto-updated',
-          nameZh: '关都·修订',
-          generationId: 1,
+  Future<List<PokedexRef>> getPokedexes() async => const [
+        // 模拟真实 DB 形态（assets/database/pokedex.db）：同名多条、
+        // 白名单外的子图鉴（岛图鉴）、与裸名兜底行（旧版白名单缺陷）。
+        PokedexRef(id: 2, identifier: 'kanto', nameZh: '关都图鉴', generationId: 1),
+        PokedexRef(
+          id: 3,
+          identifier: 'original-johto',
+          nameZh: '城都图鉴',
+          generationId: 2,
         ),
-        const PokedexRef(id: 3, identifier: 'johto', nameZh: '城都', generationId: 2),
-        const PokedexRef(id: 4, identifier: 'hoenn', nameZh: '丰缘', generationId: 3),
-        const PokedexRef(
+        PokedexRef(
+          id: 7,
+          identifier: 'updated-johto',
+          nameZh: '城都图鉴',
+          generationId: 2,
+        ),
+        PokedexRef(id: 4, identifier: 'hoenn', nameZh: '丰缘图鉴', generationId: 3),
+        PokedexRef(
           id: 5,
-          identifier: 'extended-sinnoh',
-          nameZh: '神奥·扩展',
+          identifier: 'original-sinnoh',
+          nameZh: '神奥图鉴',
           generationId: 4,
         ),
+        PokedexRef(
+          id: 6,
+          identifier: 'extended-sinnoh',
+          nameZh: '神奥图鉴',
+          generationId: 4,
+        ),
+        PokedexRef(
+          id: 8,
+          identifier: 'original-unova',
+          nameZh: '合众图鉴',
+          generationId: 5,
+        ),
+        PokedexRef(
+          id: 12,
+          identifier: 'kalos-central',
+          nameZh: '卡洛斯图鉴',
+          generationId: 6,
+        ),
+        PokedexRef(
+          id: 13,
+          identifier: 'kalos-coastal',
+          nameZh: '卡洛斯图鉴',
+          generationId: 6,
+        ),
+        PokedexRef(
+          id: 14,
+          identifier: 'kalos-mountain',
+          nameZh: '卡洛斯图鉴',
+          generationId: 6,
+        ),
+        PokedexRef(
+          id: 16,
+          identifier: 'original-alola',
+          nameZh: '阿罗拉图鉴',
+          generationId: 7,
+        ),
+        // 岛图鉴子图鉴：不在地区分组白名单内。
+        PokedexRef(
+          id: 17,
+          identifier: 'original-melemele',
+          nameZh: '阿罗拉图鉴',
+          generationId: 7,
+        ),
+        PokedexRef(id: 27, identifier: 'galar', nameZh: '伽勒尔图鉴', generationId: 8),
+        PokedexRef(id: 30, identifier: 'hisui', nameZh: '洗翠图鉴', generationId: 8),
+        PokedexRef(id: 31, identifier: 'paldea', nameZh: '帕底亚图鉴', generationId: 9),
+        // 裸名行：旧版白名单曾匹配的形态，DB 中并不存在，
+        // 留在 fixture 里验证白名单不再被它命中。
+        PokedexRef(id: 99, identifier: 'johto', nameZh: '城都（裸名）', generationId: 2),
       ];
 
   @override

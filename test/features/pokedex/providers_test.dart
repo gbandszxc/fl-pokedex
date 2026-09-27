@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fl_pokedex/domain/models/filters.dart';
+import 'package:fl_pokedex/domain/models/refs.dart';
 import 'package:fl_pokedex/features/pokedex/providers.dart';
 
 import 'fakes.dart';
@@ -198,17 +199,138 @@ void main() {
   });
 
   group('pokedexRefsProvider', () {
-    test('主图鉴白名单过滤：只保留 kanto / johto / hoenn', () async {
+    test('按地区分组聚合：10 地区各 1 组、标签唯一、成员按 id 升序', () async {
       final container = makeContainer();
 
       final refs = await container.read(pokedexRefsProvider.future);
 
+      final labels = refs.regionGroups.map((g) => g.labelZh).toList();
       expect(
-        refs.pokedexes.map((e) => e.identifier),
-        ['kanto', 'johto', 'hoenn'],
+        labels,
+        // 与真实 DB 组序一致（世代序）；fixture 覆盖全部 10 组，
+        // 裸名 'johto' 行不得产生任何组。
+        [
+          '关都图鉴',
+          '城都图鉴',
+          '丰缘图鉴',
+          '神奥图鉴',
+          '合众图鉴',
+          '卡洛斯图鉴',
+          '阿罗拉图鉴',
+          '伽勒尔图鉴',
+          '洗翠图鉴',
+          '帕底亚图鉴',
+        ],
       );
+      expect(labels.toSet(), hasLength(labels.length), reason: '标签唯一无重复');
+      // 卡洛斯三条同名子图鉴恰聚合为 1 组（缺陷①防回归），
+      // 成员按 getPokedexes 原序（id 升序）。
+      final kalos = refs.regionGroups.singleWhere(
+        (g) => g.labelZh == '卡洛斯图鉴',
+      );
+      expect(kalos.pokedexes.map((p) => p.identifier).toList(), [
+        'kalos-central',
+        'kalos-coastal',
+        'kalos-mountain',
+      ]);
+      expect(kalos.ids, {12, 13, 14});
       expect(refs.types, hasLength(5));
       expect(refs.generations, hasLength(9));
+    });
+
+    test('城都/神奥/合众/阿罗拉组均出现（缺陷②防回归：裸名不再是匹配途径）',
+        () async {
+      final container = makeContainer();
+
+      final refs = await container.read(pokedexRefsProvider.future);
+
+      for (final label in ['城都图鉴', '神奥图鉴', '合众图鉴', '阿罗拉图鉴']) {
+        expect(
+          refs.regionGroups.map((g) => g.labelZh),
+          contains(label),
+          reason: '$label 应按 DB 真实 identifier 成组出现',
+        );
+      }
+      // 城都组由 original-johto + updated-johto 两条同名行组成，
+      // 而非裸名 'johto' 行（id=99）。
+      final johto = refs.regionGroups.singleWhere(
+        (g) => g.labelZh == '城都图鉴',
+      );
+      expect(johto.ids, {3, 7});
+    });
+
+    test('子图鉴（melemele）不入任何组', () async {
+      final container = makeContainer();
+
+      final refs = await container.read(pokedexRefsProvider.future);
+
+      final allIds = refs.regionGroups.expand((g) => g.ids).toSet();
+      expect(allIds, isNot(contains(17))); // original-melemele
+    });
+
+    test('组内部分 identifier 缺失仍成组；整组缺失不渲染', () async {
+      // 仅 kanto 行（缺 letsgo-kanto）+ 仅 kalos-central（缺海岸/山岳），
+      // 且不提供伽勒尔任何行。
+      final container = ProviderContainer(
+        overrides: fakeRepositoryOverrides(
+          pokedex: _PartialPokedexesFake(),
+          favorites: favorites,
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final refs = await container.read(pokedexRefsProvider.future);
+
+      final labels = refs.regionGroups.map((g) => g.labelZh).toList();
+      expect(labels, contains('关都图鉴'), reason: '组内部分缺失仍成组');
+      expect(labels, contains('卡洛斯图鉴'), reason: '组内部分缺失仍成组');
+      expect(labels, isNot(contains('伽勒尔图鉴')), reason: '整组缺失不渲染');
+      final kalos = refs.regionGroups.singleWhere(
+        (g) => g.labelZh == '卡洛斯图鉴',
+      );
+      expect(kalos.ids, {12});
+    });
+  });
+
+  group('primaryPokedexIdGroups 常量', () {
+    test('各组 pokedex id 载荷两两不相交（成组开关互不误伤）', () {
+      final seen = <String>{};
+      for (final group in primaryPokedexIdGroups) {
+        for (final identifier in group) {
+          expect(
+            seen.add(identifier),
+            isTrue,
+            reason: '$identifier 重复出现在多个分组',
+          );
+        }
+      }
+      expect(primaryPokedexIdGroups, hasLength(10));
+    });
+  });
+
+  group('togglePokedexGroup', () {
+    test('首次点选写入组内全部 id，再点全移除', () {
+      final container = makeContainer();
+      final notifier = container.read(filterProvider.notifier);
+
+      notifier.togglePokedexGroup({12, 13, 14});
+      expect(container.read(filterProvider).pokedexIds, {12, 13, 14});
+
+      notifier.togglePokedexGroup({12, 13, 14});
+      expect(container.read(filterProvider).pokedexIds, isEmpty);
+    });
+
+    test('两组可并存（多选并集），部分交集按整组移除', () {
+      final container = makeContainer();
+      final notifier = container.read(filterProvider.notifier);
+
+      notifier.togglePokedexGroup({2, 26}); // 关都
+      notifier.togglePokedexGroup({12, 13, 14}); // 卡洛斯
+      expect(container.read(filterProvider).pokedexIds, {2, 26, 12, 13, 14});
+
+      // 已含 12/13/14 的超集仍判为选中 → 整组移除卡洛斯，保留关都。
+      notifier.togglePokedexGroup({12, 13, 14});
+      expect(container.read(filterProvider).pokedexIds, {2, 26});
     });
   });
 
@@ -232,4 +354,19 @@ void main() {
       expect(events.last, [25]);
     });
   });
+}
+
+/// getPokedexes 只返回部分 identifier：验证上游漂移下的成组容错
+/// （组内部分缺失仍成组、整组缺失不渲染）。
+class _PartialPokedexesFake extends FakePokedexRepository {
+  @override
+  Future<List<PokedexRef>> getPokedexes() async => const [
+        PokedexRef(id: 2, identifier: 'kanto', nameZh: '关都图鉴', generationId: 1),
+        PokedexRef(
+          id: 12,
+          identifier: 'kalos-central',
+          nameZh: '卡洛斯图鉴',
+          generationId: 6,
+        ),
+      ];
 }

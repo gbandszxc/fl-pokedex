@@ -314,6 +314,14 @@ class _FilterBar extends ConsumerWidget implements PreferredSizeWidget {
     final filter = ref.watch(filterProvider);
     final viewMode = ref.watch(listViewModeProvider);
     final hasActive = !filter.isEmpty;
+    // 「地区」入口计数=选中的地区组数；引用未就绪时退化为「有无选中」，
+    // 避免把卡洛斯 3 条子图鉴 id 误计成 3。
+    final regionRefs = ref.watch(pokedexRefsProvider).valueOrNull;
+    final regionActiveCount = regionRefs == null
+        ? (filter.pokedexIds.isEmpty ? 0 : 1)
+        : regionRefs.regionGroups
+            .where((group) => group.isSelected(filter))
+            .length;
 
     return SizedBox(
       height: height,
@@ -339,7 +347,7 @@ class _FilterBar extends ConsumerWidget implements PreferredSizeWidget {
                   const SizedBox(width: AppSpacing.s),
                   _FilterGroupChip(
                     label: '地区',
-                    activeCount: filter.pokedexIds.length,
+                    activeCount: regionActiveCount,
                     onTap: () => _openFilterSheet(context),
                   ),
                   const SizedBox(width: AppSpacing.s),
@@ -812,11 +820,11 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
       ),
       _sectionTitle('地区'),
       _chipWrap([
-        for (final pokedex in refs.pokedexes)
+        for (final group in refs.regionGroups)
           VersionChip(
-            label: pokedex.nameZh,
-            selected: filter.pokedexIds.contains(pokedex.id),
-            onTap: () => notifier.togglePokedex(pokedex.id),
+            label: group.labelZh,
+            selected: group.isSelected(filter),
+            onTap: () => notifier.togglePokedexGroup(group.ids),
           ),
       ]),
       _sectionTitle('特殊'),

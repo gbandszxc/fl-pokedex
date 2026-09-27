@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Variable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fl_pokedex/data/database/pokedex_database.dart';
 import 'package:fl_pokedex/data/repository/pokedex_repository_impl.dart';
 import 'package:fl_pokedex/domain/models/filters.dart';
 import 'package:fl_pokedex/domain/models/manifest.dart';
 import 'package:fl_pokedex/domain/repositories/pokedex_repository.dart';
+import 'package:fl_pokedex/features/pokedex/providers.dart'
+    show primaryPokedexIdGroups;
 
 import '../helpers/sqlite_loader.dart';
 
@@ -495,6 +498,87 @@ void main() {
       final pokedexes = await repo.getPokedexes();
       expect(pokedexes.any((d) => d.identifier == 'kanto'), isTrue);
       expect(pokedexes.first.nameZh, isNotEmpty);
+    });
+  });
+
+  group('地区白名单分组对齐随包 DB（providers.primaryPokedexIdGroups 防漂移）', () {
+    test('18 个 identifier 全部存在于 pokedexes 表且总数恰 18', () async {
+      var hits = 0;
+      for (final group in primaryPokedexIdGroups) {
+        for (final identifier in group) {
+          final rows = await db
+              .customSelect(
+                'SELECT id FROM pokedexes WHERE identifier = ?',
+                variables: [Variable.withString(identifier)],
+              )
+              .get();
+          expect(
+            rows,
+            isNotEmpty,
+            reason: '白名单 identifier "$identifier" 不在随包 DB pokedexes 表',
+          );
+          hits += rows.length;
+        }
+      }
+      // 恰 18 行：任一侧漂移（DB 改名 / 白名单手改）都会在此变红。
+      expect(hits, 18);
+    });
+
+    test('10 组映射到 DB 后 pokedex id 两两不相交', () async {
+      Future<Set<int>> idsOf(List<String> identifiers) async {
+        final placeholders = List.filled(identifiers.length, '?').join(', ');
+        final rows = await db
+            .customSelect(
+              'SELECT id FROM pokedexes WHERE identifier IN ($placeholders)',
+              variables: identifiers.map(Variable.withString).toList(),
+            )
+            .get();
+        return rows.map((row) => row.data['id'] as int).toSet();
+      }
+
+      final seen = <int>{};
+      for (final group in primaryPokedexIdGroups) {
+        final ids = await idsOf(group);
+        expect(ids, isNotEmpty, reason: '分组 $group 在 DB 中无任何行');
+        expect(
+          ids.intersection(seen),
+          isEmpty,
+          reason: '分组 $group 与先前分组的 pokedex id 相交：${ids.intersection(seen)}',
+        );
+        seen.addAll(ids);
+      }
+      expect(seen, hasLength(18));
+    });
+
+    test('地区芯片=组内并集：卡洛斯 457 只、关都 153 只（含美录坦家族）',
+        () async {
+      Future<int> unionCount(List<String> identifiers) async {
+        final placeholders = List.filled(identifiers.length, '?').join(', ');
+        final row = await db
+            .customSelect(
+              'SELECT COUNT(DISTINCT d.species_id) AS n '
+              'FROM species_dex_numbers d '
+              'JOIN pokedexes p ON p.id = d.pokedex_id '
+              'WHERE p.identifier IN ($placeholders)',
+              variables: identifiers.map(Variable.withString).toList(),
+            )
+            .getSingle();
+        return row.data['n'] as int;
+      }
+
+      expect(await unionCount(primaryPokedexIdGroups[5]), 457); // 卡洛斯
+      expect(await unionCount(primaryPokedexIdGroups[0]), 153); // 关都
+      // letsgo-kanto 并入关都的意义：美录坦(808)/美录梅塔(809) 仅
+      // 登记于 Let's Go 图鉴。
+      final meltan = await db
+          .customSelect(
+            "SELECT COUNT(DISTINCT d.species_id) AS n "
+            "FROM species_dex_numbers d "
+            "JOIN pokedexes p ON p.id = d.pokedex_id "
+            "WHERE p.identifier = 'letsgo-kanto' AND d.species_id IN (808, 809)",
+          )
+          .getSingle();
+      expect(meltan.data['n'] as int, 2);
     });
   });
 
