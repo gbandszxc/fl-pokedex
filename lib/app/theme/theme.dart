@@ -54,14 +54,31 @@ abstract final class AppBrand {
 }
 
 /// Material 3 浅色主题（DESIGN.md §1 Light 表 → ColorScheme）。
-ThemeData buildLightTheme() =>
-    _buildTheme(Brightness.light, AppColors.light, AmberSemanticColors.light);
+///
+/// [seed] 选择品牌种子色（默认琥珀）；中性色与 favorite/error 不随 seed 变。
+ThemeData buildLightTheme({AppSeedColor seed = AppSeedColor.amber}) => _buildTheme(
+      Brightness.light,
+      AppColors.of(seed, Brightness.light),
+      AppColors.of(seed, Brightness.dark).primary,
+      AmberSemanticColors.light,
+    );
 
 /// Material 3 深色主题（DESIGN.md §1 Dark 表 → ColorScheme）。
-ThemeData buildDarkTheme() =>
-    _buildTheme(Brightness.dark, AppColors.dark, AmberSemanticColors.dark);
+///
+/// [seed] 选择品牌种子色（默认琥珀）；中性色与 favorite/error 不随 seed 变。
+ThemeData buildDarkTheme({AppSeedColor seed = AppSeedColor.amber}) => _buildTheme(
+      Brightness.dark,
+      AppColors.of(seed, Brightness.dark),
+      AppColors.of(seed, Brightness.light).primary,
+      AmberSemanticColors.dark,
+    );
 
-ThemeData _buildTheme(Brightness brightness, AppColors c, AmberSemanticColors semantic) {
+ThemeData _buildTheme(
+  Brightness brightness,
+  AppColors c,
+  Color inversePrimary,
+  AmberSemanticColors semantic,
+) {
   final scheme = ColorScheme(
     brightness: brightness,
     primary: c.primary,
@@ -88,9 +105,8 @@ ThemeData _buildTheme(Brightness brightness, AppColors c, AmberSemanticColors se
     outlineVariant: c.outlineVariant,
     inverseSurface: c.onSurface,
     onInverseSurface: c.bg,
-    inversePrimary: brightness == Brightness.light
-        ? AppColors.dark.primary
-        : AppColors.light.primary,
+    // 同 seed 对侧亮度的 primary（DESIGN.md §1.1：品牌族随 seed 成对切换）。
+    inversePrimary: inversePrimary,
     surfaceTint: Colors.transparent,
     surfaceDim: brightness == Brightness.light ? c.surfaceContainer : c.bg,
     surfaceBright: c.bg,
