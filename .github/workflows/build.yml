@@ -160,6 +160,8 @@ jobs:
       - name: 发布 Release
         env:
           GH_TOKEN: ${{ github.token }}
+          # 本 job 不 checkout 仓库，gh 无法经 git 推断远端，需显式指定仓库
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.build-android.outputs.version }}
         run: |
           gh release create "v${VERSION}" \
