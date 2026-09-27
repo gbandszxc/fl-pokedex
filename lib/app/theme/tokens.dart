@@ -52,6 +52,11 @@ abstract final class AppMotion {
 Color typeFgOn(Color background) =>
     background.computeLuminance() > 0.45 ? AppColors.darkInk : Colors.white;
 
+/// 全局字族（DESIGN.md §4：内嵌 MiSans，槽位 400=Regular / 500=Medium / 600=Demibold）。
+abstract final class AppFonts {
+  static const String family = 'MiSans';
+}
+
 /// 固定字号阶梯的排版工具（DESIGN.md §4）。
 abstract final class AppTypography {
   /// 数字与编号使用等宽数字（`FontFeature.tabularFigures`）。

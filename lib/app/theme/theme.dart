@@ -115,6 +115,8 @@ ThemeData _buildTheme(
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+    // 内嵌字族兜底 Material 内建样式（菜单/提示等未显式设字体的槽位，DESIGN.md §4）。
+    fontFamily: AppFonts.family,
     scaffoldBackgroundColor: c.bg,
     extensions: [semantic],
     textTheme: _buildTextTheme(c),
@@ -296,6 +298,7 @@ TextStyle _t(double size, double lineHeight, FontWeight w, Color color) => TextS
       fontSize: size,
       height: lineHeight / size,
       fontWeight: w,
+      fontFamily: AppFonts.family,
       color: color,
     );
 
@@ -309,8 +312,10 @@ class _ChipLabelStyle extends WidgetStateTextStyle {
   @override
   TextStyle resolve(Set<WidgetState> states) {
     if (states.contains(WidgetState.selected)) {
-      return TextStyle(color: selected, fontWeight: FontWeight.w500);
+      return TextStyle(
+          color: selected, fontWeight: FontWeight.w500, fontFamily: AppFonts.family);
     }
-    return TextStyle(color: unselected, fontWeight: FontWeight.w500);
+    return TextStyle(
+        color: unselected, fontWeight: FontWeight.w500, fontFamily: AppFonts.family);
   }
 }

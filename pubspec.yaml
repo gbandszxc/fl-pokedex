@@ -57,3 +57,16 @@ flutter:
     - assets/database/
     - assets/pokemon/full/
     - assets/pokemon/thumb/
+
+  # 内嵌 MiSans（DESIGN.md §4）：项目仅用 w400/500/600。MiSans 全族 OS/2 权重为
+  # 非标准刻度，槽位映射依据官方 CSS 惯例（400=Regular / 500=Medium / 600=Demibold）；
+  # 同槽位旧版 cut Semibold 不嵌入。
+  fonts:
+    - family: MiSans
+      fonts:
+        - asset: assets/fonts/MiSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/MiSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/MiSans-Demibold.ttf
+          weight: 600

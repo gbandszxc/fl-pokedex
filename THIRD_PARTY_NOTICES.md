@@ -30,7 +30,9 @@
 ## 素材
 
 - 应用图标 / Logo：本项目原创（tools/data_builder 生成）。
-- 无第三方字体打包（使用系统字体回退链）。
+- **小米 MiSans**（https://hyperos.mi.com/font/）— 内嵌中文界面字体。MiSans 字体知识产权许可允许免费商用（含内嵌于应用）。
+  - 嵌入文件：`assets/fonts/MiSans-Regular.ttf`（槽位 400）、`assets/fonts/MiSans-Medium.ttf`（槽位 500）、`assets/fonts/MiSans-Demibold.ttf`（槽位 600，映射依据官方 CSS 惯例）。
+  - 来源目录：`C:\D\Downloads\Compressed\MiSans\MiSans\ttf\`。
 
 ## 商标声明
 
