@@ -18,7 +18,7 @@ if (hasReleaseSigning) {
 }
 
 android {
-    namespace = "com.amberdex.fl_pokedex"
+    namespace = "com.github.gbandszxc.fl_pokedex"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -58,7 +58,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.amberdex.fl_pokedex"
+        applicationId = "com.github.gbandszxc.fl_pokedex"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
