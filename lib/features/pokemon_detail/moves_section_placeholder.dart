@@ -37,38 +37,27 @@ const double _kColAcc = 52;
 const double _kColPp = 40;
 const double _kColLevel = 68;
 
-/// 从路由解析当前 speciesId（/pokemon/:speciesId）；
-/// 不在 go_router 路由下（如纯 home: 挂载）时返回 null。
-int? _speciesIdFromRoute(BuildContext context) {
-  try {
-    final raw = GoRouterState.of(context).pathParameters['speciesId'];
-    return raw == null ? null : int.tryParse(raw);
-  } on GoError {
-    return null;
-  }
-}
-
 /// 招式分区（design-ui.md §6）：版本组切换 + 来源筛选 + 排序 + 列表；
 /// expanded 为完整表格行，compact 为两行 tile；点击行进入招式详情。
 class MovesSectionPlaceholder extends ConsumerWidget {
-  const MovesSectionPlaceholder({super.key});
+  const MovesSectionPlaceholder({
+    super.key,
+    required this.speciesId,
+  });
+
+  /// 当前宝可梦 speciesId：由页面显式传入（与 _FlavorSection 一致）。
+  /// 双栏（宽 ≥1080）下本页内嵌在图鉴分支 `/` 上，路由没有
+  /// :speciesId 路径参数，不能从 GoRouterState 反推。
+  final int speciesId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final speciesId = _speciesIdFromRoute(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionTitle(title: '招式'),
         const SizedBox(height: AppSpacing.m),
-        if (speciesId == null)
-          const EmptyState(
-            title: '暂无招式',
-            message: '无法识别当前宝可梦，请从图鉴重新进入。',
-            icon: Icons.format_list_bulleted_outlined,
-          )
-        else
-          _MovesSectionBody(speciesId: speciesId),
+        _MovesSectionBody(speciesId: speciesId),
       ],
     );
   }

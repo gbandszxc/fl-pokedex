@@ -30,34 +30,27 @@ const double _kCardHeight = 102;
 /// compact 缩进导引列宽。
 const double _kGuideWidth = 28;
 
-/// 从路由解析当前 speciesId（/pokemon/:speciesId）；
-/// 不在 go_router 路由下（如纯 home: 挂载）时返回 null。
-int? _speciesIdFromRoute(BuildContext context) {
-  try {
-    final raw = GoRouterState.of(context).pathParameters['speciesId'];
-    return raw == null ? null : int.tryParse(raw);
-  } on GoError {
-    return null;
-  }
-}
-
 /// 进化分区（design-ui.md §5）：compact(<840) 纵向树 / expanded(≥840)
 /// InteractiveViewer 横向树；无进化链显示空态；点击节点跳转对应详情。
 class EvolutionSectionPlaceholder extends ConsumerWidget {
-  const EvolutionSectionPlaceholder({super.key});
+  const EvolutionSectionPlaceholder({
+    super.key,
+    required this.speciesId,
+  });
+
+  /// 当前宝可梦 speciesId：由页面显式传入（与 _FlavorSection 一致）。
+  /// 双栏（宽 ≥1080）下本页内嵌在图鉴分支 `/` 上，路由没有
+  /// :speciesId 路径参数，不能从 GoRouterState 反推。
+  final int speciesId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final speciesId = _speciesIdFromRoute(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionTitle(title: '进化'),
         const SizedBox(height: AppSpacing.m),
-        if (speciesId == null)
-          const _NoEvolutionHint()
-        else
-          _EvolutionBody(speciesId: speciesId),
+        _EvolutionBody(speciesId: speciesId),
       ],
     );
   }

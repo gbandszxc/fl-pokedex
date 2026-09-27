@@ -458,8 +458,16 @@ class _DetailScaffold extends ConsumerWidget {
                   ),
                 ),
                 _tabPage(pad, _StatsSection(selectedForm: selectedForm)),
-                _tabPage(pad, const EvolutionSectionPlaceholder()),
-                _tabPage(pad, const MovesSectionPlaceholder()),
+                _tabPage(
+                  pad,
+                  EvolutionSectionPlaceholder(
+                    speciesId: detail.speciesId,
+                  ),
+                ),
+                _tabPage(
+                  pad,
+                  MovesSectionPlaceholder(speciesId: detail.speciesId),
+                ),
                 _tabPage(
                   pad,
                   _InfoSection(detail: detail, selectedForm: selectedForm),
@@ -502,9 +510,11 @@ class _DetailScaffold extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.xxl),
                   _StatsSection(selectedForm: selectedForm),
                   const SizedBox(height: AppSpacing.xxl),
-                  const EvolutionSectionPlaceholder(),
+                  EvolutionSectionPlaceholder(
+                    speciesId: detail.speciesId,
+                  ),
                   const SizedBox(height: AppSpacing.xxl),
-                  const MovesSectionPlaceholder(),
+                  MovesSectionPlaceholder(speciesId: detail.speciesId),
                   const SizedBox(height: AppSpacing.xxl),
                   _InfoSection(
                     detail: detail,

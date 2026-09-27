@@ -11,7 +11,9 @@ import 'package:fl_pokedex/domain/models/evolution.dart';
 import 'package:fl_pokedex/domain/models/flavor_entry.dart';
 import 'package:fl_pokedex/domain/models/form_summary.dart';
 import 'package:fl_pokedex/domain/models/filters.dart';
+import 'package:fl_pokedex/domain/models/move_entry.dart';
 import 'package:fl_pokedex/domain/models/pokemon_summary.dart';
+import 'package:fl_pokedex/domain/models/refs.dart';
 import 'package:fl_pokedex/domain/models/species_info.dart';
 import 'package:fl_pokedex/domain/models/stat_block.dart';
 import 'package:fl_pokedex/features/pokedex/providers.dart';
@@ -143,8 +145,83 @@ class _TwoPaneFakePokedexRepository extends FakePokedexRepository {
   Future<List<FlavorEntry>> getFormFlavorTexts(int formId) async =>
       const [];
 
+  /// 妙蛙种子三段链（species 1 → 2 → 3）：供双栏回归测试验证进化分区
+  /// 渲染节点（节点名 / 编号自足，不查列表仓储）。
   @override
-  Future<EvolutionTree?> getEvolutionTree(int speciesId) async => null;
+  Future<EvolutionTree?> getEvolutionTree(int speciesId) async {
+    if (speciesId != 1 && speciesId != 2 && speciesId != 3) {
+      return null;
+    }
+    EvolutionEdge edge(int from, int to, int minLevel) => EvolutionEdge(
+          chainId: 1,
+          fromSpeciesId: from,
+          toSpeciesId: to,
+          trigger: 'level-up',
+          minLevel: minLevel,
+          needsRain: false,
+          turnUpsideDown: false,
+        );
+    EvolutionNode node(int id, String name, List<EvolutionEdge> children) =>
+        EvolutionNode(
+          speciesId: id,
+          nationalDex: id,
+          nameZh: name,
+          thumbAsset: null,
+          children: children,
+        );
+    final root = node(1, '妙蛙种子', [edge(1, 2, 16)]);
+    return EvolutionTree(
+      root: root,
+      nodesBySpeciesId: {
+        1: root,
+        2: node(2, '妙蛙草', [edge(2, 3, 32)]),
+        3: node(3, '妙蛙花', const <EvolutionEdge>[]),
+      },
+    );
+  }
+
+  @override
+  Future<List<VersionGroupRef>> getFormVersionGroups(int formId) async => const [
+        VersionGroupRef(id: 'scarlet-violet', labelZh: '朱/紫', generationId: 9),
+      ];
+
+  @override
+  Future<List<MoveEntry>> getLearnset(
+    int formId,
+    String versionGroup, {
+    Set<String>? methods,
+  }) async {
+    final moves = <MoveEntry>[
+      const MoveEntry(
+        moveId: 1,
+        nameZh: '撞击',
+        nameEn: 'Tackle',
+        typeId: 'normal',
+        damageClass: 'physical',
+        power: 40,
+        pp: 35,
+        accuracy: 100,
+        level: 1,
+        method: 'level_up',
+        versionGroup: 'scarlet-violet',
+      ),
+      const MoveEntry(
+        moveId: 2,
+        nameZh: '飞叶快刀',
+        nameEn: 'Razor Leaf',
+        typeId: 'grass',
+        damageClass: 'physical',
+        power: 55,
+        pp: 25,
+        accuracy: 95,
+        level: 7,
+        method: 'level_up',
+        versionGroup: 'scarlet-violet',
+      ),
+    ];
+    if (methods == null || methods.isEmpty) return moves;
+    return moves.where((m) => methods.contains(m.method)).toList();
+  }
 }
 
 typedef _Harness = (
@@ -252,6 +329,32 @@ void main() {
     expect(find.byType(BackButton), findsNothing); // 面板嵌入无返回按钮
   });
 
+  testWidgets('双栏回归：进化与招式分区正常渲染（当前路由 / 无 :speciesId 参数）',
+      (tester) async {
+    final (container, _) = await _pumpApp(tester, size: const Size(1200, 900));
+
+    // 选中 #001：详情面板内联渲染。此时路由是图鉴分支 /，分区 speciesId
+    // 必须来自页面显式传参（回归防护：曾从 GoRouterState 读取而拿到 null，
+    // 误显示「没有进化关系」「无法识别当前宝可梦」空态）。
+    await tester.tap(find.text('妙蛙种子').first);
+    await _pumpDetailReady(tester);
+    // 进化 / 招式分区数据链多层异步（树 / 详情 → 版本组 → 学习集），泵足帧。
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 60));
+    }
+
+    expect(_location(container), '/');
+    // 进化分区渲染出三段链的后继节点，不误显示「没有进化关系」空态。
+    expect(find.text('该宝可梦没有进化关系'), findsNothing);
+    expect(find.text('妙蛙草'), findsOneWidget);
+    expect(find.text('妙蛙花'), findsOneWidget);
+    // 招式分区渲染出行与计数，不误显示「无法识别当前宝可梦」空态。
+    expect(find.text('无法识别当前宝可梦，请从图鉴重新进入。'), findsNothing);
+    expect(find.text('共 2 个招式'), findsOneWidget);
+    expect(find.text('撞击'), findsWidgets);
+    expect(find.text('飞叶快刀'), findsWidgets);
+  });
+
   testWidgets('双栏：详情面板滑动切换写选中态，面板与列表选中跟随且不导航',
       (tester) async {
     final (container, favorites) =
@@ -264,11 +367,12 @@ void main() {
     expect(container.read(paneSelectionProvider), 1);
 
     // 面板内水平滑动切换：左滑 = 下一只。定位用面板头的编号文本
-    // （直接 find.text 会同时命中列表卡片，故收窄到详情页子树）。
+    // （直接 find.text 会同时命中列表卡片，故收窄到详情页子树；
+    // .first：进化分区节点也带编号文本，取遍历序首个 = 面板头编号）。
     Finder paneDexNumber(String label) => find.descendant(
           of: find.byType(PokemonDetailPage),
           matching: find.text(label),
-        );
+        ).first;
 
     // 左滑：写 paneSelectionProvider（不导航），KeyedSubtree 按 ValueKey
     // 重建面板为 #002，列表选中描边随之跟随。

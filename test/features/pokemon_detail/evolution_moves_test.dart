@@ -420,10 +420,12 @@ void main() {
     repo = FakeEvolutionMovesRepository();
   });
 
-  /// 挂载一个分区到 /pokemon/:speciesId 路由下（分区自身从路由读 speciesId）。
+  /// 挂载一个分区到 /pokemon/:speciesId 路由下；speciesId 与路由参数
+  /// 一致地经 [section] 显式传给分区（真实页面同样显式传 detail.speciesId，
+  /// 分区不再从路由读取）。
   Future<void> pumpSection(
     WidgetTester tester, {
-    required WidgetBuilder section,
+    required Widget Function(int speciesId) section,
     required int speciesId,
     Size size = const Size(800, 900),
   }) async {
@@ -441,7 +443,7 @@ void main() {
           // harness 保持同构。
           builder: (context, state) => Scaffold(
             body: SingleChildScrollView(
-              child: Builder(builder: section),
+              child: Builder(builder: (context) => section(speciesId)),
             ),
           ),
         ),
@@ -490,7 +492,7 @@ void main() {
     testWidgets('expanded 横向树渲染根与 8 个子节点', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const EvolutionSectionPlaceholder(),
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
         speciesId: 133,
         size: const Size(1000, 900),
       );
@@ -508,7 +510,7 @@ void main() {
     testWidgets('条件 chip 文案（道具 / 昵称条件 / 招式 / 地点诚实显示）', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const EvolutionSectionPlaceholder(),
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
         speciesId: 133,
         size: const Size(1000, 900),
       );
@@ -529,7 +531,7 @@ void main() {
     testWidgets('当前 species 高亮（primaryContainer 底），根不高亮', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const EvolutionSectionPlaceholder(),
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
         speciesId: 135,
         size: const Size(1000, 900),
       );
@@ -544,7 +546,7 @@ void main() {
     testWidgets('compact(400px) 纵向树可渲染（无 InteractiveViewer）', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const EvolutionSectionPlaceholder(),
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
         speciesId: 133,
         size: const Size(400, 900),
       );
@@ -560,7 +562,7 @@ void main() {
     testWidgets('中间节点「铁甲蛹」出现，等级条件 chip 为 Lv.10 / Lv.16', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const EvolutionSectionPlaceholder(),
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
         speciesId: 10,
       );
 
@@ -576,7 +578,7 @@ void main() {
     testWidgets('携带道具交换分支显示「携带王者之证交换」', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const EvolutionSectionPlaceholder(),
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
         speciesId: 79,
       );
 
@@ -593,7 +595,7 @@ void main() {
     testWidgets('默认按等级排序渲染列表与计数', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const MovesSectionPlaceholder(),
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
         speciesId: 133,
       );
 
@@ -610,7 +612,7 @@ void main() {
     testWidgets('切换版本组触发新查询并渲染对应内容', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const MovesSectionPlaceholder(),
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
         speciesId: 133,
       );
       expect(repo.learnsetQueryLog.single.$1, 'scarlet-violet');
@@ -628,7 +630,7 @@ void main() {
     testWidgets('来源筛选（学习器）按 OR 过滤', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const MovesSectionPlaceholder(),
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
         speciesId: 133,
       );
 
@@ -648,7 +650,7 @@ void main() {
     testWidgets('power 排序：威力降序，缺失排尾', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const MovesSectionPlaceholder(),
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
         speciesId: 133,
       );
 
@@ -672,7 +674,7 @@ void main() {
     testWidgets('点击招式行导航到招式详情', (tester) async {
       await pumpSection(
         tester,
-        section: (_) => const MovesSectionPlaceholder(),
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
         speciesId: 133,
       );
 
