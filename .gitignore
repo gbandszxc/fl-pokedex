@@ -17,6 +17,9 @@ coverage/
 *.ipr
 *.iws
 
+# ZCode CLI 会话目录（工作流草稿与运行记录）
+.zcode/
+
 # Android
 android/.gradle/
 android/local.properties
