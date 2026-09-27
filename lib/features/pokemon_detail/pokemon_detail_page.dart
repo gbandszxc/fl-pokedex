@@ -48,6 +48,11 @@ const double _kSwipeDistanceThreshold = 72;
 /// 超过）也触发，与移动系统列表的快甩手感对齐。
 const double _kSwipeVelocityThreshold = 700;
 
+/// 切换方向：经路由 extra 传给 /pokemon/:speciesId 的过渡动画——
+/// next（下一只）新页自右滑入，prev（上一只）新页自左滑入，
+/// 与左右滑动 / ←/→ 键的翻页方向一致。
+enum SpeciesSwitchDirection { next, prev }
+
 /// 世代序号中文（generation_id 1..N）。
 const List<String> _kGenerationZh = [
   '一',
@@ -158,7 +163,10 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
         index >= 0 && index < order.length - 1 ? order[index + 1] : null;
   }
 
-  void _switchTo(int targetSpeciesId) {
+  void _switchTo(
+    int targetSpeciesId, {
+    SpeciesSwitchDirection direction = SpeciesSwitchDirection.next,
+  }) {
     final onSwitch = widget.onSwitchSpecies;
     if (onSwitch != null) {
       onSwitch(targetSpeciesId);
@@ -167,7 +175,8 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
     // 全页路由：pushReplacement 替换栈顶详情（列表页仍在栈底，返回键仍
     // 回列表；不能 go——/pokemon/:id 是根级路由，go 会把栈重建成只剩详情，
     // 返回键与底部导航随之消失）；新路由页重建，滚动位置自然回到顶部。
-    context.pushReplacement('/pokemon/$targetSpeciesId');
+    // extra 携带方向，路由侧据此播放自右 / 自左的方向性过渡。
+    context.pushReplacement('/pokemon/$targetSpeciesId', extra: direction);
   }
 
   /// 水平滑动切换（触摸设备）：向左滑 = 下一只，向右滑 = 上一只；
@@ -205,7 +214,11 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
   void _switchToNeighbor(bool toNext) {
     final target = toNext ? _nextSpeciesId : _prevSpeciesId;
     if (target != null) {
-      _switchTo(target);
+      _switchTo(
+        target,
+        direction:
+            toNext ? SpeciesSwitchDirection.next : SpeciesSwitchDirection.prev,
+      );
     }
   }
 
@@ -227,7 +240,12 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
       // 边界禁用：按键原地吞掉（锚点是跳过遍历的叶子，无邻居可交给遍历）。
       return KeyEventResult.handled;
     }
-    _switchTo(target);
+    _switchTo(
+      target,
+      direction: event.logicalKey == LogicalKeyboardKey.arrowLeft
+          ? SpeciesSwitchDirection.prev
+          : SpeciesSwitchDirection.next,
+    );
     return KeyEventResult.handled;
   }
 
