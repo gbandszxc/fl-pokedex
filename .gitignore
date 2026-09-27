@@ -63,3 +63,5 @@ tools/msi/.cache/
 
 # 根级 .cache：图标等本地工具产物
 .cache/
+
+.codegraph/
