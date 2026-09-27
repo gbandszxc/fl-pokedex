@@ -149,11 +149,14 @@ selectedFormIdProvider: StateProviderFamily<int, int>
 learnsetFilterProvider: NotifierFamily<LearnsetFilter, int>  // {versionGroup, methods, sort}
 // lib/features/settings/providers.dart
 themeModeProvider: Notifier<ThemeMode>（持久化 SharedPreferences）
+seedColorProvider: Notifier<AppSeedColor>（持久化 SharedPreferences key 'seed_color'，默认 amber，非法值回退 amber）
 cardDensityProvider（桌面卡片密度）
 // lib/features/favorites/providers.dart
 favoriteIdsProvider: StreamProvider<List<int>>
 recentIdsProvider: StreamProvider<List<int>>
 ```
+
+修订记录：**主题色增补**——`lib/app/theme/app_colors.dart` 新增 `enum AppSeedColor { amber, rose, forest, blue, teal, violet }`（amber=琥珀·默认即现有品牌色，rose=粉，forest=墨绿，blue=蓝，teal=青，violet=紫）；`buildLightTheme()/buildDarkTheme()` 增加可选命名参数 `seed`（默认 `AppSeedColor.amber`）。设置页"主题色"行见 design-ui.md §8。
 
 ## 6. 数据库运行时（lib/data/）
 
