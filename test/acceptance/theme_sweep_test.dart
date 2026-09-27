@@ -187,10 +187,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(container.read(seedColorProvider), AppSeedColor.rose);
 
-    // ---- 浅色 rose primary（DESIGN.md §1.1 rose 表）----
+    // ---- 浅色 rose primary（DESIGN.md §1.1 rose 表：B 站品牌粉）----
     final roseLightContext = tester.element(find.byType(Scaffold).first);
     expect(Theme.of(roseLightContext).colorScheme.primary,
-        const Color(0xFFC0426F));
+        const Color(0xFFFB7299));
 
     // ---- 同 seed 切深色 ----
     await tester.tap(find.text('深色'));
@@ -198,12 +198,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(container.read(themeModeProvider), ThemeMode.dark);
 
-    // ---- 深色 rose primary（DESIGN.md §1.1 rose dark 表）；
-    // 中性底色不随 seed 变。----
+    // ---- 深色 rose primary：品牌粉深浅同值；中性底随 seed 派生 ----
+    // （bg 为纯灰 C=0 不变形；surfaceContainer 的 hue 已旋转至 rose）。
     final roseDarkContext = tester.element(find.byType(Scaffold).first);
     final roseDarkTheme = Theme.of(roseDarkContext);
-    expect(roseDarkTheme.colorScheme.primary, const Color(0xFFFFB1C8));
-    expect(roseDarkTheme.scaffoldBackgroundColor, AppColors.dark.bg);
+    expect(roseDarkTheme.colorScheme.primary, const Color(0xFFFB7299));
+    expect(roseDarkTheme.scaffoldBackgroundColor, const Color(0xFF060606));
+    expect(roseDarkTheme.colorScheme.surfaceContainer,
+        const Color(0xFF1C1718));
 
     expect(tester.takeException(), isNull);
     // 语义句柄须在测试体末尾释放（校验先于 tearDown 执行）。

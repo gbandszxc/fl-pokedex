@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 /// 主题品牌种子色维度（DESIGN.md §1.1）。
 ///
-/// 仅 primary 族与 secondary 族随 seed 切换；中性色（bg / surface 族 /
-/// outline 族 / onSurface 族）、favorite、error、属性色全 seed 共用。
+/// primary 族、secondary 族与中性色（bg / surface 族 / outline 族 /
+/// onSurface 族）随 seed 切换；favorite、error、属性色全 seed 固定。
 enum AppSeedColor {
   /// 琥珀（默认）。
   amber,
@@ -106,7 +106,12 @@ class AppColors {
   /// error 之上的文字。
   final Color onError;
 
-  // ---- 琥珀系中性梯度（DESIGN.md §1：全 seed 共用，const 中转便于复用）----
+  // ---- 琥珀系中性梯度（DESIGN.md §1：amber seed 基准）----
+  //
+  // 其余 seed 的中性 7 token 按 §1.1 规则派生：OKLCH L 与 C 逐字沿用
+  // 本组值，仅把 hue 替换为该 seed primary 的 OKLCH hue（light/dark 各用
+  // 各侧 primary）。bg 两档为纯灰（C=0），hue 旋转不变形，全 seed 直接
+  // 共用 _bgLight / _bgDark。
 
   static const Color _bgLight = Color(0xFFFFFFFF);
   static const Color _surfaceContainerLowLight = Color(0xFFF9F6F2);
@@ -173,23 +178,28 @@ class AppColors {
 
   // ---- 品牌种子色表（DESIGN.md §1.1）----
   //
-  // 仅 primary 族与 secondary 族随 [AppSeedColor] 切换；中性色与
-  // favorite、error 全 seed 共用琥珀系中性梯度，直接引用上方 const。
-  // 命名约定：light 模式饱和中亮度填充一律白字、浅弱底配深字；dark 反向。
+  // primary 族与 secondary 族随 [AppSeedColor] 切换；中性 7 token 按上方
+  // 派生规则内联于各表（amber 直接引用基准 const）。favorite、error 不随
+  // seed 变。
+  // 命名约定（对比度优先，DESIGN.md §1 写字规则）：填充前景取白/深两候选
+  // 中对比度更高且 ≥4.5 者，亮度分带仅作默认启发。
   // secondary 为与 primary 协调但色相可区分的低饱和伴随色
   // （保证 TextButton 前景与 FilledButton 底色肉眼可辨）。
 
-  /// 粉（rose）：secondary 黛蓝。
+  /// 粉（rose）：B 站品牌粉 #FB7299 深浅同值；secondary 黛蓝。
+  ///
+  /// 中性梯度：L/C 沿用琥珀系，hue 旋转至 primary（OKLCH h≈4.5）；
+  /// onPrimary 取深字 #4A0E24（白字对比仅 2.64，不达标）。
   static const AppColors _roseLight = AppColors(
     bg: _bgLight,
-    surfaceContainerLow: _surfaceContainerLowLight,
-    surfaceContainer: _surfaceContainerLight,
-    outlineVariant: _outlineVariantLight,
-    outline: _outlineLight,
-    onSurface: _onSurfaceLight,
-    onSurfaceVariant: _onSurfaceVariantLight,
-    primary: Color(0xFFC0426F),
-    onPrimary: Color(0xFFFFFFFF),
+    surfaceContainerLow: Color(0xFFFBF5F6),
+    surfaceContainer: Color(0xFFF6EEF0),
+    outlineVariant: Color(0xFFE5DCDD),
+    outline: Color(0xFFAEA1A3),
+    onSurface: Color(0xFF251D1F),
+    onSurfaceVariant: Color(0xFF62585A),
+    primary: Color(0xFFFB7299),
+    onPrimary: Color(0xFF4A0E24),
     primaryContainer: Color(0xFFFFD9E2),
     onPrimaryContainer: Color(0xFF3E001D),
     secondary: Color(0xFF565E85),
@@ -201,17 +211,17 @@ class AppColors {
     onError: _onErrorLight,
   );
 
-  /// 粉（rose，dark）。
+  /// 粉（rose，dark）：品牌粉与 light 同值（B 站深色模式同用）。
   static const AppColors _roseDark = AppColors(
     bg: _bgDark,
-    surfaceContainerLow: _surfaceContainerLowDark,
-    surfaceContainer: _surfaceContainerDark,
-    outlineVariant: _outlineVariantDark,
-    outline: _outlineDark,
-    onSurface: _onSurfaceDark,
-    onSurfaceVariant: _onSurfaceVariantDark,
-    primary: Color(0xFFFFB1C8),
-    onPrimary: Color(0xFF3E001D),
+    surfaceContainerLow: Color(0xFF120E0F),
+    surfaceContainer: Color(0xFF1C1718),
+    outlineVariant: Color(0xFF322B2D),
+    outline: Color(0xFF5C5355),
+    onSurface: Color(0xFFECE5E7),
+    onSurfaceVariant: Color(0xFFA49C9E),
+    primary: Color(0xFFFB7299),
+    onPrimary: Color(0xFF4A0E24),
     primaryContainer: Color(0xFF5C1132),
     onPrimaryContainer: Color(0xFFFFD9E2),
     secondary: Color(0xFFB4C0E5),
@@ -224,14 +234,16 @@ class AppColors {
   );
 
   /// 墨绿（forest）：secondary 墨赭。
+  ///
+  /// 中性梯度：L/C 沿用琥珀系，hue 旋转至 light primary（OKLCH h≈161）。
   static const AppColors _forestLight = AppColors(
     bg: _bgLight,
-    surfaceContainerLow: _surfaceContainerLowLight,
-    surfaceContainer: _surfaceContainerLight,
-    outlineVariant: _outlineVariantLight,
-    outline: _outlineLight,
-    onSurface: _onSurfaceLight,
-    onSurfaceVariant: _onSurfaceVariantLight,
+    surfaceContainerLow: Color(0xFFF3F8F5),
+    surfaceContainer: Color(0xFFECF2EE),
+    outlineVariant: Color(0xFFD9E0DC),
+    outline: Color(0xFF9DA8A2),
+    onSurface: Color(0xFF1B211E),
+    onSurfaceVariant: Color(0xFF545D58),
     primary: Color(0xFF2E6B4F),
     onPrimary: Color(0xFFFFFFFF),
     primaryContainer: Color(0xFFB8F0D0),
@@ -245,15 +257,15 @@ class AppColors {
     onError: _onErrorLight,
   );
 
-  /// 墨绿（forest，dark）。
+  /// 墨绿（forest，dark）：中性 hue 旋转至 dark primary（OKLCH h≈160）。
   static const AppColors _forestDark = AppColors(
     bg: _bgDark,
-    surfaceContainerLow: _surfaceContainerLowDark,
-    surfaceContainer: _surfaceContainerDark,
-    outlineVariant: _outlineVariantDark,
-    outline: _outlineDark,
-    onSurface: _onSurfaceDark,
-    onSurfaceVariant: _onSurfaceVariantDark,
+    surfaceContainerLow: Color(0xFF0E100F),
+    surfaceContainer: Color(0xFF151917),
+    outlineVariant: Color(0xFF292F2C),
+    outline: Color(0xFF505853),
+    onSurface: Color(0xFFE3E9E6),
+    onSurfaceVariant: Color(0xFF9AA09C),
     primary: Color(0xFF8FD6B0),
     onPrimary: Color(0xFF00391F),
     primaryContainer: Color(0xFF1E4E36),
@@ -268,14 +280,16 @@ class AppColors {
   );
 
   /// 蓝（blue）：secondary 陶土。
+  ///
+  /// 中性梯度：L/C 沿用琥珀系，hue 旋转至 light primary（OKLCH h≈264）。
   static const AppColors _blueLight = AppColors(
     bg: _bgLight,
-    surfaceContainerLow: _surfaceContainerLowLight,
-    surfaceContainer: _surfaceContainerLight,
-    outlineVariant: _outlineVariantLight,
-    outline: _outlineLight,
-    onSurface: _onSurfaceLight,
-    onSurfaceVariant: _onSurfaceVariantLight,
+    surfaceContainerLow: Color(0xFFF4F7FB),
+    surfaceContainer: Color(0xFFEDF0F6),
+    outlineVariant: Color(0xFFDBDEE5),
+    outline: Color(0xFFA0A5AF),
+    onSurface: Color(0xFF1C1F25),
+    onSurfaceVariant: Color(0xFF575B63),
     primary: Color(0xFF3B64C4),
     onPrimary: Color(0xFFFFFFFF),
     primaryContainer: Color(0xFFDBE2FF),
@@ -289,15 +303,15 @@ class AppColors {
     onError: _onErrorLight,
   );
 
-  /// 蓝（blue，dark）。
+  /// 蓝（blue，dark）：中性 hue 旋转至 dark primary（OKLCH h≈261）。
   static const AppColors _blueDark = AppColors(
     bg: _bgDark,
-    surfaceContainerLow: _surfaceContainerLowDark,
-    surfaceContainer: _surfaceContainerDark,
-    outlineVariant: _outlineVariantDark,
-    outline: _outlineDark,
-    onSurface: _onSurfaceDark,
-    onSurfaceVariant: _onSurfaceVariantDark,
+    surfaceContainerLow: Color(0xFF0E0F12),
+    surfaceContainer: Color(0xFF16181C),
+    outlineVariant: Color(0xFF2B2E33),
+    outline: Color(0xFF52565D),
+    onSurface: Color(0xFFE5E8ED),
+    onSurfaceVariant: Color(0xFF9B9FA4),
     primary: Color(0xFFA8C8FF),
     onPrimary: Color(0xFF002D6B),
     primaryContainer: Color(0xFF22447F),
@@ -312,14 +326,16 @@ class AppColors {
   );
 
   /// 青（teal）：secondary 梅紫。
+  ///
+  /// 中性梯度：L/C 沿用琥珀系，hue 旋转至 light primary（OKLCH h≈204）。
   static const AppColors _tealLight = AppColors(
     bg: _bgLight,
-    surfaceContainerLow: _surfaceContainerLowLight,
-    surfaceContainer: _surfaceContainerLight,
-    outlineVariant: _outlineVariantLight,
-    outline: _outlineLight,
-    onSurface: _onSurfaceLight,
-    onSurfaceVariant: _onSurfaceVariantLight,
+    surfaceContainerLow: Color(0xFFF2F8F8),
+    surfaceContainer: Color(0xFFEAF2F3),
+    outlineVariant: Color(0xFFD7E0E1),
+    outline: Color(0xFF9AA8A9),
+    onSurface: Color(0xFF192122),
+    onSurfaceVariant: Color(0xFF525D5E),
     primary: Color(0xFF007B84),
     onPrimary: Color(0xFFFFFFFF),
     primaryContainer: Color(0xFFB0ECF0),
@@ -333,15 +349,15 @@ class AppColors {
     onError: _onErrorLight,
   );
 
-  /// 青（teal，dark）。
+  /// 青（teal，dark）：中性 hue 旋转至 dark primary（OKLCH h≈183）。
   static const AppColors _tealDark = AppColors(
     bg: _bgDark,
-    surfaceContainerLow: _surfaceContainerLowDark,
-    surfaceContainer: _surfaceContainerDark,
-    outlineVariant: _outlineVariantDark,
-    outline: _outlineDark,
-    onSurface: _onSurfaceDark,
-    onSurfaceVariant: _onSurfaceVariantDark,
+    surfaceContainerLow: Color(0xFF0D1010),
+    surfaceContainer: Color(0xFF141A19),
+    outlineVariant: Color(0xFF282F2E),
+    outline: Color(0xFF4E5856),
+    onSurface: Color(0xFFE2E9E8),
+    onSurfaceVariant: Color(0xFF98A09F),
     primary: Color(0xFF4FD8C6),
     onPrimary: Color(0xFF003733),
     primaryContainer: Color(0xFF00504F),
@@ -356,14 +372,16 @@ class AppColors {
   );
 
   /// 紫（violet）：secondary 苔绿。
+  ///
+  /// 中性梯度：L/C 沿用琥珀系，hue 旋转至 light primary（OKLCH h≈295）。
   static const AppColors _violetLight = AppColors(
     bg: _bgLight,
-    surfaceContainerLow: _surfaceContainerLowLight,
-    surfaceContainer: _surfaceContainerLight,
-    outlineVariant: _outlineVariantLight,
-    outline: _outlineLight,
-    onSurface: _onSurfaceLight,
-    onSurfaceVariant: _onSurfaceVariantLight,
+    surfaceContainerLow: Color(0xFFF7F6FA),
+    surfaceContainer: Color(0xFFF1EFF6),
+    outlineVariant: Color(0xFFDEDDE4),
+    outline: Color(0xFFA5A3AE),
+    onSurface: Color(0xFF201E25),
+    onSurfaceVariant: Color(0xFF5B5962),
     primary: Color(0xFF6F42C1),
     onPrimary: Color(0xFFFFFFFF),
     primaryContainer: Color(0xFFE9DEFF),
@@ -377,15 +395,15 @@ class AppColors {
     onError: _onErrorLight,
   );
 
-  /// 紫（violet，dark）。
+  /// 紫（violet，dark）：中性 hue 旋转至 dark primary（OKLCH h≈297）。
   static const AppColors _violetDark = AppColors(
     bg: _bgDark,
-    surfaceContainerLow: _surfaceContainerLowDark,
-    surfaceContainer: _surfaceContainerDark,
-    outlineVariant: _outlineVariantDark,
-    outline: _outlineDark,
-    onSurface: _onSurfaceDark,
-    onSurfaceVariant: _onSurfaceVariantDark,
+    surfaceContainerLow: Color(0xFF100F11),
+    surfaceContainer: Color(0xFF19171C),
+    outlineVariant: Color(0xFF2E2C32),
+    outline: Color(0xFF56545C),
+    onSurface: Color(0xFFE8E6EC),
+    onSurfaceVariant: Color(0xFF9F9DA4),
     primary: Color(0xFFCFBCFF),
     onPrimary: Color(0xFF2A0054),
     primaryContainer: Color(0xFF471C8B),
@@ -401,8 +419,8 @@ class AppColors {
 
   /// 品牌级取表入口：按 seed × 亮度返回语义 Token 表。
   ///
-  /// amber 即 [light] / [dark] 本体（逐字向后兼容）；其余 seed 复用琥珀系
-  /// 中性梯度，仅替换 primary 族与 secondary 族。
+  /// amber 即 [light] / [dark] 本体（逐字向后兼容）；其余 seed 的品牌族
+  /// 与中性梯度均按 DESIGN.md §1.1 随 seed 切换（favorite/error 固定）。
   static AppColors of(AppSeedColor seed, Brightness brightness) {
     final bool isLight = brightness == Brightness.light;
     return switch (seed) {

@@ -55,7 +55,7 @@ abstract final class AppBrand {
 
 /// Material 3 浅色主题（DESIGN.md §1 Light 表 → ColorScheme）。
 ///
-/// [seed] 选择品牌种子色（默认琥珀）；中性色与 favorite/error 不随 seed 变。
+/// [seed] 选择品牌种子色（默认琥珀）；中性梯度随 seed hue 派生，favorite/error 全 seed 固定。
 ThemeData buildLightTheme({AppSeedColor seed = AppSeedColor.amber}) => _buildTheme(
       Brightness.light,
       AppColors.of(seed, Brightness.light),
@@ -65,7 +65,7 @@ ThemeData buildLightTheme({AppSeedColor seed = AppSeedColor.amber}) => _buildThe
 
 /// Material 3 深色主题（DESIGN.md §1 Dark 表 → ColorScheme）。
 ///
-/// [seed] 选择品牌种子色（默认琥珀）；中性色与 favorite/error 不随 seed 变。
+/// [seed] 选择品牌种子色（默认琥珀）；中性梯度随 seed hue 派生，favorite/error 全 seed 固定。
 ThemeData buildDarkTheme({AppSeedColor seed = AppSeedColor.amber}) => _buildTheme(
       Brightness.dark,
       AppColors.of(seed, Brightness.dark),

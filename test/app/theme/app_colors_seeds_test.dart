@@ -9,11 +9,15 @@ import 'package:fl_pokedex/app/theme/app_colors.dart';
 ///
 /// 1. 完备性：6 seed × 2 brightness 的表全部取到、不透明、同族字段互异、
 ///    12 张表两两互异。
-/// 2. 对比度：WCAG 门槛（onPrimary/primary ≥ 4.5 等 5 项，amber light
-///    primary 为品牌锁定例外）。
+/// 2. 对比度：WCAG 门槛（onPrimary/primary ≥ 4.5 等 5 项）。例外：amber
+///    light primary 白字 4.37 品牌锁定特批 ≥4.3；rose light primary/bg
+///    2.64 为 B 站品牌粉特批 ≥2.6（粉色仅用于指示器/选中描边等非正文
+///    文本场景，其上文字已用深字 #4A0E24 达标 ≥4.5）。
 /// 3. 回归保护：amber 的 light/dark 表与现状逐字相等（写死期望值）。
 /// 4. `AppColors.of`：每个枚举值 light/dark 两个方向取表与 DESIGN.md
 ///    §1.1 落地表逐字一致。
+/// 5. 中性梯度随 seed 派生（OKLCH L/C 沿用琥珀系、hue=primary 的
+///    OKLCH hue）；favorite/error 全 seed 固定，不参与 hue 旋转。
 void main() {
   /// 计算前景/背景色的 WCAG 对比度（与 theme_sweep_test 同款公式）。
   double contrastRatio(Color a, Color b) {
@@ -91,6 +95,15 @@ void main() {
   double onPrimaryFloor(AppSeedColor seed, Brightness brightness) =>
       seed == AppSeedColor.amber && brightness == Brightness.light ? 4.3 : 4.5;
 
+  /// primary/bg 的对比度下限。
+  ///
+  /// rose light 特批 ≥2.6：B 站品牌粉 #FB7299 对白底实测 2.64:1，低于
+  /// 3.0 大文本档。品牌粉仅用于指示器、选中描边、FilledButton 底色等
+  /// 非正文文本场景（UI 组件对其文字均用深字 onPrimary #4A0E24，
+  /// 5.8:1 ≥4.5 达标），见 DESIGN.md §1.1 例外注记。
+  double primaryBgFloor(AppSeedColor seed, Brightness brightness) =>
+      seed == AppSeedColor.rose && brightness == Brightness.light ? 2.6 : 3.0;
+
   test('完备性：6 seed × 2 brightness 全部取到且字段不透明', () {
     expect(AppSeedColor.values, hasLength(6));
     for (final (seed, brightness, c) in allTables()) {
@@ -152,9 +165,9 @@ void main() {
           expect(contrastRatio(c.onSecondaryContainer, c.secondaryContainer),
               greaterThanOrEqualTo(4.5));
         });
-        test('primary/bg ≥ 3.0', () {
-          expect(
-              contrastRatio(c.primary, c.bg), greaterThanOrEqualTo(3.0));
+        test('primary/bg ≥ ${primaryBgFloor(seed, brightness)}', () {
+          expect(contrastRatio(c.primary, c.bg),
+              greaterThanOrEqualTo(primaryBgFloor(seed, brightness)));
         });
       });
     }
@@ -229,7 +242,8 @@ void main() {
     test('每个 seed 的 primary/secondary 与 DESIGN.md §1.1 逐字相等（两方向）', () {
       const expectedPrimary = {
         AppSeedColor.amber: Color(0xFFA26F00),
-        AppSeedColor.rose: Color(0xFFC0426F),
+        // rose：B 站品牌粉 #FB7299 深浅同值（B 站深色模式同用此粉）。
+        AppSeedColor.rose: Color(0xFFFB7299),
         AppSeedColor.forest: Color(0xFF2E6B4F),
         AppSeedColor.blue: Color(0xFF3B64C4),
         AppSeedColor.teal: Color(0xFF007B84),
@@ -237,11 +251,17 @@ void main() {
       };
       const expectedDarkPrimary = {
         AppSeedColor.amber: Color(0xFFE5B64A),
-        AppSeedColor.rose: Color(0xFFFFB1C8),
+        AppSeedColor.rose: Color(0xFFFB7299),
         AppSeedColor.forest: Color(0xFF8FD6B0),
         AppSeedColor.blue: Color(0xFFA8C8FF),
         AppSeedColor.teal: Color(0xFF4FD8C6),
         AppSeedColor.violet: Color(0xFFCFBCFF),
+      };
+      const expectedOnPrimary = {
+        AppSeedColor.rose: Color(0xFF4A0E24),
+      };
+      const expectedDarkOnPrimary = {
+        AppSeedColor.rose: Color(0xFF4A0E24),
       };
       const expectedSecondary = {
         AppSeedColor.amber: Color(0xFF29616B),
@@ -267,6 +287,13 @@ void main() {
             reason: '${seed.name} light primary');
         expect(dark.primary, expectedDarkPrimary[seed],
             reason: '${seed.name} dark primary');
+        // rose 的 onPrimary 为深字 #4A0E24（对比度优先，非默认白/黑规则）。
+        if (expectedOnPrimary.containsKey(seed)) {
+          expect(light.onPrimary, expectedOnPrimary[seed],
+              reason: '${seed.name} light onPrimary');
+          expect(dark.onPrimary, expectedDarkOnPrimary[seed],
+              reason: '${seed.name} dark onPrimary');
+        }
         expect(light.secondary, expectedSecondary[seed],
             reason: '${seed.name} light secondary');
         expect(dark.secondary, expectedDarkSecondary[seed],
@@ -274,36 +301,97 @@ void main() {
       }
     });
 
-    test('同 seed 的 light/dark 表品牌族不同（成对切换）', () {
+    test('同 seed 的 light/dark 表品牌族成对切换（rose primary 品牌粉深浅同值例外）',
+        () {
       for (final seed in AppSeedColor.values) {
         final light = AppColors.of(seed, Brightness.light);
         final dark = AppColors.of(seed, Brightness.dark);
-        expect(light.primary, isNot(dark.primary), reason: '${seed.name} primary');
+        // rose 为 B 站品牌粉锁定：#FB7299 深浅同值（DESIGN.md §1.1），
+        // 其余 seed primary 须随亮度切换。
+        if (seed != AppSeedColor.rose) {
+          expect(
+              light.primary, isNot(dark.primary), reason: '${seed.name} primary');
+        }
         expect(light.secondary, isNot(dark.secondary),
             reason: '${seed.name} secondary');
+        // 整表仍须不同（中性梯度随亮度/hue 派生，必然互异）。
+        expect(
+          snapshot(light).map((e) => e.$2),
+          isNot(snapshot(dark).map((e) => e.$2)),
+          reason: '${seed.name} light/dark 整表不得相同',
+        );
       }
     });
 
-    test('中性色全 seed 共用（琥珀系中性梯度，不随 seed 变）', () {
+    test('中性 7 token 每 seed × brightness 完备非空', () {
+      List<Color> neutrals(AppColors c) => [
+            c.bg,
+            c.surfaceContainerLow,
+            c.surfaceContainer,
+            c.outlineVariant,
+            c.outline,
+            c.onSurface,
+            c.onSurfaceVariant,
+          ];
+      for (final (seed, brightness, c) in allTables()) {
+        final ns = neutrals(c);
+        expect(ns, hasLength(7), reason: '$seed/$brightness 须有 7 个中性 token');
+        for (final n in ns) {
+          expect(n.a, 1.0, reason: '$seed/$brightness 中性 token 须非空不透明');
+        }
+      }
+    });
+
+    test('同亮度下各 seed surfaceContainer 互不相同（hue 旋转生效）', () {
+      for (final brightness in Brightness.values) {
+        final values = <Color>{
+          for (final seed in AppSeedColor.values)
+            AppColors.of(seed, brightness).surfaceContainer,
+        };
+        expect(values, hasLength(6),
+            reason: '${brightness.name} 下 6 seed surfaceContainer 须互不相同');
+      }
+    });
+
+    test('surfaceContainer 派生值逐字锁定（12 张，DESIGN.md §1.1 代表值）', () {
+      const expected = {
+        (AppSeedColor.amber, Brightness.light): Color(0xFFF3F0EA),
+        (AppSeedColor.amber, Brightness.dark): Color(0xFF1A1814),
+        (AppSeedColor.rose, Brightness.light): Color(0xFFF6EEF0),
+        (AppSeedColor.rose, Brightness.dark): Color(0xFF1C1718),
+        (AppSeedColor.forest, Brightness.light): Color(0xFFECF2EE),
+        (AppSeedColor.forest, Brightness.dark): Color(0xFF151917),
+        (AppSeedColor.blue, Brightness.light): Color(0xFFEDF0F6),
+        (AppSeedColor.blue, Brightness.dark): Color(0xFF16181C),
+        (AppSeedColor.teal, Brightness.light): Color(0xFFEAF2F3),
+        (AppSeedColor.teal, Brightness.dark): Color(0xFF141A19),
+        (AppSeedColor.violet, Brightness.light): Color(0xFFF1EFF6),
+        (AppSeedColor.violet, Brightness.dark): Color(0xFF19171C),
+      };
+      for (final (seed, brightness, c) in allTables()) {
+        expect(c.surfaceContainer, expected[(seed, brightness)],
+            reason: '${seed.name}/${brightness.name} surfaceContainer');
+      }
+    });
+
+    test('bg 两档为纯灰（C=0）派生不变形，全 seed 同值', () {
       for (final brightness in Brightness.values) {
         final amber = AppColors.of(AppSeedColor.amber, brightness);
         for (final seed in AppSeedColor.values) {
-          final c = AppColors.of(seed, brightness);
-          expect(c.bg, amber.bg, reason: '${seed.name} bg 应共用');
-          expect(c.surfaceContainerLow, amber.surfaceContainerLow,
-              reason: '${seed.name} surfaceContainerLow 应共用');
-          expect(c.surfaceContainer, amber.surfaceContainer,
-              reason: '${seed.name} surfaceContainer 应共用');
-          expect(c.outlineVariant, amber.outlineVariant,
-              reason: '${seed.name} outlineVariant 应共用');
-          expect(c.outline, amber.outline, reason: '${seed.name} outline 应共用');
-          expect(c.onSurface, amber.onSurface,
-              reason: '${seed.name} onSurface 应共用');
-          expect(c.onSurfaceVariant, amber.onSurfaceVariant,
-              reason: '${seed.name} onSurfaceVariant 应共用');
-          expect(c.favorite, amber.favorite,
-              reason: '${seed.name} favorite 应共用');
-          expect(c.error, amber.error, reason: '${seed.name} error 应共用');
+          expect(AppColors.of(seed, brightness).bg, amber.bg,
+              reason: '${seed.name} ${brightness.name} bg 应与 amber 同值');
+        }
+      }
+    });
+
+    test('favorite/error 全 seed 固定（不参与 hue 旋转，DESIGN.md 设计分工）', () {
+      for (final brightness in Brightness.values) {
+        final amber = AppColors.of(AppSeedColor.amber, brightness);
+        for (final seed in AppSeedColor.values) {
+          expect(AppColors.of(seed, brightness).favorite, amber.favorite,
+              reason: '${seed.name} ${brightness.name} favorite 应固定');
+          expect(AppColors.of(seed, brightness).error, amber.error,
+              reason: '${seed.name} ${brightness.name} error 应固定');
         }
       }
     });

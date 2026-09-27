@@ -46,13 +46,24 @@ Dark（琥珀 amber）：
 | favorite | 0.72 0.16 15 | `#F87584` | 收藏 |
 | error | 0.70 0.15 25 | `#ED756E` | |
 
-填充上写字的规则：饱和中亮度（L 0.42–0.78 且 C≥0.08）一律**白字**；浅色填充（L>0.85）或近中性填充用**深字**。禁止深字压饱和暖色。
+填充上写字的规则（**对比度优先**）：填充前景取**白 / 深两候选中对比度更高且 ≥4.5 者**；两候选均不达标时调整填充色本身，禁止凑合。原亮度分带保留为默认启发——饱和中亮度（L 0.42–0.78 且 C≥0.08）倾向白字，浅色填充（L>0.85）或近中性填充倾向深字；启发与实测对比度冲突时以对比度为准（如 rose 品牌粉 `#FB7299` 用深字 `#4A0E24`，5.8:1）。
 
 ### 1.1 主题种子色（seed）落地表
 
-**规则**：仅 primary 族与 secondary 族随 seed 切换；**中性色（bg / surface 族 / outline 族 / onSurface 族）沿用琥珀系中性梯度**，与 favorite、error、属性色一起全 seed 共用（即 §1 两表对应行）。amber 即 §1 两表本体（默认，向后兼容），不另列。
+**规则**：primary 族与 secondary 族随 seed 切换；**中性色（bg / surface 族 / outline 族 / onSurface 族）随 seed hue 派生**——各 token 的 OKLCH **L 与 C 逐字沿用琥珀系**（§1 两表对应行），仅把 hue 替换为该 seed primary 的 OKLCH hue（light / dark 各用各侧 primary 的 hue），经标准 OKLCH→sRGB 公式 round-trip 到 8bit hex。bg 两档为纯灰（C=0），hue 旋转不变形，全 seed 同值。favorite、error 与 §2 属性色**不参与 hue 旋转**，全 seed 固定（设计分工，非遗漏）。amber 中性即 §1 两表本体（默认，向后兼容），不另列。
 
-各表 onPrimary / onSecondary 不单列：light 模式一律 `#FFFFFF`；dark 模式 onPrimary 为同 seed 深色调（见 primary 行注），onSecondary 一律 `#060606`（与琥珀表同规则）。下列 OKLCH 为落地 sRGB 的精确反推（与正向推导等价，按 2 位小数舍入）。全部组合过守门测试（`test/app/theme/app_colors_seeds_test.dart`）；唯一例外：amber light primary 白字 4.37:1 为品牌锁定值（满足大文本 3:1 档）。secondary 一律取与 primary 协调但色相可区分的低饱和伴随色。
+各 seed 派生 hue 与 surfaceContainer 代表值（其余中性 token 按上述公式派生，落地值以 `lib/app/theme/app_colors.dart` 为准）：
+
+| seed | hue light / dark | surfaceContainer light | dark |
+|---|---|---|---|
+| amber | 80–85（基准） | `#F3F0EA` | `#1A1814` |
+| rose | 4.5 / 4.5 | `#F6EEF0` | `#1C1718` |
+| forest | 161 / 160 | `#ECF2EE` | `#151917` |
+| blue | 264 / 261 | `#EDF0F6` | `#16181C` |
+| teal | 204 / 183 | `#EAF2F3` | `#141A19` |
+| violet | 295 / 297 | `#F1EFF6` | `#19171C` |
+
+各表 onPrimary / onSecondary 不单列：light 模式一律 `#FFFFFF`（**例外：rose 品牌粉上为深字 `#4A0E24`**，见 §1 写字规则）；dark 模式 onPrimary 为同 seed 深色调（见 primary 行注），onSecondary 一律 `#060606`（与琥珀表同规则）。下列 OKLCH 为落地 sRGB 的精确反推（与正向推导等价，按 2 位小数舍入）。全部组合过守门测试（`test/app/theme/app_colors_seeds_test.dart`）。例外：① amber light primary 白字 4.37:1 为品牌锁定值（满足大文本 3:1 档）；② rose light primary `#FB7299` 对白底 2.64:1，特批 ≥2.6——B 站品牌粉仅用于指示器、选中描边、按钮填充等非正文文本场景，其上文字已用深字 `#4A0E24`（5.8:1）达标。secondary 一律取与 primary 协调但色相可区分的低饱和伴随色。
 
 rose 粉：
 
@@ -60,7 +71,7 @@ Light：
 
 | Token | OKLCH | Hex | 用途 |
 |---|---|---|---|
-| primary | 0.57 0.17 2 | `#C0426F` | 莓粉：选中、主按钮、焦点（白字） |
+| primary | 0.73 0.17 4 | `#FB7299` | B 站品牌粉：选中、主按钮、焦点（深字 `#4A0E24`，5.8:1） |
 | primaryContainer | 0.92 0.04 2 | `#FFD9E2` | 粉弱底 |
 | onPrimaryContainer | 0.24 0.10 359 | `#3E001D` | 粉弱底上的字 |
 | secondary | 0.49 0.06 275 | `#565E85` | 黛蓝：链接、次级强调 |
@@ -71,7 +82,7 @@ Dark：
 
 | Token | OKLCH | Hex | 用途 |
 |---|---|---|---|
-| primary | 0.84 0.09 0 | `#FFB1C8` | 莓粉（深色字 #3E001D） |
+| primary | 0.73 0.17 4 | `#FB7299` | B 站品牌粉（深浅同值，深底 7.7:1；深色字 `#4A0E24`） |
 | primaryContainer | 0.32 0.11 359 | `#5C1132` | 粉弱底 |
 | onPrimaryContainer | 0.92 0.04 2 | `#FFD9E2` | |
 | secondary | 0.81 0.05 271 | `#B4C0E5` | 黛蓝 |
