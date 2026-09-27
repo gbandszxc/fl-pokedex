@@ -134,4 +134,79 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('设置页切主题色（粉）→ 深浅两套 primary 随 seed 切换',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(const {});
+    final pokedex = FakePokedexRepository();
+    final favorites = FakeFavoritesRepository();
+    final container = ProviderContainer(
+      overrides: fakeRepositoryOverrides(pokedex: pokedex, favorites: favorites),
+    );
+    addTearDown(container.dispose);
+    addTearDown(favorites.dispose);
+
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const AmberDexApp(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // ---- 默认琥珀：浅色 primary 取 DESIGN.md §1 Light 表值 ----
+    final initialContext = tester.element(find.byType(Scaffold).first);
+    expect(Theme.of(initialContext).colorScheme.primary,
+        AppColors.light.primary);
+    expect(
+        Theme.of(initialContext).colorScheme.primary, const Color(0xFFA26F00));
+
+    // ---- 经设置页 UI 点「粉」swatch ----
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.text('设置'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('外观'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('粉'));
+    await tester.pump();
+    // AnimatedTheme 过渡约 200ms：泵过再取色，避免 lerp 中间值。
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(seedColorProvider), AppSeedColor.rose);
+
+    // ---- 浅色 rose primary（DESIGN.md §1.1 rose 表）----
+    final roseLightContext = tester.element(find.byType(Scaffold).first);
+    expect(Theme.of(roseLightContext).colorScheme.primary,
+        const Color(0xFFC0426F));
+
+    // ---- 同 seed 切深色 ----
+    await tester.tap(find.text('深色'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(themeModeProvider), ThemeMode.dark);
+
+    // ---- 深色 rose primary（DESIGN.md §1.1 rose dark 表）；
+    // 中性底色不随 seed 变。----
+    final roseDarkContext = tester.element(find.byType(Scaffold).first);
+    final roseDarkTheme = Theme.of(roseDarkContext);
+    expect(roseDarkTheme.colorScheme.primary, const Color(0xFFFFB1C8));
+    expect(roseDarkTheme.scaffoldBackgroundColor, AppColors.dark.bg);
+
+    expect(tester.takeException(), isNull);
+    // 语义句柄须在测试体末尾释放（校验先于 tearDown 执行）。
+    semantics.dispose();
+  });
 }

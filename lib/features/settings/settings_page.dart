@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/app_colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../core/di.dart';
 import '../../domain/models/manifest.dart';
@@ -50,6 +51,8 @@ class SettingsPage extends ConsumerWidget {
                     .set(selection.first),
                 showSelectedIcon: false,
               ),
+              const SizedBox(height: AppSpacing.l),
+              const _SeedColorRow(),
               const SizedBox(height: AppSpacing.xl),
               const SectionTitle(title: '首页布局'),
               const SizedBox(height: AppSpacing.s),
@@ -156,6 +159,111 @@ class SettingsPage extends ConsumerWidget {
 /// ISO 8601 构建时间 → 日期（`2026-09-25`）。
 String _buildDateLabel(String buildDate) =>
     buildDate.length >= 10 ? buildDate.substring(0, 10) : buildDate;
+
+/// 主题色选择行（design-ui.md §8）：一行「主题色」标签 + 横排 6 个圆形
+/// 色块 swatch，点选即时生效并持久化。
+class _SeedColorRow extends ConsumerWidget {
+  const _SeedColorRow();
+
+  /// 各 seed 的中文语义标签（屏幕阅读器 / 无障碍）。
+  static const Map<AppSeedColor, String> _labels = {
+    AppSeedColor.amber: '琥珀',
+    AppSeedColor.rose: '粉',
+    AppSeedColor.forest: '墨绿',
+    AppSeedColor.blue: '蓝',
+    AppSeedColor.teal: '青',
+    AppSeedColor.violet: '紫',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(seedColorProvider);
+    final brightness = Theme.of(context).brightness;
+    return Row(
+      children: [
+        // 标签列宽对齐下方关于区块（_AboutRow 同款 84）。
+        SizedBox(
+          width: 84,
+          child: Text('主题色', style: Theme.of(context).textTheme.bodyMedium),
+        ),
+        Expanded(
+          child: Wrap(
+            spacing: AppSpacing.s,
+            children: [
+              for (final seed in AppSeedColor.values)
+                _SeedSwatch(
+                  label: _labels[seed]!,
+                  color: AppColors.of(seed, brightness).primary,
+                  selected: seed == current,
+                  onSelect: () =>
+                      ref.read(seedColorProvider.notifier).set(seed),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 单个主题色 swatch：圆形色块，选中态外圈 2px primary 描边（与色块间
+/// 留隙，同 pokedex 双栏选中卡片描边先例）。
+class _SeedSwatch extends StatelessWidget {
+  const _SeedSwatch({
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  /// 中文语义标签（琥珀/粉/墨绿/蓝/青/紫）。
+  final String label;
+
+  /// 色块填充色（当前 seed 在当前亮度下的 primary）。
+  final Color color;
+
+  final bool selected;
+
+  final VoidCallback onSelect;
+
+  /// 色块直径 28 + 描边 2×2 + 留隙 3×2 = 外接方 38。
+  static const double _diameter = 28;
+  static const double _ringWidth = 2;
+  static const double _ringGap = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final ringColor = Theme.of(context).colorScheme.primary;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: GestureDetector(
+        onTap: onSelect,
+        child: Container(
+          width: _diameter + (_ringWidth + _ringGap) * 2,
+          height: _diameter + (_ringWidth + _ringGap) * 2,
+          padding: const EdgeInsets.all(_ringGap + _ringWidth),
+          // 未选中用透明描边占位，选中切换不产生布局位移。
+          decoration: ShapeDecoration(
+            shape: CircleBorder(
+              side: BorderSide(
+                color: selected ? ringColor : Colors.transparent,
+                width: _ringWidth,
+              ),
+            ),
+          ),
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: color,
+              shape: const CircleBorder(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// 分组下的说明文字（caption，次级文字色）。
 class _Caption extends StatelessWidget {

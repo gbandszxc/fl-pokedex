@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fl_pokedex/app/theme/app_colors.dart';
 import 'package:fl_pokedex/features/settings/providers.dart';
 import 'package:fl_pokedex/features/settings/settings_page.dart';
 
@@ -91,6 +92,30 @@ void main() {
       find.byType(SegmentedButton<ThemeMode>),
     );
     expect(button.selected, {ThemeMode.dark});
+  });
+
+  testWidgets('主题色：6 个色块渲染，点「粉」切 seedColorProvider 并写 SP',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    final (container, _) = await _pumpSettings(tester);
+
+    // 六个 swatch（琥珀/粉/墨绿/蓝/青/紫）与行标签。
+    expect(find.text('主题色'), findsOneWidget);
+    expect(find.bySemanticsLabel('琥珀'), findsOneWidget);
+    expect(find.bySemanticsLabel('粉'), findsOneWidget);
+    expect(find.bySemanticsLabel('墨绿'), findsOneWidget);
+    expect(find.bySemanticsLabel('蓝'), findsOneWidget);
+    expect(find.bySemanticsLabel('青'), findsOneWidget);
+    expect(find.bySemanticsLabel('紫'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('粉'));
+    await tester.pump();
+
+    expect(container.read(seedColorProvider), AppSeedColor.rose);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('seed_color'), 'rose');
+    // 语义句柄须在测试体末尾释放（校验先于 tearDown 执行）。
+    semantics.dispose();
   });
 
   testWidgets('首页布局：点「列表」写 SP view_mode', (tester) async {

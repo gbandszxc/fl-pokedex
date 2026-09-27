@@ -4,11 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app/theme/app_colors.dart';
+
 /// 桌面宽屏下首页网格卡片密度（design-ui.md §8）。
 enum CardDensity { comfortable, compact }
 
 /// SharedPreferences key：主题模式（system / light / dark）。
 const String kThemeModePrefsKey = 'theme_mode';
+
+/// SharedPreferences key：主题种子色（amber / rose / forest / blue / teal / violet）。
+const String kSeedColorPrefsKey = 'seed_color';
 
 /// SharedPreferences key：首页视图模式（grid / list，与首页共享）。
 const String kViewModePrefsKey = 'view_mode';
@@ -77,6 +82,67 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 /// 主题模式 Provider：app.dart 接入 MaterialApp.router 的 themeMode。
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+/// 主题种子色 Provider（design-ui.md §8 主题色六选一，默认琥珀）。
+///
+/// 启动异步恢复一次（key `seed_color`），之后以内存态为准，切换即写回；
+/// 用户已显式选择后忽略尚未完成的恢复读取。非法值、缺失与读取失败均
+/// 保持默认琥珀，不影响应用其余功能。结构逐行同构 [ThemeModeNotifier]。
+class SeedColorNotifier extends Notifier<AppSeedColor> {
+  /// 用户已显式切换时忽略尚未完成的恢复读取，避免回跳。
+  bool _settled = false;
+
+  /// Provider 生命周期结束后不再回写 state（riverpod 2 无 ref.mounted）。
+  bool _disposed = false;
+
+  @override
+  AppSeedColor build() {
+    _settled = false;
+    _disposed = false;
+    ref.onDispose(() => _disposed = true);
+    unawaited(_restore());
+    return AppSeedColor.amber;
+  }
+
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_disposed || _settled) {
+        return;
+      }
+      _settled = true;
+      final stored = prefs.getString(kSeedColorPrefsKey);
+      state = stored == null
+          ? AppSeedColor.amber
+          : AppSeedColor.values.byName(stored);
+    } on Object catch (error, stackTrace) {
+      // 偏好读取失败/值非法不致命：保持默认琥珀即可。
+      debugPrint('seed_color restore failed: $error\n$stackTrace');
+    }
+  }
+
+  void set(AppSeedColor seed) {
+    _settled = true;
+    if (state == seed) {
+      return;
+    }
+    state = seed;
+    unawaited(_persist(seed));
+  }
+
+  Future<void> _persist(AppSeedColor seed) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(kSeedColorPrefsKey, seed.name);
+    } on Object catch (error, stackTrace) {
+      debugPrint('seed_color persist failed: $error\n$stackTrace');
+    }
+  }
+}
+
+/// 主题种子色 Provider：app.dart 接入 buildLightTheme/buildDarkTheme 的 seed。
+final seedColorProvider =
+    NotifierProvider<SeedColorNotifier, AppSeedColor>(SeedColorNotifier.new);
 
 /// 首页网格卡片密度：舒适（maxCrossAxisExtent 200）/
 /// 紧凑（maxCrossAxisExtent 180）。仅桌面宽屏生效。

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fl_pokedex/app/theme/app_colors.dart';
 import 'package:fl_pokedex/features/settings/providers.dart';
 
 void main() {
@@ -43,6 +44,38 @@ void main() {
     addTearDown(container.dispose);
     await flush(tester);
     expect(container.read(themeModeProvider), ThemeMode.system);
+  });
+
+  testWidgets('seedColor：切换写回 SP（roundtrip）并可恢复', (tester) async {
+    SharedPreferences.setMockInitialValues(const {});
+    final container = ProviderContainer();
+
+    expect(container.read(seedColorProvider), AppSeedColor.amber);
+    await flush(tester);
+
+    // 切换 → 状态与 SP 同步。
+    container.read(seedColorProvider.notifier).set(AppSeedColor.rose);
+    expect(container.read(seedColorProvider), AppSeedColor.rose);
+    await flush(tester);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('seed_color'), 'rose');
+
+    // roundtrip：新容器从 SP 恢复出刚才写回的值。
+    container.dispose();
+    final container2 = ProviderContainer();
+    addTearDown(container2.dispose);
+    expect(container2.read(seedColorProvider), AppSeedColor.amber);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(container2.read(seedColorProvider), AppSeedColor.rose);
+  });
+
+  testWidgets('seedColor：非法/缺失值回退琥珀', (tester) async {
+    SharedPreferences.setMockInitialValues({'seed_color': 'crimson'});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await flush(tester);
+    expect(container.read(seedColorProvider), AppSeedColor.amber);
   });
 
   testWidgets('cardDensity：从 SP 恢复，切换写回（roundtrip）', (tester) async {
