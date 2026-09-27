@@ -16,7 +16,7 @@
 - 终端命令用跨平台写法；Python 一律走 uv：`uv run <script>.py`。
 - **运行任何 Python 前先 `export PYTHONUTF8=1`**（GBK 编码坑）。
 - 数据构建脚本在 `tools/data_builder/`，上游数据缓存在 `.cache/`（已 gitignore，可随时重建）。
-- Flutter 3.47 stable；Android 构建分两种：**真机用全 ABI 通用包** `flutter build apk --release`（约 100MB，含 arm64/armv7/x64，CI 发布同款）；**MuMu 专用 x64 精简包**须加 `--target-platform android-x64`（约 68MB，装到真机会因缺 arm64 的 libflutter.so 秒闪退，勿外发）。**Gradle 构建需会话级环境变量**：`JAVA_HOME=D:\Develop\Java\jdk-21.0.7+6`、`GRADLE_USER_HOME=C:\Users\gbandszxc\.gradle`、`PUB_CACHE=D:\pub-cache`（跨盘符 Kotlin 增量编译崩溃的规避，已在 android/gradle.properties 加 `kotlin.incremental=false`）。应用包名 `com.amberdex.fl_pokedex`。
+- Flutter 3.47 stable；Android 构建 `flutter build apk --release --split-per-abi` 按 ABI 分包出**三包**（arm64-v8a / armeabi-v7a / x86_64，不产 universal 包，CI 发布同款）：真机装 arm64-v8a，MuMu 等模拟器装 x86_64；分包由 Flutter 插件按 CLI flag 自动配置（gradle 里手写 splits 会与插件设的 ndk.abiFilters 冲突）。release 用 upload-keystore 签名：本机取 `android/key.properties`（已 gitignore，缺失自动回退 debug 签名），CI 用同名 Secrets 注入（`ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD`，与 open-burnin-tool 同一套 keystore）。**Gradle 构建需会话级环境变量**：`JAVA_HOME=D:\Develop\Java\jdk-21.0.7+6`、`GRADLE_USER_HOME=C:\Users\gbandszxc\.gradle`、`PUB_CACHE=D:\pub-cache`（跨盘符 Kotlin 增量编译崩溃的规避，已在 android/gradle.properties 加 `kotlin.incremental=false`）。应用包名 `com.amberdex.fl_pokedex`。
 - MuMu 模拟器 adb：`adb connect 127.0.0.1:7555`（另有 127.0.0.1:16416 实例），安装后 `adb -s <serial> shell monkey -p com.amberdex.fl_pokedex 1` 启动；**换库重装后须 `pm clear` 清数据**（首启复制的 DB 副本按 schemaVersion 判断是否覆盖）。
 - Windows 宿主跑 drift 测试需要 `tool/sqlite3/windows/sqlite3.dll`（已入库，勿删）。
 - **Windows 构建需 nuget.exe 在 PATH**：`export PATH="/d/Develop/Tools/nuget:$PATH"`（本机已装于该处；flutter_tts 的 Windows 实现构建期用它拉取 CppWinRT，仅构建期联网，CI 自带无需处理）。
@@ -44,10 +44,10 @@ dart run build_runner build --delete-conflicting-outputs
 flutter analyze
 flutter test
 flutter run -d windows
-flutter build apk --release --target-platform android-x64
-# APK 产物：build/app/outputs/apk/<release|debug>/Fl-PokeDex-<版本号>-<release|debug>.apk
+flutter build apk --release --split-per-abi
+# APK 产物：build/app/outputs/apk/<release|debug>/Fl-PokeDex-<版本号>-<abi>-<release|debug>.apk（abi ∈ arm64-v8a/armeabi-v7a/x86_64，分包命名见 android/app/build.gradle.kts）
 # （build/.../flutter-apk/app-*.apk 是 Flutter 工具链的固定名副本，供 flutter run/install 使用，勿手工改名）
 # Windows 可执行：build/windows/x64/runner/<Release|Debug>/Fl-PokeDex.exe；改 BINARY_NAME 后需删 build/windows 重建
 # MSI 打包（前置 flutter build windows --release）：uv run tools/msi/build_msi.py → build/windows/msi/Fl-PokeDex-<版本>-x64.msi
-# CI：.github/workflows/build.yml 手动触发（gh workflow run build.yml），-f publish=true 时发布 Release（标题=pubspec 版本号，正文空，附件 APK+MSI）
+# CI：.github/workflows/build.yml 手动触发（gh workflow run build.yml），-f publish=true 时发布 Release（标题=pubspec 版本号，正文空，附件 3 架构签名 APK+MSI）
 ```

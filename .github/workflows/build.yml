@@ -1,7 +1,11 @@
 name: build
 
 # 手动触发；publish=true 时构建完成后发布 Release：
-# 标签 v<版本号>，标题 <版本号>（取自 pubspec.yaml），正文为空，附件含 APK 与 MSI。
+# 标签 v<版本号>，标题 <版本号>（取自 pubspec.yaml），正文为空，
+# 附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK 与 MSI。
+# Release 签名：仓库 Settings → Secrets and variables → Actions 配置
+#   ANDROID_KEYSTORE_BASE64（keystore 文件 base64）、ANDROID_KEYSTORE_PASSWORD、
+#   ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD；未配置时回退 debug 签名产出。
 on:
   workflow_dispatch:
     inputs:
@@ -56,8 +60,30 @@ jobs:
 
       - run: flutter pub get
 
-      - name: 构建 Android APK（release）
-        run: flutter build apk --release
+      - name: 配置 Release 签名（可选，未配置 Secrets 时回退 debug 签名）
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "未配置签名 Secrets，回退 debug 签名产出。"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          # Java properties 中反斜杠是转义符，Windows 路径统一转成正斜杠
+          STORE_PATH="$(cygpath -m "$RUNNER_TEMP")/release.keystore"
+          {
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEY_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "storeFile=$STORE_PATH"
+          } > android/key.properties
+
+      - name: 构建 Android APK（release，arm64-v8a / armeabi-v7a / x86_64 分包）
+        run: flutter build apk --release --split-per-abi
 
       - name: 构建 Windows（release）
         run: flutter build windows --release
@@ -86,5 +112,7 @@ jobs:
           gh release create "v${VERSION}" \
             --title "${VERSION}" \
             --notes "" \
-            "build/app/outputs/apk/release/Fl-PokeDex-${VERSION}-release.apk" \
+            "build/app/outputs/apk/release/Fl-PokeDex-${VERSION}-arm64-v8a-release.apk" \
+            "build/app/outputs/apk/release/Fl-PokeDex-${VERSION}-armeabi-v7a-release.apk" \
+            "build/app/outputs/apk/release/Fl-PokeDex-${VERSION}-x86_64-release.apk" \
             "build/windows/msi/Fl-PokeDex-${VERSION}-x64.msi"
