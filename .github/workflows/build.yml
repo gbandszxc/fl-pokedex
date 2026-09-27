@@ -1,8 +1,8 @@
 name: build
 
-# 手动触发；publish=true 时构建完成后发布 Release：
-# 标签 v<版本号>，标题 <版本号>（取自 pubspec.yaml），正文为空，
-# 附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK 与 MSI。
+# 手动触发；Android 与 Windows 两个平台 job 并行构建，publish=true 时
+# 由 release job 汇合产物后发布 Release：标签 v<版本号>，标题 <版本号>（取自
+# pubspec.yaml），正文为空，附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK 与 MSI。
 # Release 签名：仓库 Settings → Secrets and variables → Actions 配置
 #   ANDROID_KEYSTORE_BASE64（keystore 文件 base64）、ANDROID_KEYSTORE_PASSWORD、
 #   ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD；未配置时回退 debug 签名产出。
@@ -18,8 +18,10 @@ permissions:
   contents: write # 发布 Release 与上传附件所需
 
 jobs:
-  build:
+  build-android:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,21 +32,21 @@ jobs:
           channel: stable
           cache: true
 
+      # cache: gradle 复用 ~/.gradle/caches 与 wrapper 分发，免每次冷拉 AGP/Kotlin/依赖
       - name: Set up JDK 21 (Android Gradle)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
+          cache: gradle
 
-      - name: Set up uv (数据管线与 MSI 脚本)
+      - name: Set up uv (数据管线脚本)
         uses: astral-sh/setup-uv@v5
 
-      - name: Cache 上游数据与 WiX（key 随 config.py 变化）
+      - name: Cache 上游数据（key 随 config.py 变化）
         uses: actions/cache@v4
         with:
-          path: |
-            tools/data_builder/.cache
-            tools/msi/.cache
+          path: tools/data_builder/.cache
           key: upstream-${{ hashFiles('tools/data_builder/config.py') }}
 
       - name: 解析版本号
@@ -85,6 +87,49 @@ jobs:
       - name: 构建 Android APK（release，arm64-v8a / armeabi-v7a / x86_64 分包）
         run: flutter build apk --release --split-per-abi
 
+      - name: 上传构建产物（APK 三包）
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fl-PokeDex-apk-${{ steps.version.outputs.version }}
+          path: build/app/outputs/apk/release/Fl-PokeDex-*.apk
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.47.3
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.3
+          channel: stable
+          cache: true
+
+      - name: Set up uv (数据管线与 MSI 脚本)
+        uses: astral-sh/setup-uv@v5
+
+      - name: Cache 上游数据与 WiX（key 随 config.py 变化）
+        uses: actions/cache@v4
+        with:
+          path: |
+            tools/data_builder/.cache
+            tools/msi/.cache
+          key: upstream-${{ hashFiles('tools/data_builder/config.py') }}
+
+      - name: 解析版本号
+        id: version
+        shell: bash
+        run: |
+          echo "version=$(sed -n 's/^version: *\([0-9A-Za-z.]*\).*/\1/p' pubspec.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: 构建离线数据（fetch → db → images → verify）
+        run: uv run tools/data_builder/build_all.py
+        env:
+          PYTHONUTF8: '1'
+
+      - run: flutter pub get
+
       - name: 构建 Windows（release）
         run: flutter build windows --release
 
@@ -93,26 +138,34 @@ jobs:
         env:
           PYTHONUTF8: '1'
 
-      - name: 上传构建产物
+      - name: 上传构建产物（MSI）
         uses: actions/upload-artifact@v4
         with:
-          name: Fl-PokeDex-${{ steps.version.outputs.version }}
-          path: |
-            build/app/outputs/apk/release/Fl-PokeDex-*.apk
-            build/windows/msi/Fl-PokeDex-*.msi
+          name: Fl-PokeDex-msi-${{ steps.version.outputs.version }}
+          path: build/windows/msi/Fl-PokeDex-*.msi
           if-no-files-found: error
 
+  release:
+    if: ${{ inputs.publish }}
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载全部构建产物
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Fl-PokeDex-*
+          merge-multiple: true
+          path: dist
+
       - name: 发布 Release
-        if: ${{ inputs.publish }}
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        shell: bash
+          VERSION: ${{ needs.build-android.outputs.version }}
         run: |
           gh release create "v${VERSION}" \
             --title "${VERSION}" \
             --notes "" \
-            "build/app/outputs/apk/release/Fl-PokeDex-${VERSION}-arm64-v8a-release.apk" \
-            "build/app/outputs/apk/release/Fl-PokeDex-${VERSION}-armeabi-v7a-release.apk" \
-            "build/app/outputs/apk/release/Fl-PokeDex-${VERSION}-x86_64-release.apk" \
-            "build/windows/msi/Fl-PokeDex-${VERSION}-x64.msi"
+            "dist/Fl-PokeDex-${VERSION}-arm64-v8a-release.apk" \
+            "dist/Fl-PokeDex-${VERSION}-armeabi-v7a-release.apk" \
+            "dist/Fl-PokeDex-${VERSION}-x86_64-release.apk" \
+            "dist/Fl-PokeDex-${VERSION}-x64.msi"
