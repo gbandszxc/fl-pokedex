@@ -87,6 +87,12 @@ jobs:
       - name: 构建 Android APK（release，arm64-v8a / armeabi-v7a / x86_64 分包）
         run: flutter build apk --release --split-per-abi
 
+      # Gradle daemon 存活到 job 结束会锁住 ~/.gradle/caches 的 .lock 文件，
+      # 导致 setup-java post 阶段打包缓存失败（tar exit 2）；构建后立即停 daemon 释放锁
+      - name: 停止 Gradle daemon（释放缓存锁文件）
+        working-directory: android
+        run: ./gradlew --stop
+
       - name: 上传构建产物（APK 三包）
         uses: actions/upload-artifact@v4
         with:
