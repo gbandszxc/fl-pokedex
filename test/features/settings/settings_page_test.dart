@@ -15,9 +15,12 @@ typedef _Harness = (
 );
 
 /// 泵入设置页（覆盖仓储与 SP），等待 manifest 解析完成。
+///
+/// [size] 为逻辑 surface 尺寸（默认 400×1600）。
 Future<_Harness> _pumpSettings(
   WidgetTester tester, {
   Map<String, Object> prefs = const {},
+  Size size = const Size(400, 1600),
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final pokedex = FakeSummariesPokedexRepository(const {});
@@ -28,7 +31,7 @@ Future<_Harness> _pumpSettings(
   );
   addTearDown(container.dispose);
 
-  tester.view.physicalSize = const Size(400, 1600);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -115,6 +118,32 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('seed_color'), 'rose');
     // 语义句柄须在测试体末尾释放（校验先于 tearDown 执行）。
+    semantics.dispose();
+  });
+
+  testWidgets('360dp 逻辑宽度下 6 个主题色 swatch 同一行（不换行）',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    // NW 屏（约 360dp 逻辑宽）：6 个 swatch 必须单行排列。
+    await _pumpSettings(tester, size: const Size(360, 720));
+
+    const labels = ['琥珀', '粉', '墨绿', '蓝', '青', '紫'];
+    final rects = [
+      for (final label in labels) tester.getRect(find.bySemanticsLabel(label)),
+    ];
+
+    // 同一行：全部 swatch 顶部 y 一致（换行则第二行 y 明显更大）。
+    for (final rect in rects) {
+      expect(rect.top, rects.first.top,
+          reason: '6 个 swatch 必须同一行（360dp 宽约束）');
+    }
+    // 从左到右 x 递增（排列顺序 = seed 枚举顺序）。
+    for (var i = 1; i < rects.length; i++) {
+      expect(rects[i].left, greaterThan(rects[i - 1].left),
+          reason: '${labels[i]} 应在 ${labels[i - 1]} 右侧');
+    }
+    // 整行不越出屏幕右缘（留 16dp compact 页边）。
+    expect(rects.last.right, lessThanOrEqualTo(360 - 16));
     semantics.dispose();
   });
 

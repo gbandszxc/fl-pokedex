@@ -187,8 +187,11 @@ class _SeedColorRow extends ConsumerWidget {
           child: Text('主题色', style: Theme.of(context).textTheme.bodyMedium),
         ),
         Expanded(
+          // swatch 间距取 xs：360dp 逻辑宽（NW 屏）下 6 个外接方 34 的
+          // swatch 总宽 6×34 + 5×4 = 224 ≤ 可用 244（360 − 2×16 页边 −
+          // 84 标签列），保证单行不换行（design-ui.md §8）。
           child: Wrap(
-            spacing: AppSpacing.s,
+            spacing: AppSpacing.xs,
             children: [
               for (final seed in AppSeedColor.values)
                 _SeedSwatch(
@@ -226,8 +229,9 @@ class _SeedSwatch extends StatelessWidget {
 
   final VoidCallback onSelect;
 
-  /// 色块直径 28 + 描边 2×2 + 留隙 3×2 = 外接方 38。
-  static const double _diameter = 28;
+  /// 色块直径 24 + 描边 2×2 + 留隙 3×2 = 外接方 34（360dp 单行约束的
+  /// 上限尺寸，见 [_SeedColorRow]）。
+  static const double _diameter = 24;
   static const double _ringWidth = 2;
   static const double _ringGap = 3;
 
