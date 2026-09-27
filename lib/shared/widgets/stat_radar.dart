@@ -147,8 +147,14 @@ class _StatRadarPainter extends CustomPainter {
   }
 
   void _paintValueLabels(Canvas canvas, Offset center, double radius) {
+    // TextPainter 直绘不走 DefaultTextStyle 继承链，字族须显式声明。
     final style = AppTypography.tabularFigures(
-      TextStyle(fontSize: 10, height: 1.2, color: labelColor),
+      TextStyle(
+        fontSize: 10,
+        height: 1.2,
+        color: labelColor,
+        fontFamily: AppFonts.family,
+      ),
     );
     for (var i = 0; i < 6; i++) {
       final direction = Offset.fromDirection(_angleOf(i));
