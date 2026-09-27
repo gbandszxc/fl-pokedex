@@ -65,3 +65,5 @@ tools/msi/.cache/
 .cache/
 
 .codegraph/
+# sub-driver 任务计划文件
+.subdriver/
