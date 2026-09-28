@@ -27,7 +27,7 @@ import 'package:fl_pokedex/shared/widgets/widgets.dart';
 
 /// 进化 / 招式 fixtures（伊布 8 分支 + 绿毛虫三段链 + 呆呆兽分支）。
 class FakeEvolutionMovesRepository implements PokedexRepository {
-  /// 注入自定义版本组列表（chip 滚入视野回归测试需要多组长标签组）；
+  /// 注入自定义版本组列表（chips 自动换行回归需要多组长标签组）；
   /// 缺省时沿用 [_versionGroups] 的朱/紫 + 剑/盾。
   FakeEvolutionMovesRepository({List<VersionGroupRef>? versionGroups})
       : _versionGroupOverride = versionGroups;
@@ -653,9 +653,10 @@ void main() {
       expect(find.text('十万伏特'), findsNothing);
     });
 
-    testWidgets('点击视口边缘被裁的版本 chip：完整滚入视口且选中生效', (tester) async {
-      // 多组长标签版本组：窄窗口（480）下行尾 chip 必然被视口右缘裁切
-      //（1600×900 双栏用户实测「黑2/白2 只露出黑2/」的等价场景）。
+    testWidgets('窄面板版本组 chips 自动换行：全部常驻可见且行距 = AppSpacing.s', (tester) async {
+      // 多组长标签版本组：窄窗口（480）下若仍是横滚，行尾 chip 会被右缘
+      // 裁掉一半甚至完全不可见（1600×900 双栏用户实测「黑2/白2 只露出
+      // 黑2/」的等价场景）；改 Wrap 折行后全部 chip 必须完整落在可用宽内。
       repo = FakeEvolutionMovesRepository(
         versionGroups: const [
           VersionGroupRef(id: 'gen9', labelZh: '朱/紫', generationId: 9),
@@ -671,41 +672,66 @@ void main() {
         size: const Size(480, 900),
       );
 
-      final chip = find.byKey(const ValueKey('moves_vg_chip_pla'));
-      // 版本组行的横向滚动视口 = chip 最近的 SingleChildScrollView 祖先。
-      final viewport = find.ancestor(
-        of: chip,
-        matching: find.byType(SingleChildScrollView),
-      ).first;
+      final chipIds = ['gen9', 'gen8', 'gen4', 'pla'];
+      final rects = <Rect>[
+        for (final id in chipIds)
+          tester.getRect(find.byKey(ValueKey('moves_vg_chip_$id'))),
+      ];
 
-      final chipRect = tester.getRect(chip);
-      final viewportRect = tester.getRect(viewport);
-      // 前置：chip 确实被右缘裁切，且可见部分足够容纳一次点击。
-      expect(chipRect.right, greaterThan(viewportRect.right),
-          reason: '前置：pla chip 应被视口右缘裁切');
-      expect(viewportRect.right - chipRect.left, greaterThan(12),
-          reason: '前置：pla chip 应部分可见（可被点击）');
-
-      // 点可见部分而非 chip 中心（中心在视口外，tap 会落空）。
-      await tester.tapAt(Offset(viewportRect.right - 6, chipRect.center.dy));
-      // ensureVisible 动画 AppMotion.fast + 筛选写入后的重查询，泵足帧。
-      for (var i = 0; i < 5; i++) {
-        await tester.pump(const Duration(milliseconds: 60));
+      // 版本组行的可用宽 = chips 的 Wrap 祖先（Expanded 收紧约束）：
+      // 全部 chip 的横向 rect 必须落在其内——不溢出、不被「排序」菜单
+      // 或视口右缘裁切。
+      final wrapRect = tester.getRect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('moves_vg_chip_gen9')),
+          matching: find.byType(Wrap),
+        ),
+      );
+      for (final (index, rect) in rects.indexed) {
+        expect(rect.left, greaterThanOrEqualTo(wrapRect.left - 0.5),
+            reason: 'chip ${chipIds[index]} 左缘越界');
+        expect(rect.right, lessThanOrEqualTo(wrapRect.right + 0.5),
+            reason: 'chip ${chipIds[index]} 右缘被裁切');
       }
 
-      final chipAfter = tester.getRect(chip);
-      expect(chipAfter.left, greaterThanOrEqualTo(viewportRect.left - 0.5));
-      expect(
-        chipAfter.right,
-        lessThanOrEqualTo(viewportRect.right + 0.5),
-        reason: '选中的 chip 应完整落在滚动视口内',
-      );
-      expect(
-        tester.widget<VersionChip>(
-          find.descendant(of: chip, matching: find.byType(VersionChip)),
-        ).selected,
-        isTrue,
-      );
+      // 横滚已移除：分区内不再有任何横向 SingleChildScrollView
+      //（harness 外层的纵向页面滚动是合法祖先，不算在内）。
+      final horizontalScrolls =
+          tester.widgetList<SingleChildScrollView>(
+        find.descendant(
+          of: find.byType(MovesSectionPlaceholder),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      ).where((w) => w.scrollDirection == Axis.horizontal);
+      expect(horizontalScrolls, isEmpty, reason: 'chips 行不应再有横向滚动');
+
+      // 长标签在 480 宽下必然折行：按 chip top 聚类成行（0.5px 容差），
+      // 行数 ≥2，且相邻两行的行距（上一行最底 → 下一行最顶）为
+      // runSpacing = AppSpacing.s。
+      final tops = rects.map((r) => r.top).toList()..sort();
+      final runTops = <double>[];
+      for (final top in tops) {
+        if (runTops.isEmpty || top - runTops.last > 0.5) runTops.add(top);
+      }
+      expect(runTops.length, greaterThanOrEqualTo(2),
+          reason: '480 宽 + 长标签下版本组 chips 应折成 ≥2 行');
+
+      double runBottom(int runIndex) {
+        var bottom = double.negativeInfinity;
+        for (final rect in rects) {
+          if ((rect.top - runTops[runIndex]).abs() <= 0.5 &&
+              rect.bottom > bottom) {
+            bottom = rect.bottom;
+          }
+        }
+        return bottom;
+      }
+
+      for (var i = 0; i < runTops.length - 1; i++) {
+        expect(runTops[i + 1] - runBottom(i), AppSpacing.s,
+            reason: '折行行距应为 runSpacing = AppSpacing.s');
+      }
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('compact tile 定宽右簇：所有行的属性徽章左缘成一条直线', (tester) async {

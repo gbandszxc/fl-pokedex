@@ -153,37 +153,30 @@ class _MovesContent extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 版本组行：Wrap 折行而非横滚——版本组最多 9 枚，窄面板（双栏
+        // ≈650）下横滚会把行尾 chip 裁半甚至完全不可见；折行让全部 chip
+        // 常驻可见。「排序」菜单仍固定在行尾，且与 chips 顶对齐
+        //（crossAxisAlignment.start）：chips 折成多行时菜单锚在首行，
+        // 单行时两者同高（均 26px），顶对齐与居中视觉等价。
         Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final (index, group) in groups.indexed) ...[
-                      // key 挂在 Builder 上：闭包里的 context 即 chip 的
-                      // 定位锚点，测试也按这个 key 找单个 chip。
-                      Builder(
-                        key: ValueKey('moves_vg_chip_${group.id}'),
-                        builder: (chipContext) => VersionChip(
-                          label: group.labelZh,
-                          selected:
-                              group.id == _effectiveGroupId(filter, groups),
-                          onTap: () {
-                            // 先把 chip 完整滚入视野再写筛选状态：视口
-                            // 边缘被裁的 chip 选中后不能停在半裁位置，
-                            // 否则「选中了哪个」不可读。
-                            _revealChip(chipContext);
-                            filterNotifier.setVersionGroup(group.id);
-                          },
-                        ),
-                      ),
-                      if (index != groups.length - 1)
-                        const SizedBox(width: AppSpacing.s),
-                    ],
-                  ],
-                ),
+              child: Wrap(
+                spacing: AppSpacing.s,
+                runSpacing: AppSpacing.s,
+                children: [
+                  for (final group in groups)
+                    VersionChip(
+                      // 测试定位锚点：标签可能与图鉴说明区的版本 chip
+                      // 撞文本，按 key 找比按文案找更稳。
+                      key: ValueKey('moves_vg_chip_${group.id}'),
+                      label: group.labelZh,
+                      selected:
+                          group.id == _effectiveGroupId(filter, groups),
+                      onTap: () => filterNotifier.setVersionGroup(group.id),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: AppSpacing.s),
@@ -194,31 +187,30 @@ class _MovesContent extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.s),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
+        // 来源 chips 行：与版本组行同款 Wrap 折行，消除同类截断风险，
+        // 并与图鉴说明区的版本 chips Wrap 形成一致语汇。
+        Wrap(
+          spacing: AppSpacing.s,
+          runSpacing: AppSpacing.s,
+          children: [
+            VersionChip(
+              label: '全部',
+              selected: filter.methods.isEmpty,
+              onTap: () => filterNotifier.setMethods(const <String>{}),
+            ),
+            for (final entry in _kMethodZh.entries)
               VersionChip(
-                label: '全部',
-                selected: filter.methods.isEmpty,
-                onTap: () => filterNotifier.setMethods(const <String>{}),
+                label: entry.value,
+                selected: filter.methods.contains(entry.key),
+                onTap: () {
+                  final next = <String>{...filter.methods};
+                  if (!next.remove(entry.key)) {
+                    next.add(entry.key);
+                  }
+                  filterNotifier.setMethods(next);
+                },
               ),
-              for (final entry in _kMethodZh.entries) ...[
-                const SizedBox(width: AppSpacing.s),
-                VersionChip(
-                  label: entry.value,
-                  selected: filter.methods.contains(entry.key),
-                  onTap: () {
-                    final next = <String>{...filter.methods};
-                    if (!next.remove(entry.key)) {
-                      next.add(entry.key);
-                    }
-                    filterNotifier.setMethods(next);
-                  },
-                ),
-              ],
-            ],
-          ),
+          ],
         ),
         const SizedBox(height: AppSpacing.m),
         movesAsync.when(
@@ -316,22 +308,6 @@ class _MovesContent extends ConsumerWidget {
   ) {
     if (filter.versionGroup.isNotEmpty) return filter.versionGroup;
     return groups.isEmpty ? '' : groups.first.id;
-  }
-
-  /// 把刚点按的版本 chip 完整滚入横向视口（先于筛选状态写入）。
-  ///
-  /// ensureVisible 沿祖先 scrollable 链逐级保证可见：chip 在页面纵向
-  /// 滚动里本就可见（用户刚点中它），不会牵动页面纵向滚动。系统
-  /// 「关闭动画」（MediaQuery.disableAnimationsOf）时 duration 取零
-  /// 直接到位，与详情页分区跳转同一偏好。
-  void _revealChip(BuildContext chipContext) {
-    Scrollable.ensureVisible(
-      chipContext,
-      duration: MediaQuery.disableAnimationsOf(chipContext)
-          ? Duration.zero
-          : AppMotion.fast,
-      curve: AppMotion.curve,
-    );
   }
 }
 
