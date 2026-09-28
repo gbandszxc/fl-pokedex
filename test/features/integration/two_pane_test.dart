@@ -355,7 +355,7 @@ void main() {
     expect(find.text('飞叶快刀'), findsWidgets);
   });
 
-  testWidgets('双栏：详情面板滑动切换写选中态，面板与列表选中跟随且不导航',
+  testWidgets('双栏：详情面板无滑动/键盘切换，选中只由左列表驱动',
       (tester) async {
     final (container, favorites) =
         await _pumpApp(tester, size: const Size(1200, 900));
@@ -366,35 +366,38 @@ void main() {
     await _pumpDetailReady(tester);
     expect(container.read(paneSelectionProvider), 1);
 
-    // 面板内水平滑动切换：左滑 = 下一只。定位用面板头的编号文本
-    // （直接 find.text 会同时命中列表卡片，故收窄到详情页子树；
-    // .first：进化分区节点也带编号文本，取遍历序首个 = 面板头编号）。
+    // 定位用面板头的编号文本（直接 find.text 会同时命中列表卡片，故收窄
+    // 到详情页子树；.first：进化分区节点也带编号文本，取遍历序首个 =
+    // 面板头编号）。
     Finder paneDexNumber(String label) => find.descendant(
           of: find.byType(PokemonDetailPage),
           matching: find.text(label),
         ).first;
 
-    // 左滑：写 paneSelectionProvider（不导航），KeyedSubtree 按 ValueKey
-    // 重建面板为 #002，列表选中描边随之跟随。
+    // 面板内水平滑动（左滑/右滑）：不切换、不写选中态、不导航，
+    // 面板仍是 #001（妙蛙种子及其进化链）。
     await tester.drag(paneDexNumber('#001'), const Offset(-150, 0));
     await _pumpDetailReady(tester);
-
-    expect(container.read(paneSelectionProvider), 2);
-    expect(_location(container), '/'); // 切换不走路由
-    expect(find.text('#002'), findsWidgets); // 面板头部 + 列表卡片
-    // 面板切换按新条目记录最近浏览。
-    expect(favorites.recents, [1, 2]);
-
-    // 反向右滑（= 上一只）：回 #001。
-    await tester.drag(paneDexNumber('#002'), const Offset(150, 0));
-    await _pumpDetailReady(tester);
-    expect(container.read(paneSelectionProvider), 1);
-    expect(find.text('#001'), findsWidgets);
-
-    // 边界：#001 已是首位，右滑越界原地不动。
     await tester.drag(paneDexNumber('#001'), const Offset(150, 0));
     await _pumpDetailReady(tester);
+
     expect(container.read(paneSelectionProvider), 1);
+    expect(_location(container), '/'); // 未发生路由 push
+    expect(find.descendant(
+      of: find.byType(PokemonDetailPage),
+      matching: find.text('妙蛙种子'),
+    ), findsWidgets);
+    // 滑动不产生新的最近浏览记录。
+    expect(favorites.recents, [1]);
+
+    // 点按面板再按 → 键：同样不切换（双栏无键盘切换交互）。
+    await tester.tap(paneDexNumber('#001'));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await _pumpDetailReady(tester);
+
+    expect(container.read(paneSelectionProvider), 1);
+    expect(_location(container), '/');
   });
 
   testWidgets('宽 <1080 单栏：点卡片推入详情路由（行为不变）', (tester) async {

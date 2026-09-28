@@ -10,14 +10,14 @@ import 'package:fl_pokedex/features/pokemon_detail/pokemon_detail_page.dart';
 
 import 'fake_repositories.dart';
 
-/// 上一只 / 下一只切换（单元 C）：
+/// 上一只 / 下一只切换（单元 C，仅全页路由模式）：
 /// - 触摸设备：页面级水平滑动切换（左滑 = 下一只，右滑 = 上一只），
 ///   累计位移超阈值触发一次，快甩（松手速度超阈值）兜底；
 /// - 桌面键盘：← / → 仅在页面键盘锚点自身持焦时生效；点按页面空白处
 ///   会把焦点收回锚点（TabBar 左右箭头切 tab 的行为不受抢占）；
 /// - 顺序 = national_dex（fixture：1 → 25），首尾边界原地不动；
-/// - 全页模式走 pushReplacement 替换栈顶；双栏面板注入 onSwitchSpecies
-///   回调（不导航）。
+/// - 全页模式走 pushReplacement 替换栈顶；双栏面板无切换交互（键盘 /
+///   拖拽均不接），顺序浏览职责在左列表。
 void main() {
   late FakePokedexRepository repo;
   late FakeFavoritesRepository favorites;
@@ -61,11 +61,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// 双栏详情面板契约：showBackButton=false + 注入 onSwitchSpecies
-  /// （壳层写 paneSelectionProvider，不导航）。
-  Widget buildPane(
-    List<int> switchedTo,
-  ) {
+  /// 双栏详情面板契约：showBackButton=false（无返回键、无切换交互）。
+  Widget buildPane() {
     return ProviderScope(
       overrides: [
         pokedexRepositoryProvider.overrideWithValue(repo),
@@ -77,7 +74,6 @@ void main() {
           body: PokemonDetailPage(
             speciesId: 1,
             showBackButton: false,
-            onSwitchSpecies: switchedTo.add,
           ),
         ),
       ),
@@ -223,11 +219,10 @@ void main() {
     });
   });
 
-  group('双栏面板切换契约（壳层注入 onSwitchSpecies）', () {
-    testWidgets('左滑只回调目标 id，不做路由导航', (tester) async {
-      final switchedTo = <int>[];
+  group('双栏面板无切换交互（顺序浏览职责在左列表）', () {
+    testWidgets('嵌入态无返回键，左滑不切换', (tester) async {
       favorites.seed(const {});
-      await tester.pumpWidget(buildPane(switchedTo));
+      await tester.pumpWidget(buildPane());
       await tester.pumpAndSettle();
 
       // 面板嵌入：无返回键（showBackButton=false）。
@@ -236,22 +231,23 @@ void main() {
       await tester.drag(find.text('#001'), const Offset(-150, 0));
       await tester.pumpAndSettle();
 
-      expect(switchedTo, [25]);
-      // 回调模式不走路由：仍是当前页面的 #001 内容（壳层负责按
-      // paneSelectionProvider 重建面板）。
       expect(find.text('#001'), findsOneWidget);
+      expect(find.text('#025'), findsNothing);
     });
 
-    testWidgets('右滑越界（#001 无上一只）不回调', (tester) async {
-      final switchedTo = <int>[];
+    testWidgets('点按面板空白处后按 → 也不切换', (tester) async {
       favorites.seed(const {});
-      await tester.pumpWidget(buildPane(switchedTo));
+      await tester.pumpWidget(buildPane());
       await tester.pumpAndSettle();
 
-      await tester.drag(find.text('#001'), const Offset(150, 0));
+      await tester.tap(find.text('#001'));
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
 
-      expect(switchedTo, isEmpty);
+      expect(find.text('#001'), findsOneWidget);
+      expect(find.text('#025'), findsNothing);
     });
   });
 }

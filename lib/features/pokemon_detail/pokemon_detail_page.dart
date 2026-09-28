@@ -77,20 +77,19 @@ String _measureLabel(double? value, String unit) =>
     (value == null || value <= 0) ? '—' : '${value.toStringAsFixed(1)} $unit';
 
 /// 宝可梦详情页（compact/medium 全页 Tab 布局；expanded 单页滚动分区；
-/// 宽 ≥1080 的 master-detail 双栏由集成单元处理）。
+/// 宽 ≥1080 的 master-detail 双栏由集成单元处理）。全页支持滑动 /
+/// ←/→ 键切上一只 / 下一只；双栏嵌入态无切换交互（[_embeddedInPane]）。
 class PokemonDetailPage extends ConsumerStatefulWidget {
   const PokemonDetailPage({
     super.key,
     required this.speciesId,
     this.showBackButton = true,
-    this.onSwitchSpecies,
   });
 
   /// 路由参数不是合法整数时的「未找到」态。
   const PokemonDetailPage.notFound({super.key})
       : speciesId = null,
-        showBackButton = true,
-        onSwitchSpecies = null;
+        showBackButton = true;
 
   /// null 表示路由参数非法（渲染未找到空态）。
   final int? speciesId;
@@ -99,17 +98,16 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
   /// 嵌入双栏详情面板时传 false（面板无路由栈，不提供返回）。
   final bool showBackButton;
 
-  /// 「上一只 / 下一只」切换到目标 species 的动作。null = 全页路由模式
-  /// （`context.pushReplacement('/pokemon/$id')` 替换栈顶，保留栈底列表页）；
-  /// 双栏详情面板由壳层注入「写双栏选中态」回调（features 互不 import，
-  /// 见 adaptive_scaffold），切换不导航、左列表选中态随之跟随。
-  final ValueChanged<int>? onSwitchSpecies;
-
   @override
   ConsumerState<PokemonDetailPage> createState() => _PokemonDetailPageState();
 }
 
 class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
+  /// 是否嵌入双栏详情面板（showBackButton=false 即嵌入态）：面板无路由
+  /// 栈，也不提供键盘 / 滑动切换——左右布局下 ←/→ 与列表焦点互相抢占
+  /// 且生效条件不可见，顺序浏览职责交还左列表（见 adaptive_scaffold）。
+  bool get _embeddedInPane => !widget.showBackButton;
+
   /// 页面键盘锚点：全页路由模式下自动持焦；←/→ 仅在锚点自身持焦时
   /// 切换上/下一只，焦点在 Tab / 按钮等控件上时放行给默认焦点遍历
   /// （TabBar 左右箭头切 tab 的行为不受影响）。点按页面空白处会把焦点
@@ -163,19 +161,15 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
         index >= 0 && index < order.length - 1 ? order[index + 1] : null;
   }
 
+  /// 仅全页路由模式可达（双栏嵌入态不接键盘 / 拖拽切换）：
+  /// pushReplacement 替换栈顶详情（列表页仍在栈底，返回键仍回列表；
+  /// 不能 go——/pokemon/:id 是根级路由，go 会把栈重建成只剩详情，返回键
+  /// 与底部导航随之消失）；新路由页重建，滚动位置自然回到顶部。
+  /// extra 携带方向，路由侧据此播放自右 / 自左的方向性过渡。
   void _switchTo(
     int targetSpeciesId, {
     SpeciesSwitchDirection direction = SpeciesSwitchDirection.next,
   }) {
-    final onSwitch = widget.onSwitchSpecies;
-    if (onSwitch != null) {
-      onSwitch(targetSpeciesId);
-      return;
-    }
-    // 全页路由：pushReplacement 替换栈顶详情（列表页仍在栈底，返回键仍
-    // 回列表；不能 go——/pokemon/:id 是根级路由，go 会把栈重建成只剩详情，
-    // 返回键与底部导航随之消失）；新路由页重建，滚动位置自然回到顶部。
-    // extra 携带方向，路由侧据此播放自右 / 自左的方向性过渡。
     context.pushReplacement('/pokemon/$targetSpeciesId', extra: direction);
   }
 
@@ -265,7 +259,10 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
         ),
       );
     }
-    final dexOrder = ref.watch(speciesDexOrderProvider).valueOrNull;
+    // 双栏嵌入无切换交互，不解析相邻项。
+    final dexOrder = _embeddedInPane
+        ? null
+        : ref.watch(speciesDexOrderProvider).valueOrNull;
     _resolveNeighbors(dexOrder, speciesId);
     final detailAsync = ref.watch(pokemonDetailProvider(speciesId));
     final page = detailAsync.when(
@@ -302,19 +299,22 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
         showBackButton: widget.showBackButton,
       ),
     );
-    // 双栏嵌入不 autofocus：避免抢走列表面板搜索框的初始焦点；
-    // 此时锚点不持焦，键盘切换可由点按面板空白处唤回（onTap）。
+    // 双栏嵌入：键盘 / 拖拽切换一概不接（见 [_embeddedInPane]），
+    // 面板内空白点击也不再有收焦语义，直接渲染页面内容。
+    if (_embeddedInPane) {
+      return page;
+    }
+    // 全页路由：键盘锚点自动持焦；点在按钮 / Tab / 输入框上的 tap 被
+    // 它们消费，其余空白处 tap 收回锚点，←/→ 随之恢复可用。
     return Focus(
       focusNode: _keyboardAnchor,
-      autofocus: widget.showBackButton,
+      autofocus: true,
       skipTraversal: true,
       onKeyEvent: _handleKeyEvent,
       child: GestureDetector(
         // opaque：空白区域（非可点控件）也是命中目标，tap 收焦点与
         // 滑动切换在整个页面生效。
         behavior: HitTestBehavior.opaque,
-        // 点空白处把键盘焦点收回锚点：点在按钮 / Tab / 输入框上时
-        // tap 被它们消费，不会落到此处。双栏面板同样受益。
         onTap: () => _keyboardAnchor.requestFocus(),
         onHorizontalDragUpdate: _handleSwipeUpdate,
         onHorizontalDragEnd: _handleSwipeEnd,
