@@ -12,6 +12,7 @@ import '../../domain/models/form_summary.dart';
 import '../../shared/responsive/breakpoints.dart';
 import '../../shared/widgets/widgets.dart';
 import 'detail_data.dart';
+import 'detail_section_rail.dart';
 import 'evolution_section_placeholder.dart';
 import 'moves_section_placeholder.dart';
 import 'providers.dart';
@@ -396,18 +397,17 @@ class _DetailScaffold extends ConsumerWidget {
     final isExpanded =
         windowSizeFor(MediaQuery.sizeOf(context).width) == WindowSize.expanded;
 
-    final header = _Header(
-      detail: detail,
-      selectedForm: selectedForm,
-      artworkHeight: isExpanded ? _kArtworkHeightExpanded : null,
-    );
-    final formChips = _FormChips(detail: detail, selectedForm: selectedForm);
-
     // 返回键仅在真有路由栈时出现（与自动 leading 的 canPop 行为一致）；
     // 双栏面板（无路由栈）则无 leading。
     final canPop = showBackButton && Navigator.of(context).canPop();
 
     if (!isExpanded) {
+      final header = _Header(
+        detail: detail,
+        selectedForm: selectedForm,
+        artworkHeight: null,
+      );
+      final formChips = _FormChips(detail: detail, selectedForm: selectedForm);
       // compact / medium：头部收进折叠式 SliverAppBar（滚动收起），
       // pinned TabBar + TabBarView 始终保有视口剩余空间。
       final expandedHeight = (MediaQuery.sizeOf(context).height * 0.5)
@@ -479,53 +479,15 @@ class _DetailScaffold extends ConsumerWidget {
       );
     }
 
-    // expanded：单页滚动 + SectionTitle 分区；twoPane 时本页嵌入
-    // 右侧详情面板（showBackButton = false，无返回入口）。
+    // expanded：单页滚动 + SectionTitle 分区 + 右侧锚点轨；twoPane 时本页
+    // 嵌入右侧详情面板（showBackButton = false，无返回入口）。两种入口
+    // 共用同一主体，锚点轨都常驻。
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            automaticallyImplyLeading: false,
-            leading: canPop ? const BackButton() : null,
-            actions: [
-              _FavoriteAction(speciesId: detail.speciesId),
-            ],
-          ),
-          SliverPadding(
-            padding:
-                EdgeInsets.fromLTRB(pad, AppSpacing.s, pad, AppSpacing.xxl),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  header,
-                  formChips,
-                  const SizedBox(height: AppSpacing.xl),
-                  _FlavorSection(
-                    speciesId: detail.speciesId,
-                    selectedForm: selectedForm,
-                    showTitle: true,
-                  ),
-                  const SizedBox(height: AppSpacing.xxl),
-                  _StatsSection(selectedForm: selectedForm),
-                  const SizedBox(height: AppSpacing.xxl),
-                  EvolutionSectionPlaceholder(
-                    speciesId: detail.speciesId,
-                  ),
-                  const SizedBox(height: AppSpacing.xxl),
-                  MovesSectionPlaceholder(speciesId: detail.speciesId),
-                  const SizedBox(height: AppSpacing.xxl),
-                  _InfoSection(
-                    detail: detail,
-                    selectedForm: selectedForm,
-                    showTitle: true,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      body: _ExpandedDetailBody(
+        detail: detail,
+        selectedForm: selectedForm,
+        canPop: canPop,
+        pad: pad,
       ),
     );
   }
@@ -534,6 +496,154 @@ class _DetailScaffold extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(pad, AppSpacing.m, pad, AppSpacing.xl),
         child: child,
       );
+}
+
+/// expanded 单页滚动主体：pinned SliverAppBar + 五段分区（自上而下追加）
+/// + 右侧常驻分区锚点轨。
+///
+/// 分区很长（招式段尤甚），锚点轨负责跳转与「现在在哪一段」的高亮；
+/// 滚动几何见 [DetailSectionAnchorScroll]。
+class _ExpandedDetailBody extends StatefulWidget {
+  const _ExpandedDetailBody({
+    required this.detail,
+    required this.selectedForm,
+    required this.canPop,
+    required this.pad,
+  });
+
+  final PokemonDetailData detail;
+
+  final FormSummary selectedForm;
+
+  /// 是否展示返回入口（全页路由有栈为 true；双栏面板无栈）。
+  final bool canPop;
+
+  /// 页面水平留白（expanded = 24）。
+  final double pad;
+
+  @override
+  State<_ExpandedDetailBody> createState() => _ExpandedDetailBodyState();
+}
+
+class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
+  final ScrollController _scrollController = ScrollController();
+  final DetailSectionAnchorScroll _anchors = DetailSectionAnchorScroll();
+
+  /// 当前激活段（锚点轨高亮 + 无障碍 selected）。
+  var _activeIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_handleScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 滚动时刷新高亮：判定推迟到本帧布局完成（见
+  /// [DetailSectionAnchorScroll.handleScroll]）；只在激活段变化时重建。
+  void _handleScroll() => _anchors.handleScroll(_scrollController, _setActive);
+
+  void _setActive(int index) {
+    if (mounted && index != _activeIndex) {
+      setState(() => _activeIndex = index);
+    }
+  }
+
+  void _handleAnchorSelected(int index) =>
+      _anchors.jumpTo(context, _scrollController, index);
+
+  /// 分区外包一层挂载点：锚点跳转 / 高亮都按分区顶部定位。
+  Widget _section(int index, Widget child) =>
+      KeyedSubtree(key: _anchors.sectionKeys[index], child: child);
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = widget.detail;
+    final selectedForm = widget.selectedForm;
+    return Row(
+      // stretch：锚点轨的分隔线与底色要贯穿整个面板高度。
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                automaticallyImplyLeading: false,
+                leading: widget.canPop ? const BackButton() : null,
+                actions: [
+                  _FavoriteAction(speciesId: detail.speciesId),
+                ],
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  widget.pad,
+                  AppSpacing.s,
+                  widget.pad,
+                  AppSpacing.xxl,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _Header(
+                        detail: detail,
+                        selectedForm: selectedForm,
+                        artworkHeight: _kArtworkHeightExpanded,
+                      ),
+                      _FormChips(detail: detail, selectedForm: selectedForm),
+                      const SizedBox(height: AppSpacing.xl),
+                      _section(
+                        0,
+                        _FlavorSection(
+                          speciesId: detail.speciesId,
+                          selectedForm: selectedForm,
+                          showTitle: true,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
+                      _section(1, _StatsSection(selectedForm: selectedForm)),
+                      const SizedBox(height: AppSpacing.xxl),
+                      _section(
+                        2,
+                        EvolutionSectionPlaceholder(
+                          speciesId: detail.speciesId,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
+                      _section(
+                        3,
+                        MovesSectionPlaceholder(speciesId: detail.speciesId),
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
+                      _section(
+                        4,
+                        _InfoSection(
+                          detail: detail,
+                          selectedForm: selectedForm,
+                          showTitle: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        DetailSectionRail(
+          activeIndex: _activeIndex,
+          onSelected: _handleAnchorSelected,
+        ),
+      ],
+    );
+  }
 }
 
 /// 常驻收藏心（AppBar action）。

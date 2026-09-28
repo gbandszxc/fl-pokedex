@@ -17,6 +17,7 @@ import 'package:fl_pokedex/domain/models/refs.dart';
 import 'package:fl_pokedex/domain/models/species_info.dart';
 import 'package:fl_pokedex/domain/models/stat_block.dart';
 import 'package:fl_pokedex/features/pokedex/providers.dart';
+import 'package:fl_pokedex/features/pokemon_detail/detail_section_rail.dart';
 import 'package:fl_pokedex/features/pokemon_detail/pokemon_detail_page.dart';
 import 'package:fl_pokedex/features/settings/providers.dart';
 import 'package:fl_pokedex/shared/widgets/widgets.dart';
@@ -353,6 +354,22 @@ void main() {
     expect(find.text('共 2 个招式'), findsOneWidget);
     expect(find.text('撞击'), findsWidgets);
     expect(find.text('飞叶快刀'), findsWidgets);
+
+    // 双栏嵌入面板同样是「单页分区 + 右侧锚点轨」：点锚点只滚动面板，不导航。
+    expect(find.byType(DetailSectionRail), findsOneWidget);
+    final infoTitle = find.widgetWithText(SectionTitle, '资料');
+    final topBeforeJump = tester.getRect(infoTitle).top;
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DetailSectionRail),
+        matching: find.text('资料'),
+      ),
+    );
+    // 跳转动画 AppMotion.slow（有界泵帧，不用 pumpAndSettle：骨架有循环动画）。
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(tester.getRect(infoTitle).top, lessThan(topBeforeJump));
+    expect(_location(container), '/');
   });
 
   testWidgets('双栏：详情面板无滑动/键盘切换，选中只由左列表驱动',

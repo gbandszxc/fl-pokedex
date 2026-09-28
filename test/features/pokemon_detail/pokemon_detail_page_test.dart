@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fl_pokedex/app/theme/theme.dart';
 import 'package:fl_pokedex/core/di.dart';
+import 'package:fl_pokedex/features/pokemon_detail/detail_section_rail.dart';
 import 'package:fl_pokedex/features/pokemon_detail/pokemon_detail_page.dart';
 import 'package:fl_pokedex/shared/widgets/widgets.dart';
 
@@ -373,8 +374,70 @@ void main() {
 
       expect(find.byType(TabBar), findsNothing);
       expect(find.text('图鉴说明'), findsOneWidget); // SectionTitle（无 Tab）
-      expect(find.text('资料'), findsOneWidget);
+      // 按组件定位：「资料」同时是锚点轨短名（find.text 会命中 2 处）。
+      expect(find.widgetWithText(SectionTitle, '资料'), findsOneWidget);
       expect(find.byType(StatRadar), findsOneWidget); // 宽 ≥840 并排雷达
+    });
+
+    testWidgets('右侧锚点轨常驻：点击锚点把分区带到 pinned AppBar 之下', (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await pumpPage(tester);
+
+      // 五段短名齐备（完整名在 Tooltip 里，见 detail_section_rail_test）。
+      expect(find.byType(DetailSectionRail), findsOneWidget);
+      for (final anchor in kDetailSectionAnchors) {
+        expect(
+          find.descendant(
+            of: find.byType(DetailSectionRail),
+            matching: find.text(anchor.shortLabel),
+          ),
+          findsOneWidget,
+        );
+      }
+
+      Finder anchorItem(String shortLabel) => find.descendant(
+            of: find.byType(DetailSectionRail),
+            matching: find.text(shortLabel),
+          );
+
+      // 末段「资料」：内容在它之后不足一屏，跳转被 maxScrollExtent 截断
+      // （无法顶到 AppBar 之下），此时仍须滚入视口 + 高亮末段。
+      final infoTitle = find.widgetWithText(SectionTitle, '资料');
+      expect(tester.getRect(infoTitle).top, greaterThan(900)); // 初始在视口外
+
+      await tester.tap(anchorItem('资料'));
+      await tester.pumpAndSettle();
+
+      final infoTop = tester.getRect(infoTitle).top;
+      expect(infoTop, greaterThanOrEqualTo(kToolbarHeight)); // 不被 AppBar 遮挡
+      expect(infoTop, lessThan(900)); // 已进入视口
+      expect(
+        tester
+            .widget<DetailSectionRail>(find.byType(DetailSectionRail))
+            .activeIndex,
+        kDetailSectionAnchors.length - 1,
+      );
+
+      // 反向上滚回首段：标题精确落在 AppBar 之下 8px（不是被顶到视口顶端）。
+      final flavorTitle = find.widgetWithText(SectionTitle, '图鉴说明');
+      await tester.tap(anchorItem('说明'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getRect(flavorTitle).top,
+        moreOrLessEquals(kToolbarHeight + AppSpacing.s, epsilon: 1),
+      );
+      expect(
+        tester
+            .widget<DetailSectionRail>(find.byType(DetailSectionRail))
+            .activeIndex,
+        0,
+      );
+      expect(tester.takeException(), isNull);
     });
   });
 
