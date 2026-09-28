@@ -310,8 +310,7 @@ void main() {
         final maxWidth = entry.value.width * 0.6;
         for (final element in badges.evaluate()) {
           final rect = tester.getRect(find.byWidget(element.widget));
-          expect(rect.width, lessThan(maxWidth),
-              reason: '属性徽章被拉伸为全宽（P1-b 回归）');
+          expect(rect.width, lessThan(maxWidth), reason: '属性徽章被拉伸为全宽（P1-b 回归）');
         }
         // 双徽章并排（同一水平线）。
         final first = tester.getRect(find.byType(TypeBadge).first);
@@ -326,8 +325,8 @@ void main() {
       await pumpPage(tester, speciesId: 25);
 
       expect(find.widgetWithText(VersionChip, '超极巨化'), findsOneWidget);
-      expect(find.widgetWithText(VersionChip, 'Cosplay Pikachu'),
-          findsOneWidget);
+      expect(
+          find.widgetWithText(VersionChip, 'Cosplay Pikachu'), findsOneWidget);
       // 默认形态 chip 选中。
       expect(
         tester
@@ -438,6 +437,42 @@ void main() {
         0,
       );
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('点「招式」：落点被截到底时高亮钉在被点项，不亮「资料」', (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await pumpPage(tester);
+
+      // 缺陷原始场景（实机复现）：招式段很长、其后的资料段不足一屏，点
+      // 「招式」的目标偏移超过 maxScrollExtent，落点被截断到页面底部——
+      // 滚动跟随口径的「到底认末段」曾把高亮错给「资料」。
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DetailSectionRail),
+          matching: find.text('招式'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final controller = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!;
+      expect(
+        controller.offset,
+        moreOrLessEquals(controller.position.maxScrollExtent, epsilon: 1),
+        reason: '前置条件：落点确实被 maxScrollExtent 截断到页面底部',
+      );
+      expect(
+        tester
+            .widget<DetailSectionRail>(find.byType(DetailSectionRail))
+            .activeIndex,
+        3,
+        reason: '高亮钉在被点的「招式」（下标 3）',
+      );
     });
   });
 

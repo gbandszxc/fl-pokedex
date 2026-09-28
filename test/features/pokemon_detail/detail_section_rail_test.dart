@@ -1,6 +1,7 @@
 // Tristate 只从 dart:ui 暴露（SemanticsNode.flagsCollection 用三态而非 bool）。
 import 'dart:ui' show Tristate;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,16 +16,24 @@ const double _kBlockHeight = 400;
 /// 默认挂载段数（与 [kDetailSectionAnchors] 等长；首条用例断言两者同步）。
 const int _kSectionCount = 5;
 
-/// 受控试验台：pinned SliverAppBar + [sectionCount] 段高分区块 + 右侧
-/// 锚点轨，接线方式与 pokemon_detail_page 的 `_ExpandedDetailBody` 一致
-/// （同一 [DetailSectionAnchorScroll]）。
+/// 受控试验台：pinned SliverAppBar + [sectionCount] 段 [blockHeight] 高区块
+/// + 右侧锚点轨，接线方式与 pokemon_detail_page 的 `_ExpandedDetailBody`
+/// 一致（同一 [DetailSectionAnchorScroll]，滚动同经 NotificationListener
+/// 驱动——钉定逻辑依赖通知的 dragDetails / 活动边界，controller listener
+/// 驱动测不到）。
 ///
 /// [sectionCount] < 5 用来复现「目标分区尚未挂载」——轨道仍在，但
-/// 对应的 GlobalKey 没有挂载点。
+/// 对应的 GlobalKey 没有挂载点。[blockHeight] < 268 用来复现「目标之后
+/// 内容不足一屏」（跳转落点被 maxScrollExtent 截断到底部）。
 class _RailHarness extends StatefulWidget {
-  const _RailHarness({this.sectionCount = _kSectionCount});
+  const _RailHarness({
+    this.sectionCount = _kSectionCount,
+    this.blockHeight = _kBlockHeight,
+  });
 
   final int sectionCount;
+
+  final double blockHeight;
 
   @override
   State<_RailHarness> createState() => _RailHarnessState();
@@ -34,12 +43,6 @@ class _RailHarnessState extends State<_RailHarness> {
   final ScrollController controller = ScrollController();
   final DetailSectionAnchorScroll anchors = DetailSectionAnchorScroll();
   var activeIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    controller.addListener(_handleScroll);
-  }
 
   @override
   void didChangeDependencies() {
@@ -54,13 +57,14 @@ class _RailHarnessState extends State<_RailHarness> {
     super.dispose();
   }
 
-  void _handleScroll() => anchors.handleScroll(controller, _setActive);
-
-  void _setActive(int index) {
+  void setActive(int index) {
     if (mounted && index != activeIndex) {
       setState(() => activeIndex = index);
     }
   }
+
+  bool handleScrollNotification(ScrollNotification notification) =>
+      anchors.handleScrollNotification(notification, controller, setActive);
 
   @override
   Widget build(BuildContext context) {
@@ -69,34 +73,40 @@ class _RailHarnessState extends State<_RailHarness> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: CustomScrollView(
-              controller: controller,
-              slivers: [
-                const SliverAppBar(
-                  pinned: true,
-                  automaticallyImplyLeading: false,
-                ),
-                SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      for (var index = 0; index < widget.sectionCount; index++)
-                        KeyedSubtree(
-                          key: anchors.sectionKeys[index],
-                          child: SizedBox(
-                            height: _kBlockHeight,
-                            // 区块文案避开锚点短名，保证 find.text 无二义。
-                            child: Text('第 $index 段'),
-                          ),
-                        ),
-                    ],
+            child: NotificationListener<ScrollNotification>(
+              onNotification: handleScrollNotification,
+              child: CustomScrollView(
+                controller: controller,
+                slivers: [
+                  const SliverAppBar(
+                    pinned: true,
+                    automaticallyImplyLeading: false,
                   ),
-                ),
-              ],
+                  SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        for (var index = 0;
+                            index < widget.sectionCount;
+                            index++)
+                          KeyedSubtree(
+                            key: anchors.sectionKeys[index],
+                            child: SizedBox(
+                              height: widget.blockHeight,
+                              // 区块文案避开锚点短名，保证 find.text 无二义。
+                              child: Text('第 $index 段'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           DetailSectionRail(
             activeIndex: activeIndex,
-            onSelected: (index) => anchors.jumpTo(context, controller, index),
+            onSelected: (index) =>
+                anchors.jumpTo(context, controller, index, setActive),
           ),
         ],
       ),
@@ -108,12 +118,15 @@ void main() {
   Future<_RailHarnessState> pumpHarness(
     WidgetTester tester, {
     int sectionCount = _kSectionCount,
+    double blockHeight = _kBlockHeight,
   }) async {
     tester.view.physicalSize = const Size(800, 600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(_RailHarness(sectionCount: sectionCount));
+    await tester.pumpWidget(
+      _RailHarness(sectionCount: sectionCount, blockHeight: blockHeight),
+    );
     await tester.pumpAndSettle();
     return tester.state<_RailHarnessState>(find.byType(_RailHarness));
   }
@@ -149,7 +162,8 @@ void main() {
 
     expect(state.controller.offset, greaterThan(0));
     final viewportTop = tester.getRect(find.byType(CustomScrollView)).top;
-    final blockTop = tester.getRect(find.byKey(state.anchors.sectionKeys[3])).top;
+    final blockTop =
+        tester.getRect(find.byKey(state.anchors.sectionKeys[3])).top;
     // 目标顶 = 视口顶 + AppBar(kToolbarHeight) + 8px 余量：标题不被 pinned
     // AppBar 盖住，也不是 Scrollable.ensureVisible(alignment: 0) 的顶端对齐。
     expect(
@@ -172,7 +186,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final viewportTop = tester.getRect(find.byType(CustomScrollView)).top;
-    final blockTop = tester.getRect(find.byKey(state.anchors.sectionKeys[3])).top;
+    final blockTop =
+        tester.getRect(find.byKey(state.anchors.sectionKeys[3])).top;
     expect(
       blockTop - viewportTop,
       moreOrLessEquals(kToolbarHeight + 24 + AppSpacing.s, epsilon: 1),
@@ -210,6 +225,7 @@ void main() {
       tester.element(find.byType(DetailSectionRail)),
       state.controller,
       4,
+      state.setActive,
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -266,5 +282,100 @@ void main() {
     );
     // 语义句柄须在测试体末尾释放（校验先于 tearDown 执行）。
     semantics.dispose();
+  });
+
+  group('跳转后钉定（防「落底错亮末段」回归）', () {
+    testWidgets('目标之后内容不足一屏：落点被截到底部，高亮钉在被点项', (tester) async {
+      // 块高 200：点「招式」（下标 3）的目标偏移 = 3×200 − 8 = 592，超过
+      // maxScrollExtent（56 + 5×200 − 600 = 456）——末段之后不足一屏。
+      final state = await pumpHarness(tester, blockHeight: 200);
+
+      // 前置条件确认：目标偏移确实超过滚动上限（截断必然发生）。
+      final maxExtent = state.controller.position.maxScrollExtent;
+      expect(maxExtent, lessThan(3 * 200 - AppSpacing.s));
+
+      await tester.tap(find.text('招式'));
+      await tester.pumpAndSettle();
+
+      expect(
+        state.controller.offset,
+        moreOrLessEquals(maxExtent, epsilon: 1),
+        reason: '落点被 maxScrollExtent 截断到页面底部',
+      );
+      // 滚动跟随口径下「到底即认末段」；钉定压过它，高亮仍是被点的「招式」。
+      expect(state.anchors.activeIndexFor(state.controller), 4);
+      expect(rail(tester).activeIndex, 3);
+    });
+
+    testWidgets('跳转完成后用户拖拽：钉定解除，高亮恢复滚动跟随', (tester) async {
+      final state = await pumpHarness(tester);
+
+      await tester.tap(find.text('招式'));
+      await tester.pumpAndSettle();
+      expect(rail(tester).activeIndex, 3); // 钉定生效
+
+      // 向上拖到底（拖拽随时解除钉定）：高亮交还滚动跟随，按「到底认末段」
+      // 亮「资料」——与钉定中的「招式」形成对照。
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -450));
+      await tester.pumpAndSettle();
+      expect(
+          state.controller.offset, state.controller.position.maxScrollExtent);
+      expect(rail(tester).activeIndex, kDetailSectionAnchors.length - 1);
+
+      // 反向拖回顶部：跟随照常工作，不被残留钉定卡住。
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 3000));
+      await tester.pumpAndSettle();
+      expect(state.controller.offset, 0);
+      expect(rail(tester).activeIndex, 0);
+    });
+
+    testWidgets('跳转完成后滚轮滚动：程序性活动已结束，新滚动解除钉定', (tester) async {
+      final state = await pumpHarness(tester);
+
+      await tester.tap(find.text('招式'));
+      await tester.pumpAndSettle();
+      expect(rail(tester).activeIndex, 3);
+
+      // 滚轮（pointer scroll，dragDetails 为 null）：走「programmatic 计数
+      // 已归零后的新滚动活动」路径解除钉定。向回滚 200：落点 1192 − 200 =
+      // 992，「招式」顶退回判定线之下，按几何「进化」段激活。
+      final testPointer = TestPointer(
+        tester.nextPointer,
+        PointerDeviceKind.mouse,
+      );
+      // scroll 事件必须带光标位置：先 hover 落到滚动视口内再派发滚轮。
+      await tester.sendEventToBinding(
+        testPointer.hover(tester.getCenter(find.byType(CustomScrollView))),
+      );
+      await tester.sendEventToBinding(
+        testPointer.scroll(const Offset(0, -200)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        state.controller.offset,
+        moreOrLessEquals(3 * _kBlockHeight - AppSpacing.s - 200, epsilon: 1),
+      );
+      expect(rail(tester).activeIndex, 2);
+    });
+
+    testWidgets('连点不同锚点：高亮与落点以最后一次为准', (tester) async {
+      final state = await pumpHarness(tester);
+
+      await tester.tap(find.text('招式'));
+      // 第一次跳转动画进行中（只泵一帧）立即点「种族」：新 animateTo 打断
+      // 旧动画，被打断动画的 ScrollEnd 不得把钉定交给高亮判定（计数归还）。
+      await tester.pump();
+      await tester.tap(find.text('种族'));
+      await tester.pumpAndSettle();
+
+      // 落点在「种族」顶（456 − 56 − 8 = 392），不截断。
+      expect(
+        state.controller.offset,
+        moreOrLessEquals(_kBlockHeight - AppSpacing.s, epsilon: 1),
+      );
+      // 高亮钉在最后一次被点的「种族」；若钉定未随连点更新，会残留「招式」。
+      expect(rail(tester).activeIndex, 1);
+    });
   });
 }

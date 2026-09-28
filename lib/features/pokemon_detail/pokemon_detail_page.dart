@@ -261,9 +261,8 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
       );
     }
     // 双栏嵌入无切换交互，不解析相邻项。
-    final dexOrder = _embeddedInPane
-        ? null
-        : ref.watch(speciesDexOrderProvider).valueOrNull;
+    final dexOrder =
+        _embeddedInPane ? null : ref.watch(speciesDexOrderProvider).valueOrNull;
     _resolveNeighbors(dexOrder, speciesId);
     final detailAsync = ref.watch(pokemonDetailProvider(speciesId));
     final page = detailAsync.when(
@@ -533,12 +532,6 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
   var _activeIndex = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_handleScroll);
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // pinned header 高度随系统顶部 inset（状态栏 / 刘海）变化：跳转落点
@@ -552,9 +545,13 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
     super.dispose();
   }
 
-  /// 滚动时刷新高亮：判定推迟到本帧布局完成（见
-  /// [DetailSectionAnchorScroll.handleScroll]）；只在激活段变化时重建。
-  void _handleScroll() => _anchors.handleScroll(_scrollController, _setActive);
+  /// 滚动经 [NotificationListener] 驱动而非 controller listener：钉定逻辑
+  /// 要区分「用户拖拽」与「跳转动画的滚动」，通知的 dragDetails 与
+  /// Start/End 活动边界才带活动来源（见
+  /// [DetailSectionAnchorScroll.handleScrollNotification]）；判定同样推迟
+  /// 到本帧布局完成，只在激活段变化时重建。
+  bool _handleScrollNotification(ScrollNotification notification) => _anchors
+      .handleScrollNotification(notification, _scrollController, _setActive);
 
   void _setActive(int index) {
     if (mounted && index != _activeIndex) {
@@ -563,7 +560,7 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
   }
 
   void _handleAnchorSelected(int index) =>
-      _anchors.jumpTo(context, _scrollController, index);
+      _anchors.jumpTo(context, _scrollController, index, _setActive);
 
   /// 分区外包一层挂载点：锚点跳转 / 高亮都按分区顶部定位。
   Widget _section(int index, Widget child) =>
@@ -578,71 +575,74 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                automaticallyImplyLeading: false,
-                leading: widget.canPop ? const BackButton() : null,
-                actions: [
-                  _FavoriteAction(speciesId: detail.speciesId),
-                ],
-              ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  widget.pad,
-                  AppSpacing.s,
-                  widget.pad,
-                  AppSpacing.xxl,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  automaticallyImplyLeading: false,
+                  leading: widget.canPop ? const BackButton() : null,
+                  actions: [
+                    _FavoriteAction(speciesId: detail.speciesId),
+                  ],
                 ),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _Header(
-                        detail: detail,
-                        selectedForm: selectedForm,
-                        artworkHeight: _kArtworkHeightExpanded,
-                      ),
-                      _FormChips(detail: detail, selectedForm: selectedForm),
-                      const SizedBox(height: AppSpacing.xl),
-                      _section(
-                        0,
-                        _FlavorSection(
-                          speciesId: detail.speciesId,
-                          selectedForm: selectedForm,
-                          showTitle: true,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxl),
-                      _section(1, _StatsSection(selectedForm: selectedForm)),
-                      const SizedBox(height: AppSpacing.xxl),
-                      _section(
-                        2,
-                        EvolutionSectionPlaceholder(
-                          speciesId: detail.speciesId,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxl),
-                      _section(
-                        3,
-                        MovesSectionPlaceholder(speciesId: detail.speciesId),
-                      ),
-                      const SizedBox(height: AppSpacing.xxl),
-                      _section(
-                        4,
-                        _InfoSection(
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    widget.pad,
+                    AppSpacing.s,
+                    widget.pad,
+                    AppSpacing.xxl,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Header(
                           detail: detail,
                           selectedForm: selectedForm,
-                          showTitle: true,
+                          artworkHeight: _kArtworkHeightExpanded,
                         ),
-                      ),
-                    ],
+                        _FormChips(detail: detail, selectedForm: selectedForm),
+                        const SizedBox(height: AppSpacing.xl),
+                        _section(
+                          0,
+                          _FlavorSection(
+                            speciesId: detail.speciesId,
+                            selectedForm: selectedForm,
+                            showTitle: true,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _section(1, _StatsSection(selectedForm: selectedForm)),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _section(
+                          2,
+                          EvolutionSectionPlaceholder(
+                            speciesId: detail.speciesId,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _section(
+                          3,
+                          MovesSectionPlaceholder(speciesId: detail.speciesId),
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _section(
+                          4,
+                          _InfoSection(
+                            detail: detail,
+                            selectedForm: selectedForm,
+                            showTitle: true,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         DetailSectionRail(

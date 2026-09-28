@@ -57,12 +57,70 @@ class DetailSectionAnchorScroll {
   /// 本帧是否已登记过激活段判定（同一帧多次滚动通知只判一次）。
   var _checkScheduled = false;
 
-  /// 滚动监听入口（挂到 ScrollController 的 listener 上）。
+  /// 钉定段：程序性跳转后高亮固定在被点项。null = 未钉定（滚动跟随）。
   ///
-  /// 滚动通知先于本帧布局到达：此刻各 sliver 的 paintOffset 还是上一帧的，
-  /// 立即判定会慢一帧——滚动停止时高亮会停在错误的项上。因此统一等本帧
-  /// 布局完成后再判定，变化时回调 [onActiveChanged]（回调里再 setState）。
-  void handleScroll(
+  /// 为什么需要钉定：目标分区之后的内容可能不足一屏，跳转落点被
+  /// maxScrollExtent 截断到页面底部——此时滚动跟随口径的「到底认末段」
+  /// 会把高亮错给末段（点「招式」亮「资料」）。跳转一发起就钉住被点项，
+  /// 直到用户手动滚动才交还跟随（解除条件见 [handleScrollNotification]）。
+  int? _pinnedIndex;
+
+  /// 尚未归还的程序性跳转计数：jumpTo 发起一次记一层，对应滚动活动的
+  /// ScrollEnd 归还一层。
+  ///
+  /// 为什么用计数不用布尔：连点锚点时新 animateTo 会打断旧动画，被打断的
+  /// 旧动画也各有一次 ScrollEnd（相对新动画的 Start 何时到达并无保证）；
+  /// 布尔会被旧动画的结束提前复位，新跳转的滚动就被误判为用户滚动。
+  int _programmaticDepth = 0;
+
+  /// 滚动通知入口（挂在滚动视口外的 NotificationListener 上；返回 false
+  /// 不拦截冒泡）。
+  ///
+  /// 为什么从 ScrollController.addListener 换成通知：钉定要区分「用户
+  /// 拖拽」与「跳转动画自己产生的滚动」，controller listener 只看得到
+  /// 像素变化，[ScrollNotification] 的 dragDetails 与 Start/End 活动边界
+  /// 才带活动来源。通知先于本帧布局到达的时序问题与原 controller
+  /// listener 相同：统一等本帧布局完成后再判定，变化时回调
+  /// [onActiveChanged]（回调里再 setState）。
+  bool handleScrollNotification(
+    ScrollNotification notification,
+    ScrollController controller,
+    ValueChanged<int> onActiveChanged,
+  ) {
+    if (notification.depth != 0) {
+      // 只认本视口（depth 0）的滚动：分区内部的嵌套可滚动（横向 chips 等）
+      // 不得解除钉定，也不触发纵向高亮判定。
+      return false;
+    }
+    if (notification is ScrollStartNotification) {
+      if (notification.dragDetails != null) {
+        // 用户拖拽：随时解除钉定，高亮交还滚动跟随。
+        _pinnedIndex = null;
+      } else if (_programmaticDepth == 0) {
+        // 非跳转发起的新滚动活动（滚轮 / 滚动条）：同样解除。跳转动画
+        // 进行中自身的 Start 不会走到这里（计数未归零）。
+        _pinnedIndex = null;
+      }
+    } else if (notification is ScrollUpdateNotification) {
+      if (notification.dragDetails != null) {
+        _pinnedIndex = null; // 拖拽中途的更新（Start 已解除，幂等兜底）。
+      }
+    } else if (notification is ScrollEndNotification) {
+      if (_programmaticDepth > 0) {
+        _programmaticDepth--; // 动画结束；被打断的动画其 End 亦会到达。
+      }
+    }
+    if (_pinnedIndex != null) {
+      // 钉定期间高亮停在被点项：滚动跟随计算（含跳转动画的滚动）一律忽略。
+      return false;
+    }
+    _scheduleCheck(controller, onActiveChanged);
+    return false;
+  }
+
+  /// 滚动跟随的激活段判定：推迟到本帧布局完成后执行（见
+  /// [handleScrollNotification] 的时序说明）。
+  void _scheduleCheck(
     ScrollController controller,
     ValueChanged<int> onActiveChanged,
   ) {
@@ -73,6 +131,11 @@ class DetailSectionAnchorScroll {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkScheduled = false;
       if (!controller.hasClients) {
+        return;
+      }
+      // 调度与回调之间可能已再次钉定（同一帧内先滚后点）：钉定优先，
+      // 不得用跟随口径覆盖刚生效的被点项高亮。
+      if (_pinnedIndex != null) {
         return;
       }
       onActiveChanged(activeIndexFor(controller));
@@ -88,8 +151,19 @@ class DetailSectionAnchorScroll {
   /// 立绘淡入等动效同一偏好。
   ///
   /// 分区未挂载（currentContext 为 null / renderObject 未附着）或滚动
-  /// 尚未 attach 时静默忽略，不抛异常。
-  void jumpTo(BuildContext context, ScrollController controller, int index) {
+  /// 尚未 attach 时静默忽略，不抛异常——这些提前返回的路径**不钉定**：
+  /// 没有跳转发生，高亮与滚动跟随维持原状。
+  ///
+  /// 跳转真正发起时立即把高亮置为被点项（[onActiveChanged]）并进入钉定
+  /// 状态：目标偏移可能被 maxScrollExtent 截断（目标之后内容不足一屏），
+  /// 落底后按滚动跟随计算必然错改高亮，因此动画 / 直接到位期间的滚动
+  /// 一律不参与判定，直到用户手动滚动才恢复跟随。
+  void jumpTo(
+    BuildContext context,
+    ScrollController controller,
+    int index,
+    ValueChanged<int> onActiveChanged,
+  ) {
     if (!controller.hasClients) {
       return;
     }
@@ -98,10 +172,14 @@ class DetailSectionAnchorScroll {
       return;
     }
     final position = controller.position;
-    final target =
-        (controller.offset + dy - pinnedHeaderHeight - _kAnchorSlack)
-            .clamp(0.0, position.maxScrollExtent);
+    final target = (controller.offset + dy - pinnedHeaderHeight - _kAnchorSlack)
+        .clamp(0.0, position.maxScrollExtent);
+    _pinnedIndex = index;
+    _programmaticDepth++;
+    onActiveChanged(index);
     if (MediaQuery.disableAnimationsOf(context)) {
+      // 直接到位：Start/End 在本次调用栈内同步到达，End 归还计数后钉定
+      // 仍在（用户之后再动才解除）。
       controller.jumpTo(target);
       return;
     }
