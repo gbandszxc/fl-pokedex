@@ -316,6 +316,18 @@ void main() {
     }
   }
 
+  /// 展开来源分组：默认视图只展开首个分组（升级），跨来源断言前先展开目标组
+  /// （分组表头可折叠，见 moves_section_placeholder.dart）。
+  Future<void> expandGroup(WidgetTester tester, String method) async {
+    final header = find.byKey(ValueKey('move_group_header_$method'));
+    await tester.ensureVisible(header);
+    await tester.pump();
+    await tester.tap(header);
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
   /// 收起折叠式 SliverAppBar：按「当前 pinned TabBar 位置 → 就位」的
   /// 实测距离上拖，不硬编码头高（F1c 后 = 视口高×0.5 clamp 300–440）。
   ///
@@ -370,7 +382,10 @@ void main() {
       ).selected,
       isFalse,
     );
-    // 朱/紫独占招式渲染，等级序（Lv.1 撞击在前）。
+    // 朱/紫独占招式渲染，等级序（Lv.1 撞击在前）；两者分属学习器 / 导师组，
+    // 默认折叠下先展开对应分组再断言。
+    await expandGroup(tester, 'machine');
+    await expandGroup(tester, 'tutor');
     expect(find.text('十万伏特'), findsOneWidget);
     expect(find.text('撒娇'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -387,8 +402,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    // 剑/盾组：2 条，朱紫独占的十万伏特消失、剑盾独占的挖洞出现。
+    // 剑/盾组：2 条，朱紫独占的十万伏特消失、剑盾独占的挖洞出现
+    //（挖洞属学习器组，默认折叠 → 先展开再断言）。
     expect(find.text('共 2 个招式'), findsOneWidget);
+    await expandGroup(tester, 'machine');
     expect(find.text('挖洞'), findsOneWidget);
     expect(find.text('十万伏特'), findsNothing);
     expect(

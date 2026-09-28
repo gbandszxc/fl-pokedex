@@ -475,6 +475,17 @@ void main() {
     }
   }
 
+  /// 展开来源分组：默认视图只展开首个分组（升级），跨来源断言前先展开目标组。
+  Future<void> expandGroup(WidgetTester tester, String method) async {
+    final header = find.byKey(ValueKey('move_group_header_$method'));
+    await tester.ensureVisible(header);
+    await tester.pump();
+    await tester.tap(header);
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 60));
+    }
+  }
+
   /// 节点卡底色（经名字向上找最近一个带 ShapeDecoration 的 Container）。
   Color cardColorOf(WidgetTester tester, String name) {
     final finder = find.ancestor(
@@ -600,6 +611,9 @@ void main() {
       );
 
       expect(find.text('共 6 个招式'), findsOneWidget);
+      // 默认只展开首个分组（升级）；跨来源的 dy 断言需先展开学习器 / 导师组。
+      await expandGroup(tester, 'machine');
+      await expandGroup(tester, 'tutor');
       double dyOf(String name) => tester.getCenter(find.text(name)).dy;
       // level 排序：level_up(1,1,5) → machine → tutor；同组同级按编号。
       expect(dyOf('撞击'), lessThan(dyOf('变硬')));
@@ -623,6 +637,8 @@ void main() {
       }
 
       expect(repo.learnsetQueryLog.last.$1, 'sword-shield');
+      // 剑/盾组 2 条分属升级 / 学习器：挖洞（学习器）先展开其分组。
+      await expandGroup(tester, 'machine');
       expect(find.text('挖洞'), findsOneWidget);
       expect(find.text('十万伏特'), findsNothing);
     });
@@ -686,6 +702,202 @@ void main() {
 
       expect(find.text('用整个身体撞上去，简单可靠。'), findsOneWidget);
       expect(find.byKey(MoveDetailPage.flavorQuoteKey), findsOneWidget);
+    });
+  });
+
+  group('招式分区 · 按来源分组折叠', () {
+    testWidgets('≥2 来源时渲染分组表头与每组计数，组序沿用 methodGroupOrder',
+        (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+      );
+
+      // fixture 三个来源：升级 3 / 学习器 2 / 导师 1。
+      for (final method in ['level_up', 'machine', 'tutor']) {
+        expect(
+          find.byKey(ValueKey('move_group_header_$method')),
+          findsOneWidget,
+          reason: '来源 $method 应有一个分组表头',
+        );
+      }
+      // 结果里没有的来源不出现分组表头。
+      expect(find.byKey(const ValueKey('move_group_header_egg')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('move_group_header_other')),
+        findsNothing,
+      );
+      expect(find.text('升级招式'), findsOneWidget);
+      expect(find.text('· 3 个'), findsOneWidget);
+      expect(find.text('学习器招式'), findsOneWidget);
+      expect(find.text('· 2 个'), findsOneWidget);
+      expect(find.text('导师招式'), findsOneWidget);
+      expect(find.text('· 1 个'), findsOneWidget);
+
+      // 组序：升级 → 学习器 → 导师（methodGroupOrder，与 level 排序一致）。
+      double dyOfKey(String method) => tester
+          .getCenter(find.byKey(ValueKey('move_group_header_$method')))
+          .dy;
+      expect(dyOfKey('level_up'), lessThan(dyOfKey('machine')));
+      expect(dyOfKey('machine'), lessThan(dyOfKey('tutor')));
+    });
+
+    testWidgets('默认只展开首组：升级行可见，学习器 / 导师行不构建', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+      );
+
+      expect(find.text('撞击'), findsOneWidget);
+      expect(find.text('变硬'), findsOneWidget);
+      expect(find.text('电击'), findsOneWidget);
+      // 折叠组不构建行：既不可见，也不在 widget 树里。
+      expect(find.text('剑舞'), findsNothing);
+      expect(find.text('十万伏特'), findsNothing);
+      expect(find.text('撒娇'), findsNothing);
+    });
+
+    testWidgets('点击表头展开 / 收起学习器组', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+      );
+
+      final machine = find.byKey(const ValueKey('move_group_header_machine'));
+      await tester.tap(machine);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('剑舞'), findsOneWidget);
+      expect(find.text('十万伏特'), findsOneWidget);
+      // 同组的升级行不受影响，表头自身仍在（可再次点击收起）。
+      expect(find.text('撞击'), findsOneWidget);
+      expect(machine, findsOneWidget);
+
+      await tester.tap(machine);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('剑舞'), findsNothing);
+      expect(find.text('十万伏特'), findsNothing);
+      expect(find.text('撞击'), findsOneWidget);
+    });
+
+    testWidgets('有来源筛选时全部分组展开（跨来源行直接可见）', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+      );
+
+      // 多选两个来源：学习器 + 导师（.first：来源 chip 在列表之前）。
+      await tester.tap(find.text('学习器').first);
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      await tester.tap(find.text('导师').first);
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+
+      expect(find.text('共 3 个招式'), findsOneWidget);
+      // 两个分组都无需手动展开。
+      expect(find.text('剑舞'), findsOneWidget);
+      expect(find.text('十万伏特'), findsOneWidget);
+      expect(find.text('撒娇'), findsOneWidget);
+      expect(find.text('撞击'), findsNothing);
+    });
+
+    testWidgets('排序切到威力后分组表头消失，所有行平铺可见', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<MoveSort>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('威力'));
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+
+      // 跨来源排序下分组语义不成立：全部表头消失。
+      for (final method in ['level_up', 'machine', 'tutor']) {
+        expect(
+          find.byKey(ValueKey('move_group_header_$method')),
+          findsNothing,
+          reason: '威力排序下不应有 $method 分组表头',
+        );
+      }
+      // 6 条全部渲染（不必展开）。
+      for (final name in ['撞击', '变硬', '电击', '十万伏特', '剑舞', '撒娇']) {
+        expect(find.text(name), findsOneWidget, reason: '威力排序下 $name 应平铺可见');
+      }
+    });
+
+    testWidgets('≥840 宽表格模式：列头 + 分组折叠共用同一套表格行', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+        size: const Size(1000, 900),
+      );
+
+      // 表格列头仍渲染（列头只在表格模式出现一次，位于分组之上）。
+      expect(find.text('属性'), findsOneWidget);
+      expect(find.text('分类'), findsOneWidget);
+      expect(find.text('威力'), findsOneWidget);
+      expect(find.text('命中'), findsOneWidget);
+      expect(find.text('等级'), findsOneWidget);
+
+      expect(find.byKey(const ValueKey('move_group_header_machine')), findsOneWidget);
+      expect(find.text('撞击'), findsOneWidget);
+      expect(find.text('十万伏特'), findsNothing);
+      // 「学习器」只出现在来源 chip 上（折叠组不构建行）。
+      expect(find.text('学习器'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('move_group_header_machine')));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('十万伏特'), findsOneWidget);
+      // chip + 2 条学习器行的行尾标签（无等级 → 显示来源短词）。
+      expect(find.text('学习器'), findsNWidgets(3));
+
+      // 表格行仍可点进招式详情。
+      await tester.tap(find.text('撞击'));
+      await tester.pump(const Duration(milliseconds: 300));
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      expect(find.text('用整个身体撞上去，简单可靠。'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('切换版本组后回到默认折叠（只展开首组）', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+      );
+
+      // 先显式展开学习器组。
+      await expandGroup(tester, 'machine');
+      expect(find.text('剑舞'), findsOneWidget);
+
+      await tester.tap(find.text('剑/盾'));
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+
+      // 新版本组（升级 1 + 学习器 1）按默认规则折叠：显式展开不残留。
+      expect(find.byKey(const ValueKey('move_group_header_machine')), findsOneWidget);
+      expect(find.text('共 2 个招式'), findsOneWidget);
+      expect(find.text('撞击'), findsOneWidget);
+      expect(find.text('挖洞'), findsNothing);
+
+      await expandGroup(tester, 'machine');
+      expect(find.text('挖洞'), findsOneWidget);
     });
   });
 }

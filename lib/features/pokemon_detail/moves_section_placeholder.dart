@@ -240,6 +240,29 @@ class _MovesContent extends ConsumerWidget {
                   builder: (context, constraints) {
                     final isTable =
                         constraints.maxWidth >= _kMoveTableBreakpoint;
+                    final groups = _groupByMethod(moves, filter);
+                    // ≥2 个来源且等级排序：分组折叠视图（列头共享一份）。
+                    if (groups != null) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (isTable) const _TableHeader(),
+                          _MoveGroupList(
+                            // 折叠状态只在同一「形态 + 版本组 + 来源 + 排序」
+                            // 组合内有效：key 一变 State 重建，回到默认展开
+                            // 规则，旧组合的显式折叠不会残留。
+                            key: ValueKey(
+                              'move_groups|$formId|${filter.versionGroup}'
+                              '|${filter.sort.name}'
+                              '|${_methodsKey(filter.methods)}',
+                            ),
+                            groups: groups,
+                            isTable: isTable,
+                            expandAll: filter.methods.isNotEmpty,
+                          ),
+                        ],
+                      );
+                    }
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -270,6 +293,173 @@ class _MovesContent extends ConsumerWidget {
   ) {
     if (filter.versionGroup.isNotEmpty) return filter.versionGroup;
     return groups.isEmpty ? '' : groups.first.id;
+  }
+}
+
+/// 一个来源分组：method + 该来源的招式（保持查询结果的排序）。
+class _MoveGroup {
+  const _MoveGroup({required this.method, required this.moves});
+
+  final String method;
+
+  final List<MoveEntry> moves;
+}
+
+/// 来源集合 → 稳定的 ValueKey 片段（Set 的迭代序不保证稳定，先排序）。
+String _methodsKey(Set<String> methods) {
+  if (methods.isEmpty) return '';
+  return (methods.toList()..sort()).join(',');
+}
+
+/// 是否按来源分组：仅等级排序下分组——威力 / 名称是跨来源排序，
+/// 分组会把同一排序轴上的行切碎，语义不成立；
+/// 结果只含 1 个来源时分组表头没有信息量，保持平铺。
+List<_MoveGroup>? _groupByMethod(List<MoveEntry> moves, LearnsetFilter filter) {
+  if (filter.sort != MoveSort.level) return null;
+  final byMethod = <String, List<MoveEntry>>{};
+  for (final move in moves) {
+    byMethod.putIfAbsent(move.method, () => <MoveEntry>[]).add(move);
+  }
+  if (byMethod.length < 2) return null;
+  // 组序沿用 methodGroupOrder（升级 → 学习器 → 遗传 → 导师 → 其他），
+  // 与 level 排序的组序一致，展开任一组都不会与相邻组错位。
+  final methods = byMethod.keys.toList()
+    ..sort((a, b) {
+      final byOrder = methodGroupOrder(a).compareTo(methodGroupOrder(b));
+      return byOrder != 0 ? byOrder : a.compareTo(b);
+    });
+  return [
+    for (final method in methods)
+      _MoveGroup(method: method, moves: byMethod[method]!),
+  ];
+}
+
+/// 分组折叠列表：默认展开规则由 [expandAll] 决定，之后用户点击优先。
+///
+/// 折叠组不构建行（条件渲染）：不占高度、不进 widget 树，
+/// 默认视图因此只渲染首组规模的行。
+class _MoveGroupList extends StatefulWidget {
+  const _MoveGroupList({
+    super.key,
+    required this.groups,
+    required this.isTable,
+    required this.expandAll,
+  });
+
+  final List<_MoveGroup> groups;
+
+  /// true = 完整表格行，false = compact 两行 tile（与平铺视图同一套行）。
+  final bool isTable;
+
+  /// true = 全部分组默认展开（有来源筛选时，用户已缩小到明确来源）；
+  /// false = 只展开第一个分组（默认视图求短）。
+  final bool expandAll;
+
+  @override
+  State<_MoveGroupList> createState() => _MoveGroupListState();
+}
+
+class _MoveGroupListState extends State<_MoveGroupList> {
+  /// 已展开的来源集合：按默认规则初始化，之后由用户点击改写。
+  final Set<String> _expandedMethods = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _expandedMethods.addAll([
+      for (final (index, group) in widget.groups.indexed)
+        if (widget.expandAll || index == 0) group.method,
+    ]);
+  }
+
+  void _toggle(String method) => setState(() {
+        if (!_expandedMethods.remove(method)) {
+          _expandedMethods.add(method);
+        }
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (index, group) in widget.groups.indexed) ...[
+          _MoveGroupHeader(
+            method: group.method,
+            count: group.moves.length,
+            expanded: _expandedMethods.contains(group.method),
+            onTap: () => _toggle(group.method),
+          ),
+          if (_expandedMethods.contains(group.method))
+            for (final (rowIndex, move) in group.moves.indexed) ...[
+              if (widget.isTable)
+                _TableRow(move: move)
+              else
+                _CompactTile(move: move),
+              if (rowIndex != group.moves.length - 1) const Divider(height: 1),
+            ],
+          if (index != widget.groups.length - 1) const Divider(height: 1),
+        ],
+      ],
+    );
+  }
+}
+
+/// 分组表头：左「{来源}招式 · N 个」，右侧 chevron（整行可点，旋转表折叠态）。
+class _MoveGroupHeader extends StatelessWidget {
+  const _MoveGroupHeader({
+    required this.method,
+    required this.count,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final String method;
+
+  final int count;
+
+  final bool expanded;
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      // 测试定位锚点：来源 identifier（DB snake_case，同 _kMethodZh 的键）。
+      key: ValueKey('move_group_header_$method'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
+        child: Row(
+          children: [
+            Text(
+              '${_kMethodZh[method] ?? method}招式',
+              style: textTheme.labelMedium,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              '· $count 个',
+              style: textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            AnimatedRotation(
+              turns: expanded ? 0.5 : 0,
+              duration: AppMotion.fast,
+              curve: AppMotion.curve,
+              child: Icon(
+                Icons.expand_more,
+                size: 16,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
