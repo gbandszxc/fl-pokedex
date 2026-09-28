@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -269,6 +270,62 @@ void main() {
     });
   });
 
+  group('资料行基线对齐', () {
+    /// 段落首行 alphabetic 基线的全局 y（top + 到基线的距离）。
+    double baselineY(WidgetTester tester, Finder finder) {
+      final paragraph = tester.renderObject<RenderParagraph>(finder);
+      final dy =
+          paragraph.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+      return paragraph.localToGlobal(Offset(0, dy)).dy;
+    }
+
+    Future<void> openInfoTab(WidgetTester tester) async {
+      await collapseHeader(tester);
+      await tester.tap(find.text('资料'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('文本值行：标签与值首行同一 alphabetic 基线', (tester) async {
+      await pumpPage(tester);
+      await openInfoTab(tester);
+
+      // 标签 labelMedium 与值 bodyMedium 字号不同，顶部对齐曾错开基线
+      // （实机圈注「左侧标题和右边文字没对齐」）。
+      expect(
+        baselineY(tester, find.text('身高')),
+        moreOrLessEquals(baselineY(tester, find.text('0.7 m')), epsilon: 0.5),
+        reason: '标签与值首行基线对齐',
+      );
+    });
+
+    testWidgets('特性行：标签与第一个特性名同基线（Column 取首行文本基线）', (tester) async {
+      await pumpPage(tester);
+      await openInfoTab(tester);
+
+      expect(
+        baselineY(tester, find.text('特性')),
+        moreOrLessEquals(baselineY(tester, find.text('茂盛')), epsilon: 0.5),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('空值「—」行：基线对齐不产生布局异常且与标签同线', (tester) async {
+      await pumpPage(tester);
+
+      // 帕底亚的妙蛙种子：身高 0 / 体重缺失 → 身高体重两行均为 —。
+      await tester.tap(find.text('帕底亚的妙蛙种子'));
+      await tester.pumpAndSettle();
+      await openInfoTab(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('—'), findsNWidgets(2));
+      expect(
+        baselineY(tester, find.text('身高')),
+        moreOrLessEquals(baselineY(tester, find.text('—').first), epsilon: 0.5),
+      );
+    });
+  });
+
   group('compact 折叠头占比', () {
     testWidgets('360×640：不滚动头部即可见招式版本组 chips 行', (tester) async {
       tester.view.physicalSize = const Size(360, 640);
@@ -472,6 +529,43 @@ void main() {
             .activeIndex,
         3,
         reason: '高亮钉在被点的「招式」（下标 3）',
+      );
+    });
+
+    testWidgets('收藏心不贴面板右缘：字形留白 ≥12px 且命中区离开分隔线', (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await pumpPage(tester);
+
+      // 面板右缘取 CustomScrollView（RenderBox；SliverAppBar 是 RenderSliver
+      // 不能 getRect）——它与 SliverAppBar 同为 Expanded 列的充宽子项，右缘
+      // 即面板右缘（双栏下是锚点轨分隔线）。
+      final panelRight = tester.getRect(find.byType(CustomScrollView)).right;
+      final heart = find.descendant(
+        of: find.byType(SliverAppBar),
+        matching: find.byIcon(Icons.favorite_border),
+      );
+      // 字形到右缘 ≥ AppSpacing.m：M3 actionsPadding 默认 0 曾使命中区整块
+      // 贴边（实机圈注「离右边太近」）。
+      expect(
+        panelRight - tester.getRect(heart).right,
+        greaterThanOrEqualTo(AppSpacing.m),
+        reason: '收藏心离右缘的视觉间隙 ≥12px',
+      );
+      // IconButton 命中区整块也不再贴分隔线（自带 hit-target 内边距之外
+      // 由 actionsPadding 补白）。
+      expect(
+        panelRight -
+            tester.getRect(
+              find.descendant(
+                of: find.byType(SliverAppBar),
+                matching: find.byType(IconButton),
+              ),
+            ).right,
+        greaterThanOrEqualTo(AppSpacing.s),
       );
     });
   });

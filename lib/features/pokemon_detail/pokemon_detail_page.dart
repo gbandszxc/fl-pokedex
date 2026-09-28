@@ -39,6 +39,12 @@ const double _kFlavorMaxWidth = 640;
 /// 资料行标签列宽。
 const double _kInfoLabelWidth = 56;
 
+/// AppBar actions 行尾留白：M3 的 actionsPadding 默认 EdgeInsets.zero（SDK
+/// 源码里挂着的已知问题 #155747），收藏心的 48×48 命中区整块贴到面板右缘
+/// （双栏下即锚点轨分隔线），实机观感「离右边太近」。补 m(12) 让命中区
+/// 离开边缘，视觉间隙 = 12（IconButton 自带的 hit-target 内边距）+ 12。
+const EdgeInsets _kActionsEndPadding = EdgeInsets.only(right: AppSpacing.m);
+
 /// 种族值并排雷达图的最小区块宽（design-ui.md §4：宽 ≥840 右侧并排）。
 const double _kStatsRadarBreakpoint = 840;
 
@@ -421,6 +427,7 @@ class _DetailScaffold extends ConsumerWidget {
                 expandedHeight: expandedHeight,
                 automaticallyImplyLeading: false,
                 leading: canPop ? const BackButton() : null,
+                actionsPadding: _kActionsEndPadding,
                 actions: [
                   _FavoriteAction(speciesId: detail.speciesId),
                 ],
@@ -584,6 +591,7 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
                   pinned: true,
                   automaticallyImplyLeading: false,
                   leading: widget.canPop ? const BackButton() : null,
+                  actionsPadding: _kActionsEndPadding,
                   actions: [
                     _FavoriteAction(speciesId: detail.speciesId),
                   ],
@@ -1254,7 +1262,12 @@ class _InfoRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        // 基线对齐而非顶部对齐：标签 labelMedium 与值 bodyMedium 字号不同，
+        // 顶部对齐会让两侧首行文字基线错开（实机圈注「没对齐」）。「特性」
+        // 行的值是 Column（多枚 _AbilityTile），Column 取首行文本的基线，
+        // 标签恰与第一个特性名同线。
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
           SizedBox(
             width: _kInfoLabelWidth,

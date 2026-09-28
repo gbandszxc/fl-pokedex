@@ -153,6 +153,20 @@ void main() {
     );
   });
 
+  testWidgets('Tooltip 向上弹出且悬停 300ms 才出现：不遮挡相邻项', (tester) async {
+    await pumpHarness(tester);
+
+    final tooltips = tester.widgetList<Tooltip>(find.byType(Tooltip)).toList();
+    expect(tooltips.length, kDetailSectionAnchors.length);
+    for (final tooltip in tooltips) {
+      // 默认 preferBelow: true 向下弹会盖住正下方相邻项（实机圈注「存在
+      // 遮挡」）；从 widget 树读属性，而非只看渲染结果。
+      expect(tooltip.preferBelow, isFalse, reason: 'Tooltip 必须向上弹出');
+      // 掠过不即弹：悬停满等待时长才出现。
+      expect(tooltip.waitDuration, const Duration(milliseconds: 300));
+    }
+  });
+
   testWidgets('点击锚点：滚动到位且目标顶部落在 pinned AppBar 之下 8px', (tester) async {
     final state = await pumpHarness(tester);
     expect(state.controller.offset, 0);

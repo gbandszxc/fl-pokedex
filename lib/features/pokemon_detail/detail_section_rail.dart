@@ -14,6 +14,13 @@ const double _kRailIconSize = 20;
 /// 激活指示条宽（DESIGN.md §7 允许的细线 accent，≤2px）。
 const double _kActiveIndicatorWidth = 2;
 
+/// Tooltip 弹出前的悬停等待：300ms（与 AppMotion.slow 同档的一次性数值，
+/// 不属于动效序列故不进 tokens）。
+///
+/// 为什么不用默认 0ms：锚点轨是窄条上的纵向列表，鼠标横向扫过轨道去点
+/// 别处时，0ms 即弹会让提示沿轨迹连环闪现；只有明确停留 300ms 才触发。
+const Duration _kRailTooltipWait = Duration(milliseconds: 300);
+
 /// 跳转落点 / 高亮判定的统一余量：分区标题落在 pinned SliverAppBar
 /// 之下 8px（AppSpacing.s）。
 ///
@@ -338,7 +345,9 @@ class DetailSectionRail extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final (index, anchor) in kDetailSectionAnchors.indexed) ...[
-                if (index > 0) const SizedBox(height: AppSpacing.xs),
+                // 项间距 s(8)：xs(4) 时相邻项几乎贴着（实机圈注），放宽一档
+                // 呼吸感；轨道宽 56 与项内规格不变，Column 纵向居中不变。
+                if (index > 0) const SizedBox(height: AppSpacing.s),
                 _RailItem(
                   anchor: anchor,
                   isActive: index == activeIndex,
@@ -382,6 +391,12 @@ class _RailItem extends StatelessWidget {
       label: anchor.label,
       child: Tooltip(
         message: anchor.label,
+        // 向上弹出（默认 preferBelow: true 向下弹）：项间距仅 8px，向下弹
+        // 的悬浮提示会盖住正下方相邻项（实机圈注「存在遮挡」）。放不下时
+        // Flutter 自动回落向下，顶项「说明」不受影响。
+        preferBelow: false,
+        // 掠过不即弹：悬停满等待时长才出现（见 _kRailTooltipWait）。
+        waitDuration: _kRailTooltipWait,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.input),
