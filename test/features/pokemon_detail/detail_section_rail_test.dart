@@ -153,6 +153,40 @@ void main() {
     );
   });
 
+  testWidgets('内容列在轨内水平居中：图标与短名中心对齐轨中心，指示条贴轨左缘', (tester) async {
+    await pumpHarness(tester);
+
+    final railRect = tester.getRect(find.byType(DetailSectionRail));
+    expect(railRect.width, 56);
+
+    // 回归（实机红框「内容贴左没居中」）：Stack 被父 Column stretch 成整轨
+    // 宽后，非定位的内容列曾按 topLeft 贴左缘。逐项断言图标中心 x 与轨中心
+    // x 相差 ≤1px——短名与图标同列居中，验图标即验整列。
+    for (final anchor in kDetailSectionAnchors) {
+      final iconCenterDx = tester.getRect(find.byIcon(anchor.icon)).center.dx;
+      expect(
+        (iconCenterDx - railRect.center.dx).abs(),
+        lessThanOrEqualTo(1),
+        reason: '${anchor.label} 的图标未在锚点轨内水平居中',
+      );
+    }
+
+    // 激活指示条不参与 Stack 居中：仍贴轨左缘、宽 2px（DESIGN.md §7 细线
+    // accent）。试验台初始激活第 0 项，轨内唯一的 ColoredBox 即其指示条。
+    final indicatorRect = tester.getRect(
+      find.descendant(
+        of: find.byType(DetailSectionRail),
+        matching: find.byType(ColoredBox),
+      ),
+    );
+    expect(indicatorRect.width, 2, reason: '激活指示条为 2px 细线');
+    expect(
+      (indicatorRect.left - railRect.left).abs(),
+      lessThanOrEqualTo(0.5),
+      reason: '激活指示条必须贴轨左缘',
+    );
+  });
+
   testWidgets('Tooltip 向上弹出且悬停 300ms 才出现：不遮挡相邻项', (tester) async {
     await pumpHarness(tester);
 

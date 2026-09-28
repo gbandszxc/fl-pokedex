@@ -402,6 +402,12 @@ class _RailItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadius.input),
           hoverColor: scheme.surfaceContainerHigh,
           child: Stack(
+            // 内容列（非定位子项）在整轨宽内水平居中：本 Stack 被父 Column
+            // 的 stretch 拉到轨宽 56，而「图标 + 短名」只有固有宽（约 30px），
+            // 默认 topLeft 对齐会把内容贴在轨左缘（实机反馈「贴左没居中」）。
+            // center 让内容落在轨中线上；激活指示条是定位子项（left: 0），
+            // 不参与 alignment，仍贴轨左缘。
+            alignment: Alignment.center,
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(
