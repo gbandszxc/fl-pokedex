@@ -23,9 +23,17 @@ import 'package:fl_pokedex/features/pokemon_detail/evolution_section_placeholder
 import 'package:fl_pokedex/features/pokemon_detail/learnset_filter.dart'
     show MoveSort;
 import 'package:fl_pokedex/features/pokemon_detail/moves_section_placeholder.dart';
+import 'package:fl_pokedex/shared/widgets/widgets.dart';
 
 /// 进化 / 招式 fixtures（伊布 8 分支 + 绿毛虫三段链 + 呆呆兽分支）。
 class FakeEvolutionMovesRepository implements PokedexRepository {
+  /// 注入自定义版本组列表（chip 滚入视野回归测试需要多组长标签组）；
+  /// 缺省时沿用 [_versionGroups] 的朱/紫 + 剑/盾。
+  FakeEvolutionMovesRepository({List<VersionGroupRef>? versionGroups})
+      : _versionGroupOverride = versionGroups;
+
+  final List<VersionGroupRef>? _versionGroupOverride;
+
   /// getLearnset 收到的 (versionGroup, methods) 调用记录。
   final learnsetQueryLog = <(String, Set<String>?)>[];
 
@@ -340,7 +348,9 @@ class FakeEvolutionMovesRepository implements PokedexRepository {
 
   @override
   Future<List<VersionGroupRef>> getFormVersionGroups(int formId) async =>
-      _versionGroups[formId] ?? const <VersionGroupRef>[];
+      _versionGroupOverride ??
+      _versionGroups[formId] ??
+      const <VersionGroupRef>[];
 
   @override
   Future<List<MoveEntry>> getLearnset(
@@ -641,6 +651,90 @@ void main() {
       await expandGroup(tester, 'machine');
       expect(find.text('挖洞'), findsOneWidget);
       expect(find.text('十万伏特'), findsNothing);
+    });
+
+    testWidgets('点击视口边缘被裁的版本 chip：完整滚入视口且选中生效', (tester) async {
+      // 多组长标签版本组：窄窗口（480）下行尾 chip 必然被视口右缘裁切
+      //（1600×900 双栏用户实测「黑2/白2 只露出黑2/」的等价场景）。
+      repo = FakeEvolutionMovesRepository(
+        versionGroups: const [
+          VersionGroupRef(id: 'gen9', labelZh: '朱/紫', generationId: 9),
+          VersionGroupRef(id: 'gen8', labelZh: '剑/盾', generationId: 8),
+          VersionGroupRef(id: 'gen4', labelZh: '晶灿钻石/明亮珍珠', generationId: 4),
+          VersionGroupRef(id: 'pla', labelZh: 'LEGENDS 阿尔宙斯', generationId: 8),
+        ],
+      );
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+        size: const Size(480, 900),
+      );
+
+      final chip = find.byKey(const ValueKey('moves_vg_chip_pla'));
+      // 版本组行的横向滚动视口 = chip 最近的 SingleChildScrollView 祖先。
+      final viewport = find.ancestor(
+        of: chip,
+        matching: find.byType(SingleChildScrollView),
+      ).first;
+
+      final chipRect = tester.getRect(chip);
+      final viewportRect = tester.getRect(viewport);
+      // 前置：chip 确实被右缘裁切，且可见部分足够容纳一次点击。
+      expect(chipRect.right, greaterThan(viewportRect.right),
+          reason: '前置：pla chip 应被视口右缘裁切');
+      expect(viewportRect.right - chipRect.left, greaterThan(12),
+          reason: '前置：pla chip 应部分可见（可被点击）');
+
+      // 点可见部分而非 chip 中心（中心在视口外，tap 会落空）。
+      await tester.tapAt(Offset(viewportRect.right - 6, chipRect.center.dy));
+      // ensureVisible 动画 AppMotion.fast + 筛选写入后的重查询，泵足帧。
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+
+      final chipAfter = tester.getRect(chip);
+      expect(chipAfter.left, greaterThanOrEqualTo(viewportRect.left - 0.5));
+      expect(
+        chipAfter.right,
+        lessThanOrEqualTo(viewportRect.right + 0.5),
+        reason: '选中的 chip 应完整落在滚动视口内',
+      );
+      expect(
+        tester.widget<VersionChip>(
+          find.descendant(of: chip, matching: find.byType(VersionChip)),
+        ).selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('compact tile 定宽右簇：所有行的属性徽章左缘成一条直线', (tester) async {
+      // compact（<840）下展开全部分组：6 行徽章齐备，其中「十万伏特」
+      // 名称 4 字、其余 2 字，名称宽度不同 —— 修复前簇宽随徽章/名称
+      // 变化，各行徽章左缘必然参差。
+      await pumpSection(
+        tester,
+        section: (id) => MovesSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+        size: const Size(480, 900),
+      );
+
+      await expandGroup(tester, 'machine');
+      await expandGroup(tester, 'tutor');
+
+      // 撞击 / 变硬 / 电击 / 剑舞 / 十万伏特 / 撒娇 每行一枚徽章；
+      // 每枚徽章按 widget 实例定位（电属性有两行，不能按 type 找）。
+      final badges = tester.widgetList<TypeBadge>(find.byType(TypeBadge));
+      final badgeLefts = <double>[
+        for (final badge in badges)
+          tester
+              .getRect(
+                find.byWidgetPredicate((w) => identical(w, badge)),
+              )
+              .left,
+      ];
+      expect(badgeLefts, hasLength(6));
+      expect(badgeLefts, everyElement(badgeLefts.first));
     });
 
     testWidgets('来源筛选（学习器）按 OR 过滤', (tester) async {

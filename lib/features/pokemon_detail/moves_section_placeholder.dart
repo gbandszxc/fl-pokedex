@@ -37,6 +37,18 @@ const double _kColAcc = 52;
 const double _kColPp = 40;
 const double _kColLevel = 68;
 
+/// compact tile 右端簇定宽列：徽章宽度随属性名变化（单字「火」vs 双字
+/// 「飞行」）会让各行徽章左缘参差，故整簇定宽、右锚定，徽章左缘 /
+/// 分类左缘 / 行尾标签右缘在所有行各成一条直线。定宽依据（同 _kCol*
+/// 的文件内布局常量）：
+/// - 徽章槽 50：sm 徽章最宽属性「超能力」3 字 ×11 + pill 左右 padding
+///   AppSpacing.s×2 = 49；徽章撑满定宽槽，与 expanded 表格 cell 同几何；
+/// - 分类列 28：bodySmall(12px) 恒为双字「物理/特殊/变化」= 24，+4 余量；
+/// - 行尾列 40：labelSmall(12px) 最宽 3 字来源词「学习器」= 36，+4 余量。
+const double _kCompactColType = 50;
+const double _kCompactColClass = 28;
+const double _kCompactColTail = 40;
+
 /// 招式分区（design-ui.md §6）：版本组切换 + 来源筛选 + 排序 + 列表；
 /// expanded 为完整表格行，compact 为两行 tile；点击行进入招式详情。
 class MovesSectionPlaceholder extends ConsumerWidget {
@@ -150,11 +162,22 @@ class _MovesContent extends ConsumerWidget {
                 child: Row(
                   children: [
                     for (final (index, group) in groups.indexed) ...[
-                      VersionChip(
-                        label: group.labelZh,
-                        selected: group.id == _effectiveGroupId(filter, groups),
-                        onTap: () =>
-                            filterNotifier.setVersionGroup(group.id),
+                      // key 挂在 Builder 上：闭包里的 context 即 chip 的
+                      // 定位锚点，测试也按这个 key 找单个 chip。
+                      Builder(
+                        key: ValueKey('moves_vg_chip_${group.id}'),
+                        builder: (chipContext) => VersionChip(
+                          label: group.labelZh,
+                          selected:
+                              group.id == _effectiveGroupId(filter, groups),
+                          onTap: () {
+                            // 先把 chip 完整滚入视野再写筛选状态：视口
+                            // 边缘被裁的 chip 选中后不能停在半裁位置，
+                            // 否则「选中了哪个」不可读。
+                            _revealChip(chipContext);
+                            filterNotifier.setVersionGroup(group.id);
+                          },
+                        ),
                       ),
                       if (index != groups.length - 1)
                         const SizedBox(width: AppSpacing.s),
@@ -293,6 +316,22 @@ class _MovesContent extends ConsumerWidget {
   ) {
     if (filter.versionGroup.isNotEmpty) return filter.versionGroup;
     return groups.isEmpty ? '' : groups.first.id;
+  }
+
+  /// 把刚点按的版本 chip 完整滚入横向视口（先于筛选状态写入）。
+  ///
+  /// ensureVisible 沿祖先 scrollable 链逐级保证可见：chip 在页面纵向
+  /// 滚动里本就可见（用户刚点中它），不会牵动页面纵向滚动。系统
+  /// 「关闭动画」（MediaQuery.disableAnimationsOf）时 duration 取零
+  /// 直接到位，与详情页分区跳转同一偏好。
+  void _revealChip(BuildContext chipContext) {
+    Scrollable.ensureVisible(
+      chipContext,
+      duration: MediaQuery.disableAnimationsOf(chipContext)
+          ? Duration.zero
+          : AppMotion.fast,
+      curve: AppMotion.curve,
+    );
   }
 }
 
@@ -673,13 +712,38 @@ class _CompactTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.s),
-                TypeBadge(type: move.typeId, size: TypeBadgeSize.sm),
+                // 以下三列定宽（_kCompactCol*）：Expanded 名称吃掉行宽
+                // 差异后，右端簇起点只由总定宽决定，各行几何一致。
+                SizedBox(
+                  width: _kCompactColType,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: TypeBadge(type: move.typeId, size: TypeBadgeSize.sm),
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.s),
-                Text(_damageClassLabel(move), style: textTheme.bodySmall),
+                SizedBox(
+                  width: _kCompactColClass,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _damageClassLabel(move),
+                      maxLines: 1,
+                      style: textTheme.bodySmall,
+                    ),
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.s),
-                Text(
-                  _levelLabel(move),
-                  style: _tabular(textTheme, textTheme.labelSmall),
+                SizedBox(
+                  width: _kCompactColTail,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      _levelLabel(move),
+                      maxLines: 1,
+                      style: _tabular(textTheme, textTheme.labelSmall),
+                    ),
+                  ),
                 ),
               ],
             ),
