@@ -539,6 +539,14 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // pinned header 高度随系统顶部 inset（状态栏 / 刘海）变化：跳转落点
+    // 与高亮判定线都按它让位（见 [pinnedDetailHeaderHeight]）。
+    _anchors.pinnedHeaderHeight = pinnedDetailHeaderHeight(context);
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();

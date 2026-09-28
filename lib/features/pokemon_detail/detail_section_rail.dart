@@ -25,6 +25,16 @@ const double _kAnchorSlack = AppSpacing.s;
 /// 「滚到底」与「分区顶已到判定线」两处判定共用。
 const double _kPixelEpsilon = 1;
 
+/// pinned SliverAppBar 实际占据的高度：toolbar + 系统顶部内边距。
+///
+/// SliverAppBar 默认 primary = true，其 collapse 高度含 MediaQuery 顶部 inset
+/// （状态栏 / 刘海）；本页 Scaffold 无 appBar，body 保留该 inset 并原样传给
+/// 内部 SliverAppBar，因此遮挡带是 kToolbarHeight + padding.top。跳转落点与
+/// 高亮判定线都必须按它让位，否则在带状态栏的平台（Android 平板 / iPad）上
+/// 跳转后分区标题会落进 AppBar 遮挡区。
+double pinnedDetailHeaderHeight(BuildContext context) =>
+    kToolbarHeight + MediaQuery.paddingOf(context).top;
+
 /// 分区锚点的滚动锚定：持五段分区的挂载点，提供「跳到第 i 段」与
 /// 「按当前滚动位置求激活段」。
 ///
@@ -38,6 +48,11 @@ class DetailSectionAnchorScroll {
     for (final anchor in kDetailSectionAnchors)
       GlobalKey(debugLabel: 'detail_section_${anchor.label}'),
   ];
+
+  /// 本页 pinned header 的实际高度（见 [pinnedDetailHeaderHeight]）：
+  /// 页面在 didChangeDependencies 里按当前 MediaQuery 顶部 inset 刷新，
+  /// 状态栏出现 / 消失（旋转、全屏）后跳转与高亮随之对齐。
+  var pinnedHeaderHeight = kToolbarHeight;
 
   /// 本帧是否已登记过激活段判定（同一帧多次滚动通知只判一次）。
   var _checkScheduled = false;
@@ -83,8 +98,9 @@ class DetailSectionAnchorScroll {
       return;
     }
     final position = controller.position;
-    final target = (controller.offset + dy - kToolbarHeight - _kAnchorSlack)
-        .clamp(0.0, position.maxScrollExtent);
+    final target =
+        (controller.offset + dy - pinnedHeaderHeight - _kAnchorSlack)
+            .clamp(0.0, position.maxScrollExtent);
     if (MediaQuery.disableAnimationsOf(context)) {
       controller.jumpTo(target);
       return;
@@ -118,9 +134,10 @@ class DetailSectionAnchorScroll {
         // 未挂载（惰性构建尚未落地）：视为尚未顶到，继续往前找。
         continue;
       }
-      // dy 自视口顶起算，减去 pinned AppBar 高度才是内容可见区顶部；
-      // 容差与跳转落点同量级，避免浮点差把落点判成上一段。
-      if (dy - kToolbarHeight <= _kAnchorSlack + _kPixelEpsilon) {
+      // dy 自视口顶起算，减去 pinned header 的实际高度（toolbar + 顶部
+      // inset）才是内容可见区顶部；容差与跳转落点同量级，避免浮点差把
+      // 落点判成上一段。
+      if (dy - pinnedHeaderHeight <= _kAnchorSlack + _kPixelEpsilon) {
         return index;
       }
     }

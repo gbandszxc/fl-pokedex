@@ -42,6 +42,13 @@ class _RailHarnessState extends State<_RailHarness> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 与页面侧接线一致：pinned header 高度按 MediaQuery 顶部 inset 刷新。
+    anchors.pinnedHeaderHeight = pinnedDetailHeaderHeight(context);
+  }
+
+  @override
   void dispose() {
     controller.dispose();
     super.dispose();
@@ -150,6 +157,27 @@ void main() {
       moreOrLessEquals(kToolbarHeight + AppSpacing.s, epsilon: 1),
     );
     // 落点即激活项：点击后高亮不落后一段。
+    expect(rail(tester).activeIndex, 3);
+  });
+
+  testWidgets('系统顶部 inset：跳转落点与高亮都让出状态栏高度', (tester) async {
+    // Android 平板 / iPad：expanded 分支同样带状态栏 inset，pinned header
+    // 实际高 = kToolbarHeight + inset，落点必须按它让位而不是只减 56。
+    tester.view.padding = const FakeViewPadding(top: 24);
+    addTearDown(tester.view.resetPadding);
+
+    final state = await pumpHarness(tester);
+
+    await tester.tap(find.text('招式')); // 第 4 段（下标 3）
+    await tester.pumpAndSettle();
+
+    final viewportTop = tester.getRect(find.byType(CustomScrollView)).top;
+    final blockTop = tester.getRect(find.byKey(state.anchors.sectionKeys[3])).top;
+    expect(
+      blockTop - viewportTop,
+      moreOrLessEquals(kToolbarHeight + 24 + AppSpacing.s, epsilon: 1),
+    );
+    // 判定线同步让位：落点仍是被点项，不错位。
     expect(rail(tester).activeIndex, 3);
   });
 
