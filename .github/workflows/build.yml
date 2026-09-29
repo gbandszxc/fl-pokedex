@@ -232,19 +232,21 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: 发布 Release
+      # gh release create 遇同标签已存在的 Release 会报错退出，故先探测：
+      # 已存在则 upload 续传附件（--clobber 覆盖同名），保证同版本重跑幂等
+      - name: 发布 Release（已存在则续传附件）
         env:
           GH_TOKEN: ${{ github.token }}
           # 本 job 不 checkout 仓库，gh 无法经 git 推断远端，需显式指定仓库
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.build-android.outputs.version }}
         run: |
-          gh release create "v${VERSION}" \
-            --title "${VERSION}" \
-            --notes "" \
-            "dist/Fl-PokeDex-${VERSION}-arm64-v8a-release.apk" \
-            "dist/Fl-PokeDex-${VERSION}-armeabi-v7a-release.apk" \
-            "dist/Fl-PokeDex-${VERSION}-x86_64-release.apk" \
-            "dist/Fl-PokeDex-${VERSION}-x64.msi" \
-            "dist/Fl-PokeDex-${VERSION}-universal-mac.dmg" \
-            "dist/Fl-PokeDex-${VERSION}-arm64-mac.dmg"
+          FILES="dist/Fl-PokeDex-${VERSION}-arm64-v8a-release.apk dist/Fl-PokeDex-${VERSION}-armeabi-v7a-release.apk dist/Fl-PokeDex-${VERSION}-x86_64-release.apk dist/Fl-PokeDex-${VERSION}-x64.msi dist/Fl-PokeDex-${VERSION}-universal-mac.dmg dist/Fl-PokeDex-${VERSION}-arm64-mac.dmg"
+          if gh release view "v${VERSION}" > /dev/null 2>&1; then
+            gh release upload "v${VERSION}" $FILES --clobber
+          else
+            gh release create "v${VERSION}" \
+              --title "${VERSION}" \
+              --notes "" \
+              $FILES
+          fi
