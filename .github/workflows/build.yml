@@ -2,8 +2,8 @@ name: build
 
 # 手动触发；Android、Windows、macOS 三个平台 job 并行构建，publish=true 时
 # 由 release job 汇合产物后发布 Release：标签 v<版本号>，标题 <版本号>（取自
-# pubspec.yaml），正文为空，附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK 与 MSI。
-# macOS job 先只上传 Artifact 供验证，验证通过后再把 dmg 加进 Release 附件。
+# pubspec.yaml），正文为空，附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK、
+# MSI，以及 universal / arm64 两个 macOS dmg。
 # Release 签名：仓库 Settings → Secrets and variables → Actions 配置
 #   ANDROID_KEYSTORE_BASE64（keystore 文件 base64）、ANDROID_KEYSTORE_PASSWORD、
 #   ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD；未配置时回退 debug 签名产出。
@@ -154,7 +154,7 @@ jobs:
 
   # macOS：ad-hoc 自签（工程默认 CODE_SIGN_IDENTITY="-"），无需任何签名 Secrets；
   # 同一 job 出两个 dmg：universal（x86_64 + arm64）与 arm64-only，命名体现架构；
-  # hdiutil 为系统自带，零外部依赖。产物 dmg 先只传 Artifact 验证，不进 Release。
+  # hdiutil 为系统自带，零外部依赖。
   build-macos:
     runs-on: macos-latest
     steps:
@@ -222,7 +222,7 @@ jobs:
 
   release:
     if: ${{ inputs.publish }}
-    needs: [build-android, build-windows]
+    needs: [build-android, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: 下载全部构建产物
@@ -245,4 +245,6 @@ jobs:
             "dist/Fl-PokeDex-${VERSION}-arm64-v8a-release.apk" \
             "dist/Fl-PokeDex-${VERSION}-armeabi-v7a-release.apk" \
             "dist/Fl-PokeDex-${VERSION}-x86_64-release.apk" \
-            "dist/Fl-PokeDex-${VERSION}-x64.msi"
+            "dist/Fl-PokeDex-${VERSION}-x64.msi" \
+            "dist/Fl-PokeDex-${VERSION}-universal-mac.dmg" \
+            "dist/Fl-PokeDex-${VERSION}-arm64-mac.dmg"
