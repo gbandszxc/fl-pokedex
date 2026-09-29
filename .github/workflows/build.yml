@@ -153,6 +153,7 @@ jobs:
           if-no-files-found: error
 
   # macOS：ad-hoc 自签（工程默认 CODE_SIGN_IDENTITY="-"），无需任何签名 Secrets；
+  # 同一 job 出两个 dmg：universal（x86_64 + arm64）与 arm64-only，命名体现架构；
   # hdiutil 为系统自带，零外部依赖。产物 dmg 先只传 Artifact 验证，不进 Release。
   build-macos:
     runs-on: macos-latest
@@ -187,16 +188,32 @@ jobs:
 
       - run: flutter pub get
 
-      - name: 构建 macOS（release）
+      - name: 构建 macOS（release，universal）
         run: flutter build macos --release
 
-      - name: 打包 DMG（hdiutil，UDZO 压缩）
+      - name: 打包 DMG（universal，x86_64 + arm64）
         run: |
           hdiutil create -volname "Fl-PokeDex" \
             -srcfolder build/macos/Build/Products/Release/fl_pokedex.app \
-            -ov -format UDZO "Fl-PokeDex-${{ steps.version.outputs.version }}-mac.dmg"
+            -ov -format UDZO "Fl-PokeDex-${{ steps.version.outputs.version }}-universal-mac.dmg"
 
-      - name: 上传构建产物（DMG）
+      # Flutter 默认 macOS release 出 universal；arm64-only 是全局 config 开关，
+      # 切换后清掉构建目录强制整链重编，避免 Xcode 增量缓存残留双架构产物
+      - name: 切换 arm64-only 并清理构建目录
+        run: |
+          flutter config --enable-macos-arm64-only
+          rm -rf build/macos
+
+      - name: 构建 macOS（release，arm64）
+        run: flutter build macos --release
+
+      - name: 打包 DMG（arm64）
+        run: |
+          hdiutil create -volname "Fl-PokeDex" \
+            -srcfolder build/macos/Build/Products/Release/fl_pokedex.app \
+            -ov -format UDZO "Fl-PokeDex-${{ steps.version.outputs.version }}-arm64-mac.dmg"
+
+      - name: 上传构建产物（DMG 两个架构）
         uses: actions/upload-artifact@v4
         with:
           name: Fl-PokeDex-dmg-${{ steps.version.outputs.version }}
