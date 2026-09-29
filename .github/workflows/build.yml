@@ -1,8 +1,9 @@
 name: build
 
-# 手动触发；Android 与 Windows 两个平台 job 并行构建，publish=true 时
+# 手动触发；Android、Windows、macOS 三个平台 job 并行构建，publish=true 时
 # 由 release job 汇合产物后发布 Release：标签 v<版本号>，标题 <版本号>（取自
-# pubspec.yaml），正文为空，附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK 与 MSI。
+# pubspec.yaml），正文为空，附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK、
+# MSI，以及 universal / arm64 两个 macOS dmg。
 # Release 签名：仓库 Settings → Secrets and variables → Actions 配置
 #   ANDROID_KEYSTORE_BASE64（keystore 文件 base64）、ANDROID_KEYSTORE_PASSWORD、
 #   ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD；未配置时回退 debug 签名产出。
@@ -151,9 +152,77 @@ jobs:
           path: build/windows/msi/Fl-PokeDex-*.msi
           if-no-files-found: error
 
+  # macOS：ad-hoc 自签（工程默认 CODE_SIGN_IDENTITY="-"），无需任何签名 Secrets；
+  # 同一 job 出两个 dmg：universal（x86_64 + arm64）与 arm64-only，命名体现架构；
+  # hdiutil 为系统自带，零外部依赖。
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.47.3
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.3
+          channel: stable
+          cache: true
+
+      - name: Set up uv (数据管线脚本)
+        uses: astral-sh/setup-uv@v5
+
+      - name: Cache 上游数据（key 随 config.py 变化）
+        uses: actions/cache@v4
+        with:
+          path: tools/data_builder/.cache
+          key: upstream-${{ hashFiles('tools/data_builder/config.py') }}
+
+      - name: 解析版本号
+        id: version
+        run: |
+          echo "version=$(sed -n 's/^version: *\([0-9A-Za-z.]*\).*/\1/p' pubspec.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: 构建离线数据（fetch → db → images → verify）
+        run: uv run tools/data_builder/build_all.py
+        env:
+          PYTHONUTF8: '1'
+
+      - run: flutter pub get
+
+      - name: 构建 macOS（release，universal）
+        run: flutter build macos --release
+
+      - name: 打包 DMG（universal，x86_64 + arm64）
+        run: |
+          hdiutil create -volname "Fl-PokeDex" \
+            -srcfolder build/macos/Build/Products/Release/fl_pokedex.app \
+            -ov -format UDZO "Fl-PokeDex-${{ steps.version.outputs.version }}-universal-mac.dmg"
+
+      # Flutter 默认 macOS release 出 universal；arm64-only 是全局 config 开关，
+      # 切换后清掉构建目录强制整链重编，避免 Xcode 增量缓存残留双架构产物
+      - name: 切换 arm64-only 并清理构建目录
+        run: |
+          flutter config --enable-macos-arm64-only
+          rm -rf build/macos
+
+      - name: 构建 macOS（release，arm64）
+        run: flutter build macos --release
+
+      - name: 打包 DMG（arm64）
+        run: |
+          hdiutil create -volname "Fl-PokeDex" \
+            -srcfolder build/macos/Build/Products/Release/fl_pokedex.app \
+            -ov -format UDZO "Fl-PokeDex-${{ steps.version.outputs.version }}-arm64-mac.dmg"
+
+      - name: 上传构建产物（DMG 两个架构）
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fl-PokeDex-dmg-${{ steps.version.outputs.version }}
+          path: Fl-PokeDex-*-mac.dmg
+          if-no-files-found: error
+
   release:
     if: ${{ inputs.publish }}
-    needs: [build-android, build-windows]
+    needs: [build-android, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: 下载全部构建产物
@@ -163,17 +232,21 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: 发布 Release
+      # gh release create 遇同标签已存在的 Release 会报错退出，故先探测：
+      # 已存在则 upload 续传附件（--clobber 覆盖同名），保证同版本重跑幂等
+      - name: 发布 Release（已存在则续传附件）
         env:
           GH_TOKEN: ${{ github.token }}
           # 本 job 不 checkout 仓库，gh 无法经 git 推断远端，需显式指定仓库
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.build-android.outputs.version }}
         run: |
-          gh release create "v${VERSION}" \
-            --title "${VERSION}" \
-            --notes "" \
-            "dist/Fl-PokeDex-${VERSION}-arm64-v8a-release.apk" \
-            "dist/Fl-PokeDex-${VERSION}-armeabi-v7a-release.apk" \
-            "dist/Fl-PokeDex-${VERSION}-x86_64-release.apk" \
-            "dist/Fl-PokeDex-${VERSION}-x64.msi"
+          FILES="dist/Fl-PokeDex-${VERSION}-arm64-v8a-release.apk dist/Fl-PokeDex-${VERSION}-armeabi-v7a-release.apk dist/Fl-PokeDex-${VERSION}-x86_64-release.apk dist/Fl-PokeDex-${VERSION}-x64.msi dist/Fl-PokeDex-${VERSION}-universal-mac.dmg dist/Fl-PokeDex-${VERSION}-arm64-mac.dmg"
+          if gh release view "v${VERSION}" > /dev/null 2>&1; then
+            gh release upload "v${VERSION}" $FILES --clobber
+          else
+            gh release create "v${VERSION}" \
+              --title "${VERSION}" \
+              --notes "" \
+              $FILES
+          fi
