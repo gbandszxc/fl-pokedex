@@ -164,7 +164,7 @@ favoriteIdsProvider: StreamProvider<List<int>>
 recentIdsProvider: StreamProvider<List<int>>
 ```
 
-修订记录：**主题色增补**——`lib/app/theme/app_colors.dart` 新增 `enum AppSeedColor { amber, rose, forest, blue, teal, violet }`（amber=琥珀·默认即现有品牌色，rose=粉，forest=墨绿，blue=蓝，teal=青，violet=紫）；`buildLightTheme()/buildDarkTheme()` 增加可选命名参数 `seed`（默认 `AppSeedColor.amber`）。设置页"主题色"行见 design-ui.md §8。**外链跳转增补**——设置页关于区新增「项目地址」行（左 `assets/icons/github.svg` 标志 + 右文案），点按经 `externalUrlOpenerProvider` 调 `launchUrl` 委托系统浏览器；`url_launcher` 走 MethodChannel，应用进程自身不发起请求，运行时 0 网络红线不变（见 §8）。
+修订记录：**主题色增补**——`lib/app/theme/app_colors.dart` 新增 `enum AppSeedColor { amber, rose, forest, blue, teal, violet }`（amber=琥珀·默认即现有品牌色，rose=粉，forest=墨绿，blue=蓝，teal=青，violet=紫）；`buildLightTheme()/buildDarkTheme()` 增加可选命名参数 `seed`（默认 `AppSeedColor.amber`）。设置页"主题色"行见 design-ui.md §8。**外链跳转增补**——设置页关于区新增「项目地址」行（左文案 + 右 `assets/icons/github.svg` 标志），点按经 `externalUrlOpenerProvider` 调 `launchUrl` 委托系统浏览器；`url_launcher` 走 MethodChannel，应用进程自身不发起请求，运行时 0 网络红线不变（见 §8）。
 
 ## 6. 数据库运行时（lib/data/）
 

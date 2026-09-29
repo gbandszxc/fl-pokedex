@@ -255,6 +255,12 @@ void main() {
     expect(find.text('项目地址'), findsOneWidget);
     expect(find.byType(SvgPicture), findsOneWidget);
 
+    // 布局锁：文案居左（与「开源许可」行同起点），GitHub 标志在右侧。
+    final textRect = tester.getRect(find.text('项目地址'));
+    final iconRect = tester.getRect(find.byType(SvgPicture));
+    expect(iconRect.left, greaterThan(textRect.right),
+        reason: 'GitHub 标志应在文案右侧');
+
     await tester.tap(find.text('项目地址'));
     // fake opener 走 Future，泵一帧 flush microtask 让其落地。
     await tester.pump();

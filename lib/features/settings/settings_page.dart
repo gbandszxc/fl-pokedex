@@ -332,31 +332,37 @@ class _AboutRow extends StatelessWidget {
   }
 }
 
-/// 关于区「项目地址」行：左 GitHub 标志 + 右文案，点按把仓库地址交给系统
+/// 关于区「项目地址」行：左文案 + 右 GitHub 标志，点按把仓库地址交给系统
 /// 默认浏览器（url_launcher 走平台通道，应用进程不发请求，0 网络红线不变）。
 class _ProjectRepoRow extends ConsumerWidget {
   const _ProjectRepoRow();
 
-  /// 标志与右侧 chevron 同为 20，与 bodyMedium 行文协调。
+  /// 标志与 chevron 同为 20，与 bodyMedium 行文协调。
   static const double _iconSize = 20;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: SvgPicture.asset(
-        'assets/icons/github.svg',
-        width: _iconSize,
-        height: _iconSize,
-        // 标志随主题着色（同 trailing 图标的 onSurfaceVariant），不写死颜色。
-        colorFilter: ColorFilter.mode(
-          Theme.of(context).colorScheme.onSurfaceVariant,
-          BlendMode.srcIn,
-        ),
-      ),
       title: const Text('项目地址'),
       titleTextStyle: Theme.of(context).textTheme.bodyMedium,
-      trailing: const Icon(Icons.chevron_right, size: 20),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(
+            'assets/icons/github.svg',
+            width: _iconSize,
+            height: _iconSize,
+            // 标志随主题着色（同 chevron 的 onSurfaceVariant），不写死颜色。
+            colorFilter: ColorFilter.mode(
+              Theme.of(context).colorScheme.onSurfaceVariant,
+              BlendMode.srcIn,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.s),
+          const Icon(Icons.chevron_right, size: 20),
+        ],
+      ),
       onTap: () => _openRepo(context, ref),
     );
   }
