@@ -1,8 +1,9 @@
 name: build
 
-# 手动触发；Android 与 Windows 两个平台 job 并行构建，publish=true 时
+# 手动触发；Android、Windows、macOS 三个平台 job 并行构建，publish=true 时
 # 由 release job 汇合产物后发布 Release：标签 v<版本号>，标题 <版本号>（取自
 # pubspec.yaml），正文为空，附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK 与 MSI。
+# macOS job 先只上传 Artifact 供验证，验证通过后再把 dmg 加进 Release 附件。
 # Release 签名：仓库 Settings → Secrets and variables → Actions 配置
 #   ANDROID_KEYSTORE_BASE64（keystore 文件 base64）、ANDROID_KEYSTORE_PASSWORD、
 #   ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD；未配置时回退 debug 签名产出。
@@ -149,6 +150,57 @@ jobs:
         with:
           name: Fl-PokeDex-msi-${{ steps.version.outputs.version }}
           path: build/windows/msi/Fl-PokeDex-*.msi
+          if-no-files-found: error
+
+  # macOS：ad-hoc 自签（工程默认 CODE_SIGN_IDENTITY="-"），无需任何签名 Secrets；
+  # hdiutil 为系统自带，零外部依赖。产物 dmg 先只传 Artifact 验证，不进 Release。
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.47.3
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.3
+          channel: stable
+          cache: true
+
+      - name: Set up uv (数据管线脚本)
+        uses: astral-sh/setup-uv@v5
+
+      - name: Cache 上游数据（key 随 config.py 变化）
+        uses: actions/cache@v4
+        with:
+          path: tools/data_builder/.cache
+          key: upstream-${{ hashFiles('tools/data_builder/config.py') }}
+
+      - name: 解析版本号
+        id: version
+        run: |
+          echo "version=$(sed -n 's/^version: *\([0-9A-Za-z.]*\).*/\1/p' pubspec.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: 构建离线数据（fetch → db → images → verify）
+        run: uv run tools/data_builder/build_all.py
+        env:
+          PYTHONUTF8: '1'
+
+      - run: flutter pub get
+
+      - name: 构建 macOS（release）
+        run: flutter build macos --release
+
+      - name: 打包 DMG（hdiutil，UDZO 压缩）
+        run: |
+          hdiutil create -volname "Fl-PokeDex" \
+            -srcfolder build/macos/Build/Products/Release/fl_pokedex.app \
+            -ov -format UDZO "Fl-PokeDex-${{ steps.version.outputs.version }}-mac.dmg"
+
+      - name: 上传构建产物（DMG）
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fl-PokeDex-dmg-${{ steps.version.outputs.version }}
+          path: Fl-PokeDex-*-mac.dmg
           if-no-files-found: error
 
   release:
