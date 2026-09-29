@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fl_pokedex/app/theme/app_colors.dart';
@@ -14,15 +15,25 @@ typedef _Harness = (
   FakeSummariesPokedexRepository pokedex,
 );
 
-/// 泵入设置页（覆盖仓储与 SP），等待 manifest 解析完成。
+/// 泵入设置页（覆盖仓储、SP 与包信息），等待 manifest 解析完成。
 ///
 /// [size] 为逻辑 surface 尺寸（默认 400×1600）。
+/// [appVersion] 为 mock 的平台版本号（刻意取与 pubspec 不同的合成值，
+/// 以证明页面读的是平台报告值而非写死的字面量）。
 Future<_Harness> _pumpSettings(
   WidgetTester tester, {
   Map<String, Object> prefs = const {},
   Size size = const Size(400, 1600),
+  String appVersion = '9.9.9',
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
+  PackageInfo.setMockInitialValues(
+    appName: 'Fl-PokeDex',
+    packageName: 'com.github.gbandszxc.fl_pokedex',
+    version: appVersion,
+    buildNumber: '1',
+    buildSignature: '',
+  );
   final pokedex = FakeSummariesPokedexRepository(const {});
   final container = ProviderContainer(
     overrides: [
@@ -67,7 +78,7 @@ void main() {
     // 关于区块。
     expect(find.text('关于'), findsOneWidget);
     expect(find.text('版本'), findsOneWidget);
-    expect(find.text('1.0.0'), findsOneWidget);
+    expect(find.text('9.9.9'), findsOneWidget);
     expect(find.text('pokeapi@test'), findsOneWidget);
     expect(find.text('2026-09-25'), findsOneWidget);
     expect(find.text('宝可梦 1025 只 · 招式 937 个'), findsOneWidget);
@@ -172,6 +183,13 @@ void main() {
 
   testWidgets('manifest 加载失败时数据行显示降级文案', (tester) async {
     SharedPreferences.setMockInitialValues(const {});
+    PackageInfo.setMockInitialValues(
+      appName: 'Fl-PokeDex',
+      packageName: 'com.github.gbandszxc.fl_pokedex',
+      version: '9.9.9',
+      buildNumber: '1',
+      buildSignature: '',
+    );
     final pokedex = FakeSummariesPokedexRepository(
       const {},
       manifestError: StateError('manifest 不可用'),
@@ -194,6 +212,28 @@ void main() {
 
     expect(find.text('信息不可用'), findsOneWidget);
     // 其余关于项不受影响。
-    expect(find.text('1.0.0'), findsOneWidget);
+    expect(find.text('9.9.9'), findsOneWidget);
+  });
+
+  testWidgets('版本行取平台报告的安装包版本（非硬编码常量）', (tester) async {
+    final (container, _) = await _pumpSettings(tester, appVersion: '7.7.7');
+
+    expect(container.read(appVersionProvider).valueOrNull, '7.7.7');
+    expect(find.text('7.7.7'), findsOneWidget);
+    // 与 pubspec 同步无关：换成别的值也照显，说明读的是运行时真值。
+    expect(find.text('1.1.0'), findsNothing);
+  });
+
+  testWidgets('开源许可页带安装包版本号', (tester) async {
+    await _pumpSettings(tester, appVersion: '7.7.7');
+
+    await tester.tap(find.text('开源许可'));
+    // 不用 pumpAndSettle：许可页加载态为循环动画，会一直不 settle。
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final page = tester.widget<LicensePage>(find.byType(LicensePage));
+    expect(page.applicationName, 'Fl-PokeDex');
+    expect(page.applicationVersion, '7.7.7');
   });
 }

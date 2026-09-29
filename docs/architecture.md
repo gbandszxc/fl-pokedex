@@ -30,6 +30,8 @@ dependencies:
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
   collection: ^1.19.0
+  flutter_tts: ^4.2.5          # 本地朗读，纯 MethodChannel
+  package_info_plus: ^10.2.1   # 关于/许可页版本号，纯 MethodChannel
 dev_dependencies:
   build_runner: ^2.4.14
   drift_dev: ^2.28.0
@@ -151,6 +153,8 @@ learnsetFilterProvider: NotifierFamily<LearnsetFilter, int>  // {versionGroup, m
 themeModeProvider: Notifier<ThemeMode>（持久化 SharedPreferences）
 seedColorProvider: Notifier<AppSeedColor>（持久化 SharedPreferences key 'seed_color'，默认 amber，非法值回退 amber）
 cardDensityProvider（桌面卡片密度）
+homeViewLayoutProvider: Notifier<HomeViewLayout>（首页布局，与 pokedex 侧共享 SP key `view_mode`）
+appVersionProvider: FutureProvider<String>（安装包版本号，关于/许可页；读 package_info_plus，唯一事实来源为 pubspec `version`）
 // lib/features/favorites/providers.dart
 favoriteIdsProvider: StreamProvider<List<int>>
 recentIdsProvider: StreamProvider<List<int>>

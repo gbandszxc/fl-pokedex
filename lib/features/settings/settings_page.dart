@@ -8,9 +8,6 @@ import '../../domain/models/manifest.dart';
 import '../../shared/widgets/widgets.dart';
 import 'providers.dart';
 
-/// 应用版本号（与 pubspec.yaml 的 version 保持一致，手动同步）。
-const String kAppVersion = '1.0.0';
-
 /// 数据清单（关于区块：数据版本 / 构建日期 / 规模）。
 final manifestProvider = FutureProvider<DataManifest>((ref) async {
   return ref.watch(pokedexRepositoryProvider).getManifest();
@@ -25,6 +22,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pad = pagePaddingFor(context);
+    final appVersion = ref.watch(appVersionProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: Center(
@@ -99,7 +97,15 @@ class SettingsPage extends ConsumerWidget {
               const SizedBox(height: AppSpacing.m),
               const SectionTitle(title: '关于'),
               const SizedBox(height: AppSpacing.s),
-              _AboutRow(label: '版本', value: kAppVersion),
+              appVersion.when(
+                data: (version) => _AboutRow(label: '版本', value: version),
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.s),
+                  child: SkeletonBox(height: 16, width: 120),
+                ),
+                error: (_, __) =>
+                    const _AboutRow(label: '版本', value: '信息不可用'),
+              ),
               ref
                   .watch(manifestProvider)
                   .when(
@@ -145,7 +151,8 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => showLicensePage(
                   context: context,
                   applicationName: 'Fl-PokeDex',
-                  applicationVersion: kAppVersion,
+                  // 平台通道首帧未就绪时为 null，LicensePage 自行省略版本行。
+                  applicationVersion: appVersion.valueOrNull,
                 ),
               ),
             ],

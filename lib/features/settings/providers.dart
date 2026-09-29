@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/theme/app_colors.dart';
@@ -259,3 +260,14 @@ final homeViewLayoutProvider =
     NotifierProvider<HomeViewLayoutNotifier, HomeViewLayout>(
   HomeViewLayoutNotifier.new,
 );
+
+/// 应用版本号（关于区块的「版本」行 + 开源许可页）。
+///
+/// 唯一事实来源是 pubspec.yaml 的 `version`：构建期由 Flutter 注入各平台原生
+/// 配置（Android versionName / Windows 版本资源 / Apple CFBundleShortVersionString），
+/// 此处读回实际安装包的值，因此不存在「手写常量忘记同步」的漂移可能——
+/// 显示的就是当前这份二进制自己的版本号。
+final appVersionProvider = FutureProvider<String>((ref) async {
+  final info = await PackageInfo.fromPlatform();
+  return info.version;
+});

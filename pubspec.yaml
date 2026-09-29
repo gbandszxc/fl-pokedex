@@ -25,6 +25,10 @@ dependencies:
   # 本地 TTS 朗读（平台引擎：Android SpeechTts / Windows SAPI / Apple AVSpeech），
   # 纯 MethodChannel 无 HTTP 依赖，满足运行时 0 网络红线。
   flutter_tts: ^4.2.5
+  # 关于/开源许可页的版本号：读安装包原生配置（Android versionName / Windows
+  # 版本资源 / Apple CFBundleShortVersionString），纯 MethodChannel 无 HTTP
+  # 依赖，比手写常量构造上不可能与 pubspec 漂移。
+  package_info_plus: ^10.2.1
 
 dev_dependencies:
   flutter_test:
