@@ -1,9 +1,10 @@
 name: build
 
-# 手动触发；Android、Windows、macOS 三个平台 job 并行构建，publish=true 时
-# 由 release job 汇合产物后发布 Release：标签 v<版本号>，标题 <版本号>（取自
-# pubspec.yaml），正文为空，附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK、
-# MSI，以及 universal / arm64 两个 macOS dmg。
+# 手动触发；先跑 verify（analyze + 全量测试，红则全流程止步），再 Android、
+# Windows、macOS 三个平台 job 并行构建，publish=true 时由 release job 汇合产物后
+# 发布 Release：标签 v<版本号>，标题 <版本号>（取自 pubspec.yaml），正文为空，
+# 附件含 arm64-v8a / armeabi-v7a / x86_64 三个签名 APK、MSI，以及 universal /
+# arm64 两个 macOS dmg。
 # Release 签名：仓库 Settings → Secrets and variables → Actions 配置
 #   ANDROID_KEYSTORE_BASE64（keystore 文件 base64）、ANDROID_KEYSTORE_PASSWORD、
 #   ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD；未配置时回退 debug 签名产出。
@@ -19,7 +20,33 @@ permissions:
   contents: write # 发布 Release 与上传附件所需
 
 jobs:
+  # 静态检查 + 全量测试：红则直接掐断三个平台的构建与 Release 发布。
+  # 必须在 windows-latest：宿主测试经 tool/sqlite3/windows/sqlite3.dll 加载 sqlite3
+  # （test/helpers/sqlite_loader.dart），仓库只随附 Windows 版库文件。
+  # 生成物（*.g.dart / *.freezed.dart）与 assets/database/ 均已入库，故只需 pub get。
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.47.3
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.3
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # AGENTS.md 硬性规则 8：0 error 0 warning、测试全绿才允许提交代码单元
+      - name: 静态检查
+        run: flutter analyze
+
+      - name: 全量测试
+        run: flutter test
+
   build-android:
+    needs: verify
     runs-on: windows-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -102,6 +129,7 @@ jobs:
           if-no-files-found: error
 
   build-windows:
+    needs: verify
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -156,6 +184,7 @@ jobs:
   # 同一 job 出两个 dmg：universal（x86_64 + arm64）与 arm64-only，命名体现架构；
   # hdiutil 为系统自带，零外部依赖。
   build-macos:
+    needs: verify
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
