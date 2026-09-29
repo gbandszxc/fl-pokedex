@@ -496,6 +496,68 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('内容 ≥1100：双列瀑布（说明在进化左侧、雷达叠放、跳转钉定）', (tester) async {
+      // 1400 宽：内容 = 1400 - 边距 48 - 轨 56 = 1296 ≥ 1100 → 双列。
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await pumpPage(tester);
+
+      expect(find.byType(TabBar), findsNothing);
+      expect(find.byType(DetailSectionRail), findsOneWidget);
+      // 双列：图鉴说明（左列「档案」）在 进化（右列「对局」）左侧。
+      final flavorTitle = find.widgetWithText(SectionTitle, '图鉴说明');
+      final evolutionTitle = find.widgetWithText(SectionTitle, '进化');
+      expect(
+        tester.getRect(flavorTitle).left,
+        lessThan(tester.getRect(evolutionTitle).left),
+      );
+      // 横排头部：编号贴首排（竖排头部时它会在 320 高的立绘之下）。
+      expect(tester.getTopLeft(find.text('#001')).dy, lessThan(220));
+      // 列宽 ~636 落在叠放档：雷达不消失（design-ui.md §4）。
+      expect(find.byType(StatRadar), findsOneWidget);
+
+      // 双列下跳转钉定照常：点「招式」高亮「招式」。
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DetailSectionRail),
+          matching: find.text('招式'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DetailSectionRail>(find.byType(DetailSectionRail))
+            .activeIndex,
+        3,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('内容 <1100（1080×900 边界）：保持单列，分区纵向排布', (tester) async {
+      // 1080 宽：内容 = 1080 - 48 - 56 = 976 < 1100 → 仍单列；且 976 ≥ 840
+      // 雷达保持并排。
+      tester.view.physicalSize = const Size(1080, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await pumpPage(tester);
+
+      final flavorTitle = find.widgetWithText(SectionTitle, '图鉴说明');
+      final evolutionTitle = find.widgetWithText(SectionTitle, '进化');
+      // 单列：两段同一起始 x，纵向依次排布。
+      expect(tester.getRect(flavorTitle).left, tester.getRect(evolutionTitle).left);
+      expect(
+        tester.getRect(flavorTitle).top,
+        lessThan(tester.getRect(evolutionTitle).top),
+      );
+      expect(find.byType(StatRadar), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('点「招式」：落点被截到底时高亮钉在被点项，不亮「资料」', (tester) async {
       tester.view.physicalSize = const Size(1200, 900);
       tester.view.devicePixelRatio = 1.0;

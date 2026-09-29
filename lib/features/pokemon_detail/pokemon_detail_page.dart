@@ -22,6 +22,21 @@ import 'speak_button.dart';
 /// 头部内自适应展开）。
 const double _kArtworkHeightExpanded = 320;
 
+/// 宽屏双列瀑布的内容宽阈值（design-ui.md §2）：滚动区宽 ≥1100 时五段
+/// 分左右两列——左列「档案」（图鉴说明/种族值/资料），右列「对局」（进化/
+/// 招式）；以下回退单列 + 锚点轨。取 1100：两列各 ≥538，compact 招式
+/// tile 与说明 ≤640 的阅读宽都成立，对应窗口 ≥1204（内容 + 边距 + 轨）。
+const double _kTwoColumnBreakpoint = 1100;
+
+/// 双列瀑布的横排头部：立绘收成 180 高（竖排 320 让位给两列的信息密度），
+/// 槽宽 260 容纳立绘不裁主体。
+const double _kArtworkHeightTwoColumn = 180;
+const double _kArtworkWidthTwoColumn = 260;
+
+/// 双列瀑布的列宽档：种族值区宽 ≥520 时雷达改叠放在条形下方（§4）——
+/// 双列的列宽落在 840 以下，若无此档雷达会在窄列里整块消失。
+const double _kStatsRadarStackedBreakpoint = 520;
+
 /// compact/medium 折叠头部展开后的目标高度（含工具栏）：
 /// 实际取视口高 ×0.5（clamp 300–440），保证 pinned TabBar 之下首屏
 /// 始终留有可感知的内容空间（无需先收起头部）。
@@ -604,48 +619,73 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
                     AppSpacing.xxl,
                   ),
                   sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _Header(
-                          detail: detail,
-                          selectedForm: selectedForm,
-                          artworkHeight: _kArtworkHeightExpanded,
-                        ),
-                        _FormChips(detail: detail, selectedForm: selectedForm),
-                        const SizedBox(height: AppSpacing.xl),
-                        _section(
-                          0,
-                          _FlavorSection(
-                            speciesId: detail.speciesId,
-                            selectedForm: selectedForm,
-                            showTitle: true,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xxl),
-                        _section(1, _StatsSection(selectedForm: selectedForm)),
-                        const SizedBox(height: AppSpacing.xxl),
-                        _section(
-                          2,
-                          EvolutionSectionPlaceholder(
-                            speciesId: detail.speciesId,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xxl),
-                        _section(
-                          3,
-                          MovesSectionPlaceholder(speciesId: detail.speciesId),
-                        ),
-                        const SizedBox(height: AppSpacing.xxl),
-                        _section(
-                          4,
-                          _InfoSection(
-                            detail: detail,
-                            selectedForm: selectedForm,
-                            showTitle: true,
-                          ),
-                        ),
-                      ],
+                    // LayoutBuilder 取滚动区真实宽（面板宽 - 锚点轨 - 页边距）：
+                    // 双列瀑布与单列共用同一组分段组件与锚点 key，只差排布。
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final twoColumn =
+                            constraints.maxWidth >= _kTwoColumnBreakpoint;
+                        // 锚点跟随口径随布局切换（twoColumn 取「最近过线段」
+                        // 口径，见 rail 内注释）；写普通字段即可，无需重建。
+                        _anchors.twoColumn = twoColumn;
+                        return twoColumn
+                            ? _TwoColumnDetail(
+                                detail: detail,
+                                selectedForm: selectedForm,
+                                section: _section,
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _Header(
+                                    detail: detail,
+                                    selectedForm: selectedForm,
+                                    artworkHeight: _kArtworkHeightExpanded,
+                                  ),
+                                  _FormChips(
+                                    detail: detail,
+                                    selectedForm: selectedForm,
+                                  ),
+                                  const SizedBox(height: AppSpacing.xl),
+                                  _section(
+                                    0,
+                                    _FlavorSection(
+                                      speciesId: detail.speciesId,
+                                      selectedForm: selectedForm,
+                                      showTitle: true,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xxl),
+                                  _section(
+                                    1,
+                                    _StatsSection(selectedForm: selectedForm),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xxl),
+                                  _section(
+                                    2,
+                                    EvolutionSectionPlaceholder(
+                                      speciesId: detail.speciesId,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xxl),
+                                  _section(
+                                    3,
+                                    MovesSectionPlaceholder(
+                                      speciesId: detail.speciesId,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xxl),
+                                  _section(
+                                    4,
+                                    _InfoSection(
+                                      detail: detail,
+                                      selectedForm: selectedForm,
+                                      showTitle: true,
+                                    ),
+                                  ),
+                                ],
+                              );
+                      },
                     ),
                   ),
                 ),
@@ -657,6 +697,184 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
           activeIndex: _activeIndex,
           onSelected: _handleAnchorSelected,
         ),
+      ],
+    );
+  }
+}
+
+/// 宽屏双列瀑布（design-ui.md §2）：横排头部 + 左右两列，仅在滚动区宽
+/// ≥ [_kTwoColumnBreakpoint] 时使用。
+///
+/// 列按信息聚类：左列「档案」（图鉴说明 / 种族值 / 资料），右列「对局」
+/// （进化 / 招式）——招式折叠后两列高度接近，一屏即可总览。分区组件
+/// 与单列分支完全同源，仍经 [section] 包锚点挂载点：跳转与高亮在
+/// 双列下照常工作。
+class _TwoColumnDetail extends StatelessWidget {
+  const _TwoColumnDetail({
+    required this.detail,
+    required this.selectedForm,
+    required this.section,
+  });
+
+  final PokemonDetailData detail;
+
+  final FormSummary selectedForm;
+
+  /// 页面状态提供的挂载点：给分区包锚点 key。
+  final Widget Function(int index, Widget child) section;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _HeaderHorizontal(detail: detail, selectedForm: selectedForm),
+        const SizedBox(height: AppSpacing.l),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  section(
+                    0,
+                    _FlavorSection(
+                      speciesId: detail.speciesId,
+                      selectedForm: selectedForm,
+                      showTitle: true,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  section(1, _StatsSection(selectedForm: selectedForm)),
+                  const SizedBox(height: AppSpacing.xxl),
+                  section(
+                    4,
+                    _InfoSection(
+                      detail: detail,
+                      selectedForm: selectedForm,
+                      showTitle: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xl),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  section(
+                    2,
+                    EvolutionSectionPlaceholder(
+                      speciesId: detail.speciesId,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  section(
+                    3,
+                    MovesSectionPlaceholder(speciesId: detail.speciesId),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// 双列模式的横排头部：立绘居左，编号 / 名称 / 类型 / 分类与形态 chips
+/// 居右。类型徽章行与竖排头部共用 [_TypeBadgesRow]。
+class _HeaderHorizontal extends StatelessWidget {
+  const _HeaderHorizontal({
+    required this.detail,
+    required this.selectedForm,
+  });
+
+  final PokemonDetailData detail;
+
+  final FormSummary selectedForm;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    // 立绘回退：与 _Header 一致（选中形态缺失时用默认形态的图）。
+    String? defaultFormArtwork;
+    for (final form in detail.forms) {
+      if (form.isDefault) {
+        defaultFormArtwork = form.artworkAsset;
+        break;
+      }
+    }
+    final artworkPath = selectedForm.artworkAsset ?? defaultFormArtwork;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: _kArtworkWidthTwoColumn,
+          child: _Artwork(
+            key: ValueKey(artworkPath),
+            path: artworkPath,
+            height: _kArtworkHeightTwoColumn,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xl),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formatDexNumber(detail.nationalDex),
+                style: AppTypography.tabularFigures(
+                  textTheme.headlineSmall ?? const TextStyle(),
+                ).copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(detail.nameZhHans, style: textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '${detail.nameEn} · ${detail.nameJa}',
+                style: textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppSpacing.s),
+              _TypeBadgesRow(selectedForm: selectedForm),
+              if (detail.genusZh != null || detail.genusEn != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  (detail.genusZh ?? detail.genusEn)!,
+                  style: textTheme.bodySmall,
+                ),
+              ],
+              _FormChips(detail: detail, selectedForm: selectedForm),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 类型徽章行：Row 而非 Wrap——Wrap 给子项的是有界松约束，TypeBadge 内部
+/// 的 alignment 容器会据此撑满整行（P1-b 全宽色带根因）；Flex 对非弹性
+/// 子项宽度无界，徽章收缩为内容宽。属性最多 2 枚，无溢出。
+class _TypeBadgesRow extends StatelessWidget {
+  const _TypeBadgesRow({required this.selectedForm});
+
+  final FormSummary selectedForm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final typeId in selectedForm.typeIds) ...[
+          if (typeId != selectedForm.typeIds.first)
+            const SizedBox(width: AppSpacing.s),
+          TypeBadge(type: typeId),
+        ],
       ],
     );
   }
@@ -744,19 +962,7 @@ class _Header extends StatelessWidget {
           style: textTheme.bodySmall,
         ),
         const SizedBox(height: AppSpacing.s),
-        // Row 而非 Wrap：Wrap 给子项的是有界松约束，TypeBadge 内部的
-        // alignment 容器会据此撑满整行（P1-b 全宽色带根因）；Flex 对
-        // 非弹性子项宽度无界，徽章收缩为内容宽。属性最多 2 枚，无溢出。
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final typeId in selectedForm.typeIds) ...[
-              if (typeId != selectedForm.typeIds.first)
-                const SizedBox(width: AppSpacing.s),
-              TypeBadge(type: typeId),
-            ],
-          ],
-        ),
+        _TypeBadgesRow(selectedForm: selectedForm),
         if (detail.genusZh != null || detail.genusEn != null) ...[
           const SizedBox(height: AppSpacing.xs),
           // 分类 caption：简中优先，缺简中回退英文。
@@ -1152,8 +1358,21 @@ class _StatsSection extends ConsumerWidget {
       data: (formDetail) => LayoutBuilder(
         builder: (context, constraints) {
           final bars = StatBars(stats: formDetail.stats);
-          if (constraints.maxWidth < _kStatsRadarBreakpoint) {
+          final width = constraints.maxWidth;
+          if (width < _kStatsRadarStackedBreakpoint) {
             return bars;
+          }
+          if (width < _kStatsRadarBreakpoint) {
+            // 窄列档（双列瀑布的列宽）：雷达叠放在条形下方——信息不因
+            // 列宽不足 840 而整块消失（design-ui.md §4）。
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                bars,
+                const SizedBox(height: AppSpacing.l),
+                StatRadar(stats: formDetail.stats, showValues: true),
+              ],
+            );
           }
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,

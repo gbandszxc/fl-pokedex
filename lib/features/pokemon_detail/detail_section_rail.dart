@@ -61,6 +61,14 @@ class DetailSectionAnchorScroll {
   /// 状态栏出现 / 消失（旋转、全屏）后跳转与高亮随之对齐。
   var pinnedHeaderHeight = kToolbarHeight;
 
+  /// 双列瀑布模式（design-ui.md §2）：分区左右分列，由页面随布局宽度
+  /// 切换时置位。
+  ///
+  /// 分列后「最后一个过线」不再等价于视觉顺序，滚动跟随改取「最接近
+  /// 判定线的过线段」；「到底兜底认末段」也停用——双列下两列各自到底，
+  /// 末段并不天然最深。单列下分区自上而下单调，新旧口径等价，行为不变。
+  bool twoColumn = false;
+
   /// 本帧是否已登记过激活段判定（同一帧多次滚动通知只判一次）。
   var _checkScheduled = false;
 
@@ -197,36 +205,44 @@ class DetailSectionAnchorScroll {
     );
   }
 
-  /// 当前激活段：最后一个「标题已顶到内容可见区顶部」的分区；都还没顶到
-  /// 时取第一段。
+  /// 当前激活段：过线分区里「最接近判定线」的那段；都还没过线时取
+  /// 第一段。
   ///
-  /// 五段规模，线性倒查即可（每帧至多 5 次坐标换算，无需缓存）。
+  /// 五段规模，线性扫描即可（每帧至多 5 次坐标换算，无需缓存）。单列
+  /// 下分区自上而下单调，「最接近过线」与旧的「倒查取最后一个」等价；
+  /// 双列下两列各自的过线段都参与竞争，取更贴近判定线者。
   int activeIndexFor(ScrollController controller) {
     if (!controller.hasClients) {
       return 0;
     }
     final position = controller.position;
-    // 底部兜底：末段之后的内容不足以为它让出整个视口（maxScrollExtent
-    // 先到），若仍按「顶到内容区顶部」判定，点「资料」会落到底部却高亮
-    // 上一段。到底即认末段，跳转落点与高亮才自洽。
-    if (position.maxScrollExtent > 0 &&
+    // 底部兜底（仅单列）：末段之后的内容不足以为它让出整个视口
+    // （maxScrollExtent 先到），若仍按「顶到内容区顶部」判定，点「资料」
+    // 会落到底部却高亮上一段。到底即认末段，跳转落点与高亮才自洽。
+    // 双列下两列各自到底、末段并不天然最深，停用兜底走「最近」口径。
+    if (!twoColumn &&
+        position.maxScrollExtent > 0 &&
         position.pixels >= position.maxScrollExtent - _kPixelEpsilon) {
       return kDetailSectionAnchors.length - 1;
     }
-    for (var index = kDetailSectionAnchors.length - 1; index >= 0; index--) {
+    var best = -1;
+    var bestDy = double.negativeInfinity;
+    for (var index = 0; index < kDetailSectionAnchors.length; index++) {
       final dy = _dyFromViewportTop(index);
       if (dy == null) {
-        // 未挂载（惰性构建尚未落地）：视为尚未顶到，继续往前找。
+        // 未挂载（惰性构建尚未落地）：视为尚未过线，跳过。
         continue;
       }
       // dy 自视口顶起算，减去 pinned header 的实际高度（toolbar + 顶部
       // inset）才是内容可见区顶部；容差与跳转落点同量级，避免浮点差把
-      // 落点判成上一段。
-      if (dy - pinnedHeaderHeight <= _kAnchorSlack + _kPixelEpsilon) {
-        return index;
+      // 落点判成上一段。过线段里取最深（= 最贴近判定线）者。
+      if (dy - pinnedHeaderHeight <= _kAnchorSlack + _kPixelEpsilon &&
+          dy > bestDy) {
+        best = index;
+        bestDy = dy;
       }
     }
-    return 0;
+    return best >= 0 ? best : 0;
   }
 
   /// 第 [index] 段顶部相对滚动视口顶部的 dy（未 clamp）。
