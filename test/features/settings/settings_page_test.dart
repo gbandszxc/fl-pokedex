@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,11 +21,13 @@ typedef _Harness = (
 /// [size] 为逻辑 surface 尺寸（默认 400×1600）。
 /// [appVersion] 为 mock 的平台版本号（刻意取与 pubspec 不同的合成值，
 /// 以证明页面读的是平台报告值而非写死的字面量）。
+/// [opener] 覆盖外链打开器，避免测试触碰真实平台通道。
 Future<_Harness> _pumpSettings(
   WidgetTester tester, {
   Map<String, Object> prefs = const {},
   Size size = const Size(400, 1600),
   String appVersion = '9.9.9',
+  ExternalUrlOpener? opener,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   PackageInfo.setMockInitialValues(
@@ -38,6 +41,7 @@ Future<_Harness> _pumpSettings(
   final container = ProviderContainer(
     overrides: [
       pokedexRepositoryOverride(pokedex),
+      if (opener != null) externalUrlOpenerProvider.overrideWithValue(opener),
     ],
   );
   addTearDown(container.dispose);
@@ -84,6 +88,7 @@ void main() {
     expect(find.text('宝可梦 1025 只 · 招式 937 个'), findsOneWidget);
     expect(find.text('数据来源'), findsOneWidget);
     expect(find.text('PokéAPI'), findsOneWidget);
+    expect(find.text('项目地址'), findsOneWidget);
     expect(find.text('开源许可'), findsOneWidget);
     // 无账号 / 网络相关项。
     expect(find.textContaining('账号'), findsNothing);
@@ -235,5 +240,42 @@ void main() {
     final page = tester.widget<LicensePage>(find.byType(LicensePage));
     expect(page.applicationName, 'Fl-PokeDex');
     expect(page.applicationVersion, '7.7.7');
+  });
+
+  testWidgets('项目地址行：GitHub 标志渲染，点按交给外链打开器', (tester) async {
+    Uri? target;
+    await _pumpSettings(
+      tester,
+      opener: (url) async {
+        target = url;
+        return true;
+      },
+    );
+
+    expect(find.text('项目地址'), findsOneWidget);
+    expect(find.byType(SvgPicture), findsOneWidget);
+
+    await tester.tap(find.text('项目地址'));
+    // fake opener 走 Future，泵一帧 flush microtask 让其落地。
+    await tester.pump();
+
+    expect(target, isNotNull);
+    // 字面量而非 kProjectRepoUrl：防止「常量写错、断言跟着错」的自证循环。
+    expect(target.toString(), 'https://github.com/gbandszxc/fl-pokedex');
+  });
+
+  testWidgets('外链打开失败时提示无法打开', (tester) async {
+    await _pumpSettings(tester, opener: (url) async => false);
+
+    await tester.tap(find.text('项目地址'));
+    await tester.pump();
+    // SnackBar 入场动画。
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('无法打开'), findsOneWidget);
+
+    // 推进 SnackBar 默认 4s 计时器与退场动画，避免测试遗留 pending timer。
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
   });
 }

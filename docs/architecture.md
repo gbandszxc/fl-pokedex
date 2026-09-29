@@ -32,6 +32,8 @@ dependencies:
   collection: ^1.19.0
   flutter_tts: ^4.2.5          # 本地朗读，纯 MethodChannel
   package_info_plus: ^10.2.1   # 关于/许可页版本号，纯 MethodChannel
+  url_launcher: ^6.3.2         # 关于区外链跳系统浏览器，纯 MethodChannel（应用自身 0 请求）
+  flutter_svg: ^2.3.0          # 关于区 GitHub 标志，本地矢量解析
 dev_dependencies:
   build_runner: ^2.4.14
   drift_dev: ^2.28.0
@@ -155,12 +157,14 @@ seedColorProvider: Notifier<AppSeedColor>（持久化 SharedPreferences key 'see
 cardDensityProvider（桌面卡片密度）
 homeViewLayoutProvider: Notifier<HomeViewLayout>（首页布局，与 pokedex 侧共享 SP key `view_mode`）
 appVersionProvider: FutureProvider<String>（安装包版本号，关于/许可页；读 package_info_plus，唯一事实来源为 pubspec `version`）
+externalUrlOpenerProvider: Provider<ExternalUrlOpener>（关于区「项目地址」跳系统浏览器；typedef ExternalUrlOpener = Future<bool> Function(Uri)，默认 launchUrl，测试注入 fake 断言目标 URL）
+kProjectRepoUrl: const String（仓库地址常量，取自 git remote origin）
 // lib/features/favorites/providers.dart
 favoriteIdsProvider: StreamProvider<List<int>>
 recentIdsProvider: StreamProvider<List<int>>
 ```
 
-修订记录：**主题色增补**——`lib/app/theme/app_colors.dart` 新增 `enum AppSeedColor { amber, rose, forest, blue, teal, violet }`（amber=琥珀·默认即现有品牌色，rose=粉，forest=墨绿，blue=蓝，teal=青，violet=紫）；`buildLightTheme()/buildDarkTheme()` 增加可选命名参数 `seed`（默认 `AppSeedColor.amber`）。设置页"主题色"行见 design-ui.md §8。
+修订记录：**主题色增补**——`lib/app/theme/app_colors.dart` 新增 `enum AppSeedColor { amber, rose, forest, blue, teal, violet }`（amber=琥珀·默认即现有品牌色，rose=粉，forest=墨绿，blue=蓝，teal=青，violet=紫）；`buildLightTheme()/buildDarkTheme()` 增加可选命名参数 `seed`（默认 `AppSeedColor.amber`）。设置页"主题色"行见 design-ui.md §8。**外链跳转增补**——设置页关于区新增「项目地址」行（左 `assets/icons/github.svg` 标志 + 右文案），点按经 `externalUrlOpenerProvider` 调 `launchUrl` 委托系统浏览器；`url_launcher` 走 MethodChannel，应用进程自身不发起请求，运行时 0 网络红线不变（见 §8）。
 
 ## 6. 数据库运行时（lib/data/）
 
@@ -185,7 +189,7 @@ WHERE ( national_dex = n  或为空 )
 ## 8. 离线保证（运行时 0 网络请求的三层机制）
 
 1. **数据全部随包**：`assets/database/pokedex.db` + `manifest.json` + `assets/pokemon/{full,thumb}/*.webp`。运行时只读 assets 与本地文件；首启把 db 复制到应用文档目录（`meta.schema_version` 与 manifest 比对决定是否覆盖，换数据重装需 `pm clear`），Drift 以 `query_only` 只读打开；图片 `Image.asset` + `cacheWidth`。
-2. **运行时依赖零 HTTP 库**：drift / riverpod / go_router 等均无网络能力，禁止引入 dio/http 等。
+2. **运行时依赖零 HTTP 库**：drift / riverpod / go_router 等均无网络能力，禁止引入 dio/http 等。`url_launcher` 不在此列——它走 MethodChannel 把 URL 交给系统浏览器/关联应用，请求由 OS 侧发起，本进程不产生任何 socket，`HttpOverrides` 也不受影响（唯一用途：设置页「项目地址」跳转）。
 3. **兜底拦截器**：`main()` 无条件 `HttpOverrides.global = BlockingHttpOverrides()`（lib/core/offline/），任何 `open/openUrl` 当场抛 `OfflineRequestBlocked`——未来任何依赖试图联网都会立刻暴露而非静默请求。
 
 机器判据：`test/acceptance/offline_acceptance_test.dart` 在拦截器生效下，用真实 `pokedex.db` 驱动完整链路（首页→搜索→详情→进化→招式→图鉴说明→切主题），断言全程 0 请求且无异常。网络只允许出现在构建期（`tools/data_builder`，见其 README 的缓存与增量说明）。

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/tokens.dart';
@@ -143,6 +144,7 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.s),
+              const _ProjectRepoRow(),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('开源许可'),
@@ -326,6 +328,55 @@ class _AboutRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 关于区「项目地址」行：左 GitHub 标志 + 右文案，点按把仓库地址交给系统
+/// 默认浏览器（url_launcher 走平台通道，应用进程不发请求，0 网络红线不变）。
+class _ProjectRepoRow extends ConsumerWidget {
+  const _ProjectRepoRow();
+
+  /// 标志与右侧 chevron 同为 20，与 bodyMedium 行文协调。
+  static const double _iconSize = 20;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: SvgPicture.asset(
+        'assets/icons/github.svg',
+        width: _iconSize,
+        height: _iconSize,
+        // 标志随主题着色（同 trailing 图标的 onSurfaceVariant），不写死颜色。
+        colorFilter: ColorFilter.mode(
+          Theme.of(context).colorScheme.onSurfaceVariant,
+          BlendMode.srcIn,
+        ),
+      ),
+      title: const Text('项目地址'),
+      titleTextStyle: Theme.of(context).textTheme.bodyMedium,
+      trailing: const Icon(Icons.chevron_right, size: 20),
+      onTap: () => _openRepo(context, ref),
+    );
+  }
+
+  Future<void> _openRepo(BuildContext context, WidgetRef ref) async {
+    // 提前取根 ScaffoldMessenger（生命周期随 App），避免 await 后回用 context。
+    final messenger = ScaffoldMessenger.of(context);
+    var opened = false;
+    try {
+      opened = await ref.read(externalUrlOpenerProvider)(
+        Uri.parse(kProjectRepoUrl),
+      );
+    } on Object catch (error) {
+      debugPrint('open project repo failed: $error');
+    }
+    if (opened) {
+      return;
+    }
+    messenger.showSnackBar(
+      SnackBar(content: Text('无法打开 $kProjectRepoUrl')),
     );
   }
 }

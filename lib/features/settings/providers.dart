@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/app_colors.dart';
 
@@ -259,6 +260,20 @@ class HomeViewLayoutNotifier extends Notifier<HomeViewLayout> {
 final homeViewLayoutProvider =
     NotifierProvider<HomeViewLayoutNotifier, HomeViewLayout>(
   HomeViewLayoutNotifier.new,
+);
+
+/// 项目仓库地址（关于区「项目地址」行的跳转目标，取自 git remote origin）。
+const String kProjectRepoUrl = 'https://github.com/gbandszxc/fl-pokedex';
+
+/// 外链打开器：返回是否成功唤起系统浏览器。
+///
+/// url_launcher 走 MethodChannel 委托 OS，应用进程自身不发任何 HTTP 请求，
+/// 运行时 0 网络红线不受影响；抽成注入点便于测试断言目标 URL。
+typedef ExternalUrlOpener = Future<bool> Function(Uri url);
+
+/// 外链打开器 Provider（关于区「项目地址」行使用）。
+final externalUrlOpenerProvider = Provider<ExternalUrlOpener>(
+  (ref) => (url) => launchUrl(url, mode: LaunchMode.externalApplication),
 );
 
 /// 应用版本号（关于区块的「版本」行 + 开源许可页）。

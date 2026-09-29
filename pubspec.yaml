@@ -29,6 +29,12 @@ dependencies:
   # 版本资源 / Apple CFBundleShortVersionString），纯 MethodChannel 无 HTTP
   # 依赖，比手写常量构造上不可能与 pubspec 漂移。
   package_info_plus: ^10.2.1
+  # 关于区「项目地址」跳转系统浏览器：纯 MethodChannel 委托 OS 打开，应用
+  # 进程自身 0 HTTP 请求，满足运行时 0 网络红线。
+  url_launcher: ^6.3.2
+  # 关于区 GitHub 标志（assets/icons/github.svg，simple-icons CC0）：纯本地
+  # 矢量解析，无网络。
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +67,7 @@ flutter:
     - assets/database/
     - assets/pokemon/full/
     - assets/pokemon/thumb/
+    - assets/icons/
 
   # 内嵌 MiSans（DESIGN.md §4）：项目仅用 w400/500/600。MiSans 全族 OS/2 权重为
   # 非标准刻度，槽位映射依据官方 CSS 惯例（400=Regular / 500=Medium / 600=Demibold）；
