@@ -199,12 +199,15 @@ compact：BottomSheet（r20 顶圆角）        expanded：列表上方筛选条
 │ 桌面卡片密度 (紧凑|舒适)      │  ← 仅 expanded 显示
 │ ──────────────────────       │
 │ 关于                          │
-│  版本  1.0.0 · 数据 pokeapi@a1b2c3d │
-│  数据库构建 2026-09-25        │
+│  版本  <x.y.z> · 数据 <dataVersion> │
+│  数据库构建 <buildDate>        │
 │  数据来源 PokéAPI（见开源许可）│
 │  [GH] 项目地址              › │  ← 左 GitHub SVG 标志(20) + 右文案，点按交系统浏览器
 │  开源许可                   › │
 └──────────────────────────────┘
 主题色六选一（琥珀/粉/墨绿/蓝/青/紫），点选即时生效并持久化，默认琥珀（◎ 为选中描边）。
 「项目地址」标志着色取 onSurfaceVariant（同右侧 chevron），失败时 SnackBar 提示无法打开。
+框内「版本 / 数据 / 数据库构建」为占位示例，均取自实际产物而非写死：版本 = 安装包
+versionName（唯一事实来源 pubspec.yaml 的 version，运行时经 package_info_plus 读回），
+数据 = 离线库 manifest.dataVersion，数据库构建 = manifest.buildDate。
 ```
