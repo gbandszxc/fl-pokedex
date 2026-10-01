@@ -39,7 +39,7 @@
 - `run` / `frontend` 启动原生 Flutter debug 环境，默认宿主桌面；`frontend` 与 `run` 等价，本项目没有 Web/npm 前端。启动后 `r` 热重载、`R` 热重启、`q` 退出，`logs` 用 Ctrl+C 停止。
 - Windows 脚本自动应用仓库约定的 JDK、Gradle/Pub 缓存与 NuGet 环境，数据命令自动设置 `PYTHONUTF8=1`，不会持久修改调用方环境。Android debug/release 均按三 ABI 分包；`build msi` 自动先构建 Windows release。
 - 构建、代码生成、清理和测试必须串行执行，避免争用 Flutter 产物。子命令失败即停止，必须检查退出码并解决原因，不得隐藏错误或继续依赖失败产物的操作。
-- 仅在脚本未封装所需操作时使用下方底层命令参考；不要为每次开发任务重复创建同类包装脚本。
+- 脚本未封装所需操作时，可使用下方底层命令参考；若判断该操作具有常用、可复用价值，**允许后续更新维护现有 `dev.ps1` / `dev.sh`**，不要重复创建同类包装脚本。新增或调整命令时，必须同步两份脚本的行为、`-h` 帮助与 `README.md` 使用说明，并自测受影响的命令。
 
 ```powershell
 .\dev.ps1 -h                       # 必须先阅读帮助
