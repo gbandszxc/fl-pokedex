@@ -32,6 +32,32 @@
 7. 提交纪律：单元验收通过即 `git add <该单元文件>` + 一行祈使句提交；并发工作由主会话串行提交。
 8. `flutter analyze` 0 error 0 warning、`flutter test` 全绿才允许提交代码单元。
 
+## 开发脚本（Agent 优先入口）
+
+- **执行开发操作前，先运行 `.\dev.ps1 -h`（PowerShell）或 `bash ./dev.sh -h`（Bash）阅读当前帮助，以脚本实际支持的命令和参数为准，禁止猜测用法。** 无参数也会显示帮助，不会启动应用或安装依赖。
+- **常用开发操作优先使用根目录 `dev.ps1` / `dev.sh`**，避免自行拼接 Flutter 命令或遗漏环境配置。两份脚本的子命令和参数行为一致，详细说明见 `README.md`。
+- `run` / `frontend` 启动原生 Flutter debug 环境，默认宿主桌面；`frontend` 与 `run` 等价，本项目没有 Web/npm 前端。启动后 `r` 热重载、`R` 热重启、`q` 退出，`logs` 用 Ctrl+C 停止。
+- Windows 脚本自动应用仓库约定的 JDK、Gradle/Pub 缓存与 NuGet 环境，数据命令自动设置 `PYTHONUTF8=1`，不会持久修改调用方环境。Android debug/release 均按三 ABI 分包；`build msi` 自动先构建 Windows release。
+- 构建、代码生成、清理和测试必须串行执行，避免争用 Flutter 产物。子命令失败即停止，必须检查退出码并解决原因，不得隐藏错误或继续依赖失败产物的操作。
+- 仅在脚本未封装所需操作时使用下方底层命令参考；不要为每次开发任务重复创建同类包装脚本。
+
+```powershell
+.\dev.ps1 -h                       # 必须先阅读帮助
+.\dev.ps1 setup                    # Flutter 依赖
+.\dev.ps1 devices                  # 查看设备 ID
+.\dev.ps1 run windows              # 原生前端调试
+.\dev.ps1 run windows -- --verbose # 透传 Flutter 选项，也可省略 --
+.\dev.ps1 generate                 # 代码生成
+.\dev.ps1 check                    # analyze 成功后执行 test
+.\dev.ps1 build apk release        # Android 三 ABI 分包
+.\dev.ps1 build apk debug
+.\dev.ps1 build msi                # Windows release + MSI
+.\dev.ps1 logs windows
+.\dev.ps1 data                     # 全量数据构建，构建期可能联网
+.\dev.ps1 verify-data              # 校验现有离线数据
+# Bash 使用 bash ./dev.sh <同名命令> [同样的参数]
+```
+
 ## 常用命令
 
 ```powershell
