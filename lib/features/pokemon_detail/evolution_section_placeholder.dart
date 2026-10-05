@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/theme.dart';
 import '../../core/di.dart';
 import '../../domain/models/evolution.dart';
+import '../../shared/responsive/breakpoints.dart';
 import '../../shared/widgets/widgets.dart';
 import 'evolution_layout.dart';
 
@@ -17,13 +18,37 @@ final evolutionTreeProvider =
   return ref.watch(pokedexRepositoryProvider).getEvolutionTree(speciesId);
 });
 
-/// compact 缩进导引列宽。
+/// compact 纵向树导引列宽。
 const double _kGuideWidth = 28;
 
-/// 进化分区（design-ui.md §5）：纵向树渲染全部分支（├ / └ 导引线 +
-/// 条件 chips）；原 expanded 横向画布已移除，「线性链横排 / 分支链
-/// 纵向树」双形态 UI 由后续单元接入；无进化链显示空态；点击节点
-/// 跳转对应详情。
+/// dense 纵向树导引列宽（design-ui.md §5 密度放大）。
+const double _kGuideWidthDense = 32;
+
+/// compact 节点缩略图直径；dense 放大到 56。
+const double _kThumbSize = 48;
+const double _kThumbSizeDense = 56;
+
+/// 横排箭头列宽：与 [linearChainRowWidth] 的估算常数（72）逐字对齐——
+/// 「放得下」判定基于同一估算，列宽偏离即判定失真。该常数在
+/// evolution_layout.dart 内私有且约定不改彼文件，故此处落对齐副本。
+const double _kArrowColumnWidth = 72;
+
+/// 横排节点卡的宽预算（作为 nodeMinWidth 喂给 [linearChainRowWidth]）：
+/// 卡身固定部分（padding s×2 + 缩略图 48 + 间距 s）= 72，加名称列
+/// 上限 6 字 × labelLarge 13 = 78。彼文件默认常数 120 只够 3 字名，
+/// 4 字名实际卡宽已到 124——继续用默认值会出现「判定放得下、实际
+/// 行溢出」（如飞天螳螂→劈斧螳螂落在窗口 376–383 区间）。150 覆盖
+/// 至 6 字名，判定只会偏保守（多回退纵向树），不会漏判溢出。
+const double _kLinearNodeCardWidth = 150;
+
+/// 进化分区（design-ui.md §5）：数据定形态的双形态渲染——
+/// - 纯线性链且分区本地宽 ≥ 估算行宽 → 横排一行（节点卡列 +
+///   条件 chips 与箭头列交替）；
+/// - 分支链或宽不足 → 纵向树（├ / └ 导引线 + 条件 chips）；
+/// - 本地宽 ≥840（expanded）纵向树放大密度，形态结构不变。
+/// 形态决策取 [LayoutBuilder] 的分区本地宽而非窗口宽：双栏
+/// master-detail 的窄详情面板自动回退纵向树。无进化链显示空态；
+/// 点击节点跳转对应详情；一切内容随页面自然滚动（无画布交互）。
 class EvolutionSectionPlaceholder extends ConsumerWidget {
   const EvolutionSectionPlaceholder({
     super.key,
@@ -98,39 +123,108 @@ class _EvolutionBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final treeAsync = ref.watch(evolutionTreeProvider(speciesId));
-    return treeAsync.when(
-      loading: () => const Skeleton(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SkeletonBox(height: 64, width: 220),
-            SizedBox(height: AppSpacing.s),
-            SkeletonBox(height: 64, width: 260),
-          ],
+    // 本地宽决策：maxWidth 是分区真实可用宽（双栏 master-detail 的窄
+    // 详情面板自动回退纵向树），与窗口宽 MediaQuery 无关。
+    return LayoutBuilder(builder: (context, constraints) {
+      final maxWidth = constraints.maxWidth;
+      final treeAsync = ref.watch(evolutionTreeProvider(speciesId));
+      return treeAsync.when(
+        loading: () => const Skeleton(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonBox(height: 64, width: 220),
+              SizedBox(height: AppSpacing.s),
+              SkeletonBox(height: 64, width: 260),
+            ],
+          ),
         ),
-      ),
-      error: (error, stackTrace) => _SectionError(
-        onRetry: () => ref.invalidate(evolutionTreeProvider(speciesId)),
-      ),
-      data: (tree) {
-        if (tree == null || tree.root.children.isEmpty) {
-          return const _NoEvolutionHint();
-        }
-        // 画布形态已移除：各断点暂统一走纵向树，「线性链横排 /
-        // 分支链纵向树」双形态由后续单元接入。
-        return _VerticalTree(tree: tree, currentSpeciesId: speciesId);
-      },
+        error: (error, stackTrace) => _SectionError(
+          onRetry: () => ref.invalidate(evolutionTreeProvider(speciesId)),
+        ),
+        data: (tree) {
+          if (tree == null || tree.root.children.isEmpty) {
+            return const _NoEvolutionHint();
+          }
+          // 横排拦截：纯线性链且本地宽 ≥ 估算行宽；放不下即回退纵向
+          // 树，横排行内不做 Wrap / FittedBox / 横向滚动。节点卡宽预算
+          // 用校准过的 [_kLinearNodeCardWidth]（理由见其注释）。
+          final rows = flattenEvolutionTree(tree);
+          final useLinearRow = isLinearEvolutionChain(tree) &&
+              maxWidth >=
+                  linearChainRowWidth(
+                    rows.length,
+                    nodeMinWidth: _kLinearNodeCardWidth,
+                  );
+          return useLinearRow
+              ? _LinearChainRow(tree: tree, currentSpeciesId: speciesId)
+              : _VerticalTree(
+                  tree: tree,
+                  currentSpeciesId: speciesId,
+                  dense: windowSizeFor(maxWidth) == WindowSize.expanded,
+                );
+        },
+      );
+    });
+  }
+}
+
+/// 线性链横排一行（design-ui.md §5 形态一）：节点卡列（上卡、下该边
+/// 条件 chips）与箭头列交替，整行随分区左对齐。启用与否由
+/// [_EvolutionBody] 按本地宽与估算行宽拦截，行内不再自适应。
+class _LinearChainRow extends StatelessWidget {
+  const _LinearChainRow({required this.tree, required this.currentSpeciesId});
+
+  final EvolutionTree tree;
+  final int currentSpeciesId;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // 线性链的先序展开即链序：第 i 行的目标卡挂第 i 条边的条件 chips。
+    final rows = flattenEvolutionTree(tree);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (final (index, row) in rows.indexed) ...[
+          if (index > 0)
+            SizedBox(
+              width: _kArrowColumnWidth,
+              child: Center(
+                child: Icon(
+                  Icons.arrow_forward,
+                  size: 24,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          _EvolutionTile(
+            node: row.node,
+            selected: row.node.speciesId == currentSpeciesId,
+            conditionLabels: row.edgeFromParent == null
+                ? const <String>[]
+                : evolutionConditionLabels(row.edgeFromParent!),
+          ),
+        ],
+      ],
     );
   }
 }
 
-/// compact 纵向树：根在上，子节点逐级缩进（├ / └ 导引线 + 条件 chips）。
+/// 纵向树：根在上，子节点逐级缩进（├ / └ 导引线 + 条件 chips）。
+/// [dense] 为 true（分区本地宽 ≥840，[WindowSize.expanded]）时放大
+/// 密度：缩略图 56、卡内 padding m、导引列 32，形态结构不变。
 class _VerticalTree extends StatelessWidget {
-  const _VerticalTree({required this.tree, required this.currentSpeciesId});
+  const _VerticalTree({
+    required this.tree,
+    required this.currentSpeciesId,
+    this.dense = false,
+  });
 
   final EvolutionTree tree;
   final int currentSpeciesId;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -139,17 +233,26 @@ class _VerticalTree extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final row in rows)
-          _VerticalRow(row: row, currentSpeciesId: currentSpeciesId),
+          _VerticalRow(
+            row: row,
+            currentSpeciesId: currentSpeciesId,
+            dense: dense,
+          ),
       ],
     );
   }
 }
 
 class _VerticalRow extends StatelessWidget {
-  const _VerticalRow({required this.row, required this.currentSpeciesId});
+  const _VerticalRow({
+    required this.row,
+    required this.currentSpeciesId,
+    this.dense = false,
+  });
 
   final EvolutionRow row;
   final int currentSpeciesId;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +264,7 @@ class _VerticalRow extends StatelessWidget {
         children: [
           for (var level = 0; level < row.depth; level++)
             _GuideColumn(
+              width: dense ? _kGuideWidthDense : _kGuideWidth,
               isElbow: level == row.depth - 1,
               ancestorIsLast:
                   level < row.depth - 1 && row.guides[level],
@@ -171,6 +275,7 @@ class _VerticalRow extends StatelessWidget {
             child: _EvolutionTile(
               node: row.node,
               selected: row.node.speciesId == currentSpeciesId,
+              dense: dense,
               conditionLabels: row.edgeFromParent == null
                   ? const <String>[]
                   : evolutionConditionLabels(row.edgeFromParent!),
@@ -188,11 +293,14 @@ class _VerticalRow extends StatelessWidget {
 /// LayoutBuilder 不支持内在尺寸计算，不可用）。
 class _GuideColumn extends StatelessWidget {
   const _GuideColumn({
+    required this.width,
     required this.isElbow,
     required this.ancestorIsLast,
     required this.isLastChild,
     required this.lineColor,
   });
+
+  final double width;
 
   final bool isElbow;
   final bool ancestorIsLast;
@@ -201,6 +309,10 @@ class _GuideColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 竖线 / 横线的横向落点：列宽中线左移半线宽，线随列宽居中
+    //（28 → 13，32 → 15）。
+    final lineLeft = width / 2 - 1;
+
     /// 半高竖线（[top] 为 true 取上半，否则取下半）。
     Widget halfVLine({required bool top}) {
       return Positioned.fill(
@@ -209,7 +321,7 @@ class _GuideColumn extends StatelessWidget {
           child: FractionallySizedBox(
             heightFactor: 0.5,
             child: Padding(
-              padding: const EdgeInsets.only(left: 13),
+              padding: EdgeInsets.only(left: lineLeft),
               child: SizedBox(
                 width: 2,
                 child: ColoredBox(color: lineColor),
@@ -225,7 +337,7 @@ class _GuideColumn extends StatelessWidget {
       // 祖先导引：祖先为末位子节点时线到该行即止，不再向下延伸。
       if (!ancestorIsLast) {
         pieces.add(Positioned(
-          left: 13,
+          left: lineLeft,
           top: 0,
           bottom: 0,
           width: 2,
@@ -241,7 +353,7 @@ class _GuideColumn extends StatelessWidget {
           children: [
             Container(
               height: 2,
-              margin: const EdgeInsets.only(left: 13),
+              margin: EdgeInsets.only(left: lineLeft),
               color: lineColor,
             ),
           ],
@@ -251,28 +363,33 @@ class _GuideColumn extends StatelessWidget {
     }
 
     return SizedBox(
-      width: _kGuideWidth,
+      width: width,
       child: Stack(clipBehavior: Clip.none, children: pieces),
     );
   }
 }
 
-/// compact 节点行：横向卡（缩略图 + 名 + 编号）+ 节点下方条件 chips。
+/// 节点行：横向卡（缩略图 + 名 + 编号）+ 节点下方条件 chips，横排 /
+/// 纵向树两形态共用。[dense] 放大密度：缩略图 48→56、卡内 padding
+/// s→m，chips 缩进随之对齐到名称列。
 class _EvolutionTile extends StatelessWidget {
   const _EvolutionTile({
     required this.node,
     required this.selected,
     required this.conditionLabels,
+    this.dense = false,
   });
 
   final EvolutionNode node;
   final bool selected;
   final List<String> conditionLabels;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final thumbSize = dense ? _kThumbSizeDense : _kThumbSize;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Column(
@@ -284,7 +401,7 @@ class _EvolutionTile extends StatelessWidget {
                 ? null
                 : () => context.push('/pokemon/${node.speciesId}'),
             child: Container(
-              padding: const EdgeInsets.all(AppSpacing.s),
+              padding: EdgeInsets.all(dense ? AppSpacing.m : AppSpacing.s),
               decoration: ShapeDecoration(
                 color: selected ? scheme.primaryContainer : scheme.surface,
                 shape: RoundedRectangleBorder(
@@ -299,7 +416,7 @@ class _EvolutionTile extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _NodeThumb(asset: node.thumbAsset),
+                  _NodeThumb(asset: node.thumbAsset, size: thumbSize),
                   const SizedBox(width: AppSpacing.s),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,8 +441,8 @@ class _EvolutionTile extends StatelessWidget {
           ),
           if (conditionLabels.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(
-                left: 56,
+              padding: EdgeInsets.only(
+                left: thumbSize + AppSpacing.s,
                 top: AppSpacing.xs,
               ),
               child: Wrap(
@@ -343,9 +460,11 @@ class _EvolutionTile extends StatelessWidget {
   }
 }
 
-/// 48 圆形缩略图；资产缺失回退占位图标。
+/// 圆形缩略图（[size] 直径，内图四周留 2px 边距）；资产缺失回退占位图标。
 class _NodeThumb extends StatelessWidget {
-  const _NodeThumb({this.asset});
+  const _NodeThumb({required this.size, this.asset});
+
+  final double size;
 
   final String? asset;
 
@@ -358,8 +477,8 @@ class _NodeThumb extends StatelessWidget {
       color: scheme.onSurfaceVariant,
     );
     return Container(
-      width: 48,
-      height: 48,
+      width: size,
+      height: size,
       alignment: Alignment.center,
       decoration: ShapeDecoration(
         color: scheme.surfaceContainerLow,
@@ -370,8 +489,8 @@ class _NodeThumb extends StatelessWidget {
           : ClipOval(
               child: Image.asset(
                 asset!,
-                width: 44,
-                height: 44,
+                width: size - 4,
+                height: size - 4,
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => placeholder,
               ),

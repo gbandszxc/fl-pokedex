@@ -594,7 +594,7 @@ void main() {
   });
 
   group('进化分区 · 伊布', () {
-    testWidgets('宽屏渲染根与 8 个子节点（画布形态已移除，暂走纵向树）', (tester) async {
+    testWidgets('宽屏渲染根与 8 个子节点（分支链走纵向树 dense）', (tester) async {
       await pumpSection(
         tester,
         section: (id) => EvolutionSectionPlaceholder(speciesId: id),
@@ -603,6 +603,8 @@ void main() {
       );
 
       expect(find.byType(InteractiveViewer), findsNothing);
+      // 伊布 1 根 8 分支：分支链不走横排形态，宽屏（本地宽 ≥840）
+      // 走 dense 纵向树，根与 8 个子节点全部渲染。
       expect(find.text('伊布'), findsOneWidget);
       for (final name in [
         '水伊布', '雷伊布', '火伊布', '太阳伊布',
@@ -664,6 +666,35 @@ void main() {
   });
 
   group('进化分区 · 绿毛虫三段链', () {
+    testWidgets('线性链宽屏走横排一行（三卡同排），窄面板回退纵向树', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 10,
+        size: const Size(1000, 900),
+      );
+
+      // 横排形态：三节点卡同排。条件 chips 下挂使带 chips 的卡列更高，
+      // 行内居中后卡中心错位 ±(chip 高 + 间距) / 2 ≈ 12px，仍远小于
+      // 纵向堆叠的整行高（~72）——用错位带断言同排，而非 dy 严格相等。
+      double dyOf(String name) => tester.getCenter(find.text(name)).dy;
+      expect((dyOf('绿毛虫') - dyOf('巴大蝶')).abs(), lessThan(32));
+      expect(find.text('Lv.10'), findsOneWidget);
+      expect(find.text('Lv.16'), findsOneWidget);
+
+      // 窄面板放不下估算行宽：回退纵向树，根在上、后继逐行下移
+      //（行高 ~72，远大于横排的 chips 居中错位）。
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 10,
+        size: const Size(400, 900),
+      );
+      expect(dyOf('铁甲蛹') - dyOf('绿毛虫'), greaterThan(48));
+      expect(dyOf('巴大蝶') - dyOf('铁甲蛹'), greaterThan(48));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('中间节点「铁甲蛹」出现，等级条件 chip 为 Lv.10 / Lv.16', (tester) async {
       await pumpSection(
         tester,
