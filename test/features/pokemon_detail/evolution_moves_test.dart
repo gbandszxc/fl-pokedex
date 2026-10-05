@@ -518,6 +518,18 @@ void main() {
     return decoration.color!;
   }
 
+  /// 节点卡外框 rect（经名字向上找最近一个带 ShapeDecoration 的
+  /// Container；与 [cardColorOf] 同一查找路径）。
+  Rect cardRectOf(WidgetTester tester, String name) {
+    final finder = find.ancestor(
+      of: find.text(name),
+      matching: find.byWidgetPredicate(
+        (w) => w is Container && w.decoration is ShapeDecoration,
+      ),
+    );
+    return tester.getRect(finder.first);
+  }
+
   /// 路由栈顶地址（经 context 反查 pumpSection 内构造的 GoRouter）。
   /// 注意用 [RouteMatch.matchedLocation] 而非 `currentConfiguration.uri`：
   /// 后者不含 `push` 产生的 ImperativeRouteMatch（同 two_pane_test 的做法）。
@@ -633,20 +645,17 @@ void main() {
           [false, false],
         ],
       );
-      // hasDescendantRows：自身子树是否还有后续行（拐角 ├/└ 之辨）。
-      expect(
-        rows.map((r) => r.hasDescendantRows).toList(),
-        [true, true, false],
-      );
+      // guides 同时是拐角 ├/└ 下半竖线的延续判据（UI 不再有独立
+      // hasDescendantRows）：行1 铁甲蛹 [true] → 拐角延续；行2 巴大蝶
+      // [false, false] → └ 端点。
     });
 
     test('flattenEvolutionTree：伊布 8 分支根竖线穿过末分支之前的每一行', () {
       // 伊布树先序行号 0..8：根子树行数 9 → 末行 8；分支全为叶子。
       // 行1..7 分支行：伊布子树末行 8 > 当前行号 → guides=[true]；
-      // 行8（仙子伊布）为末行：8 = 8 → guides=[false]。分支行 depth=1
-      // 无祖先贯穿列，guides 不参与渲染，但语义上仍按公式判定；
-      // 拐角 ├/└ 由 hasDescendantRows 决定：根 true（行0 之后还有
-      // 分支行），叶子全 false（末分支 └ 端点）。
+      // 行8（仙子伊布）为末行：8 = 8 → guides=[false]。分支行 depth=1，
+      // guides[0] 即拐角列（level = depth-1）的竖线延续判据——水伊布
+      // 等叶分支之后还有后续分支行，主干竖线必须继续；行8 为 └ 端点。
       final rows = flattenEvolutionTree(repo.eeveeTree);
       expect(
         rows.map((r) => r.guides).toList(),
@@ -661,10 +670,6 @@ void main() {
           [true],
           [false],
         ],
-      );
-      expect(
-        rows.map((r) => r.hasDescendantRows).toList(),
-        [true, false, false, false, false, false, false, false, false],
       );
     });
   });
@@ -739,6 +744,76 @@ void main() {
       expect(find.text('仙子伊布'), findsOneWidget);
       expect(find.text('使用火之石'), findsOneWidget);
     });
+
+    testWidgets('纵向树导引线锚定卡身中心：水伊布拐角下半线延续，末分支为 └ 端点',
+        (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+        size: const Size(400, 900),
+      );
+
+      // 本行导引列的 Stack 与本行卡同处 _VerticalRow 的外层 Row：
+      // 该 Row 是名字文本的第 2 个 Row 祖先（第 1 个是卡内
+      // 缩略图 + 名称/编号 的 Row）。
+      Finder guideStackOf(String name) {
+        final row = find
+            .ancestor(of: find.text(name), matching: find.byType(Row))
+            .at(1);
+        return find.descendant(of: row, matching: find.byType(Stack)).first;
+      }
+
+      Finder piecesOf(String name) => find.descendant(
+            of: guideStackOf(name),
+            matching: find.byType(ColoredBox),
+          );
+
+      // 水伊布（伊布的第一个分支，本身是叶）：其自身无后代行，但伊布
+      // 子树之后还有 7 个分支行 → guides=[true]，拐角 = 上半竖线 +
+      // 横线 + 下半延续线（修复前误用「本行有无后代」判据，这里被切掉，
+      // 每行主干断开）。
+      final vaporCard = cardRectOf(tester, '水伊布');
+      final vaporStack = guideStackOf('水伊布');
+      expect(piecesOf('水伊布'), findsNWidgets(3));
+      final vaporPieces = [
+        for (var i = 0; i < 3; i++) tester.getRect(piecesOf('水伊布').at(i)),
+      ];
+      // Stack 子级顺序：上半竖线 / 横线 / 下半竖线。
+      final upper = vaporPieces[0];
+      final horizontal = vaporPieces[1];
+      final lower = vaporPieces[2];
+      final stackRect = tester.getRect(vaporStack);
+
+      expect(upper.top, moreOrLessEquals(stackRect.top, epsilon: 0.5));
+      expect(horizontal.height, moreOrLessEquals(2, epsilon: 0.001));
+      // 横线锚定卡身中心的固定偏移（xs 4 + 64/2 = 36），不再按行高 50%
+      //（含 chips 的行必然偏离卡中心）。
+      final cardCenterY = stackRect.top + 36;
+      expect(horizontal.center.dy, moreOrLessEquals(cardCenterY, epsilon: 0.5));
+      // 实测卡身外框中心因 ShapeDecoration 的 1px 描边内衬在 37，与
+      // 锚点偏差 ≤ 1.5px（与横排 _kArrowTopInset 同基准）。
+      expect((vaporCard.center.dy - horizontal.center.dy).abs(),
+          lessThanOrEqualTo(1.5));
+      // 上半竖线到卡中心，下半竖线从卡中心贯穿到行底（与下一行同列的
+      // 上半竖线首尾相接，主干连续）。
+      expect(upper.bottom, moreOrLessEquals(cardCenterY, epsilon: 0.5));
+      expect(lower.top, moreOrLessEquals(cardCenterY, epsilon: 0.5));
+      expect(lower.bottom, moreOrLessEquals(stackRect.bottom, epsilon: 0.5));
+
+      // 仙子伊布（末分支）：guides=[false] → └ 端点，只有上半竖线 +
+      // 横线，没有任何卡中心以下的下半线。
+      final fairyCard = cardRectOf(tester, '仙子伊布');
+      expect(piecesOf('仙子伊布'), findsNWidgets(2));
+      final fairyPieces = [
+        for (var i = 0; i < 2; i++) tester.getRect(piecesOf('仙子伊布').at(i)),
+      ];
+      for (final piece in fairyPieces) {
+        expect(piece.bottom, lessThanOrEqualTo(fairyCard.center.dy + 1.5),
+            reason: '末分支不应有卡中心以下的下半延续线');
+      }
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('进化分区 · 绿毛虫三段链', () {
@@ -779,6 +854,57 @@ void main() {
       expect(find.text('Lv.16'), findsOneWidget);
       expect(find.text('等级提升'), findsNWidgets(2));
       expect(find.byType(ConditionChip), findsNWidgets(4));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('横排卡列定宽 150：三卡等宽、两段箭头间距严格相等、chips 居中不撑宽',
+        (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 10,
+        size: const Size(1000, 900),
+      );
+
+      // 横排三卡实宽均为 150：条件 chips 不再把卡列撑宽（修复前
+      // 「等级提升 Lv.10」宽于卡身，卡列随 chips 变宽）。
+      final cardRects = [
+        for (final name in ['绿毛虫', '铁甲蛹', '巴大蝶'])
+          cardRectOf(tester, name),
+      ];
+      for (final rect in cardRects) {
+        expect(rect.width, 150, reason: '横排卡身应固定 150 宽');
+      }
+
+      // 两段箭头列间距 = 前卡右缘 → 后卡左缘：卡等宽且箭头列定宽
+      // （72，图标 24 居中），两段严格相等，与 chips 无关。
+      final gap1 = cardRects[1].left - cardRects[0].right;
+      final gap2 = cardRects[2].left - cardRects[1].right;
+      expect(gap1, moreOrLessEquals(gap2, epsilon: 0.5),
+          reason: '两段箭头间距应相等（修复前 ~52px vs ~110px）');
+
+      // 铁甲蛹卡列内的条件 chips（等级提升 + Lv.10）：整组居中于
+      // 150 卡宽内，且不越出卡列（修复前按 56px 缩进左对齐、溢出卡宽）。
+      final tieColumn = find
+          .ancestor(of: find.text('铁甲蛹'), matching: find.byType(Column))
+          .at(1); // 0 = 卡内名称/编号列；1 = 卡列（卡身 + 卡下 chips）
+      final tileChips = find.descendant(
+        of: tieColumn,
+        matching: find.byType(ConditionChip),
+      );
+      expect(tileChips, findsNWidgets(2));
+      final chipRects = [
+        for (var i = 0; i < 2; i++) tester.getRect(tileChips.at(i)),
+      ];
+      final chipLeft =
+          chipRects.map((r) => r.left).reduce((a, b) => a < b ? a : b);
+      final chipRight =
+          chipRects.map((r) => r.right).reduce((a, b) => a > b ? a : b);
+      expect(chipLeft, greaterThanOrEqualTo(cardRects[1].left - 0.5));
+      expect(chipRight, lessThanOrEqualTo(cardRects[1].right + 0.5));
+      expect((chipLeft + chipRight) / 2,
+          moreOrLessEquals(cardRects[1].center.dx, epsilon: 0.5),
+          reason: '条件 chips 应居中于卡宽内');
       expect(tester.takeException(), isNull);
     });
 

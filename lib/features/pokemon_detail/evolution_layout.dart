@@ -15,7 +15,6 @@ class EvolutionRow {
     required this.node,
     required this.depth,
     required this.guides,
-    required this.hasDescendantRows,
     this.edgeFromParent,
   });
 
@@ -36,12 +35,13 @@ class EvolutionRow {
   /// 但线性链的中间节点都是父的唯一孩子（按旧语义全是「末位」），
   /// 祖先竖线会在中间行被错误抑制——三阶链的小火龙列在火恐龙行、
   /// 喷火龙行都没线。「子树还有后续行」才决定竖线是否穿过本行。
+  ///
+  /// UI 侧统一用它判定每一列的竖线延续（v3）：祖先贯穿列 level 不变，
+  /// 拐角列（├ / └，level = depth-1）的竖线是否向下延续同样只看
+  /// 「该层祖先子树在本行之后还有行」——与本行自身有无后代无关。
+  /// 反例：伊布的第一个分支水伊布是叶（自身无后代行），但伊布子树
+  /// 在其后还有 7 个分支行，拐角下半竖线必须继续，否则主干断开。
   final List<bool> guides;
-
-  /// 本行自身子树在先序中是否还有后续行。拐角列（├ / └）之辨：
-  /// true 时拐角竖线向下半行延续，与下一行同列的导引线衔接；
-  /// false 时拐角是 └ 端点，不再向下延伸（如伊布最后一个分支）。
-  final bool hasDescendantRows;
 }
 
 /// 该节点的可用出边：目标在注册表内且未访问过（环路数据安全）。
@@ -83,8 +83,8 @@ Map<int, int> _subtreeRowCounts(EvolutionTree tree) {
 ///
 /// 先序展开中子树的行是连续区段，因此每个节点的「子树末行号」可由
 /// 预计算的子树行数推出：末行号 = 自身行号 + 子树行数 − 1。每行的
-/// guides[j] = 第 j 层祖先的子树末行号 > 本行行号（祖先竖线延续穿
-/// 过本行），hasDescendantRows = 自身子树末行号 > 本行行号。
+/// guides[j] = 第 j 层祖先的子树末行号 > 本行行号（该层祖先竖线
+/// 延续穿过本行；祖先贯穿列与拐角 ├/└ 的下半竖线共用此判定）。
 List<EvolutionRow> flattenEvolutionTree(EvolutionTree tree) {
   final subtreeRows = _subtreeRowCounts(tree);
   final rows = <EvolutionRow>[];
@@ -105,7 +105,6 @@ List<EvolutionRow> flattenEvolutionTree(EvolutionTree tree) {
       depth: depth,
       edgeFromParent: edge,
       guides: [for (final end in ancestorEnds) end > selfIndex],
-      hasDescendantRows: subtreeEnd > selfIndex,
     ));
     final childEdges = _childEdges(tree, node, visited);
     for (var i = 0; i < childEdges.length; i++) {

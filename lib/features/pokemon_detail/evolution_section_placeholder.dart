@@ -28,17 +28,32 @@ const double _kGuideWidthDense = 32;
 const double _kThumbSize = 48;
 const double _kThumbSizeDense = 56;
 
+/// 纵向树卡身中心相对行顶的偏移（导引横线 / 拐角下半线的锚点）：
+/// [_EvolutionTile] 外层 vertical xs(4) + 卡身中心。卡身由缩略图定高
+///（compact s×2 + 48 = 64；dense m×2 + 56 = 80），故卡中心为
+/// 4 + 32 = 36 / 4 + 40 = 44。行高含条件 chips 时会变化，导引线不能再
+/// 按行高的 50% 取半高（那会偏离卡中心），必须用固定值。
+///
+/// 注：ShapeDecoration 的 RoundedRectangleBorder side 会经
+/// [ShapeDecoration.padding] 在卡身外框再加 1px 内衬（实测外框高
+/// 66 / 82），锚点与实测外框中心相差 1px——与横排箭头
+/// [_kArrowTopInset] 同基准（同为「xs + 64/2」），三形态一致。
+const double _kCardCenterY = AppSpacing.xs + (_kThumbSize + AppSpacing.s * 2) / 2;
+const double _kCardCenterYDense =
+    AppSpacing.xs + (_kThumbSizeDense + AppSpacing.m * 2) / 2;
+
 /// 横排箭头列宽：与 [linearChainRowWidth] 的估算常数（72）逐字对齐——
 /// 「放得下」判定基于同一估算，列宽偏离即判定失真。该常数在
 /// evolution_layout.dart 内私有且约定不改彼文件，故此处落对齐副本。
 const double _kArrowColumnWidth = 72;
 
-/// 横排节点卡的宽预算（作为 nodeMinWidth 喂给 [linearChainRowWidth]）：
-/// 卡身固定部分（padding s×2 + 缩略图 48 + 间距 s）= 72，加名称列
-/// 上限 6 字 × labelLarge 13 = 78。彼文件默认常数 120 只够 3 字名，
-/// 4 字名实际卡宽已到 124——继续用默认值会出现「判定放得下、实际
-/// 行溢出」（如飞天螳螂→劈斧螳螂落在窗口 376–383 区间）。150 覆盖
-/// 至 6 字名，判定只会偏保守（多回退纵向树），不会漏判溢出。
+/// 横排节点卡的固定宽（作为 nodeMinWidth 喂给 [linearChainRowWidth]，
+/// 同时是 [_EvolutionTile.cardWidth] 的实宽）：卡身固定部分
+///（padding s×2 + 缩略图 48 + 间距 s）= 72，加名称列上限 6 字 ×
+/// labelLarge 13 = 78。彼文件默认常数 120 只够 3 字名，4 字名实际
+/// 卡宽已到 124——继续用默认值会出现「判定放得下、实际行溢出」
+/// （如飞天螳螂→劈斧螳螂落在窗口 376–383 区间）。150 覆盖至 6 字名，
+/// 预算即实宽（卡身与卡列均 150），判定与实际闭环、无保守偏差。
 const double _kLinearNodeCardWidth = 150;
 
 /// 横排卡身高度（尺寸推算值，非 token 管辖的几何常数，风格同
@@ -178,7 +193,9 @@ class _EvolutionBody extends ConsumerWidget {
             );
           }
           // 横排拦截：行内不做 Wrap / FittedBox / 横向滚动。节点卡宽
-          // 预算用校准过的 [_kLinearNodeCardWidth]（理由见其注释）。
+          // 预算用校准过的 [_kLinearNodeCardWidth]（理由见其注释），
+          // 且即为卡列实宽（[_EvolutionTile.cardWidth] 同值）——门槛
+          // 估算与真实行宽闭环，不再有「预算 150、实际更窄」的保守偏差。
           final fitsLinearRow = maxWidth >=
               linearChainRowWidth(
                 rows.length,
@@ -236,6 +253,12 @@ class _LinearChainRow extends StatelessWidget {
           _EvolutionTile(
             node: row.node,
             selected: row.node.speciesId == currentSpeciesId,
+            // 卡列固定 150（与门槛预算 [_kLinearNodeCardWidth] 同值）：
+            // 各卡等宽 → 卡右缘到箭头列的水平间距恒为
+            // (72 − 24) / 2 = 24；条件 chips 挂卡下、在 150 内居中换行，
+            // 不再把卡列撑宽。
+            cardWidth: _kLinearNodeCardWidth,
+            centerConditions: true,
             conditionLabels: row.edgeFromParent == null
                 ? const <String>[]
                 : evolutionConditionLabels(row.edgeFromParent!),
@@ -406,13 +429,12 @@ class _VerticalRow extends StatelessWidget {
             _GuideColumn(
               width: dense ? _kGuideWidthDense : _kGuideWidth,
               isElbow: level == row.depth - 1,
-              // 祖先贯穿列（非拐角）：该层祖先竖线是否延续穿过本行。
-              // 线性链中间行此处为 true（祖先子树还有后续行），竖线
-              // 不再断连。
-              showVLine: level < row.depth - 1 && row.guides[level],
-              // 拐角列（本节点的 ├/└）：自身子树还有后续行时拐角竖线
-              // 向下半行延续，衔接下一行同列导引；否则是 └ 端点。
-              showDropLine: row.hasDescendantRows,
+              // 单一判定（贯穿列与拐角列统一）：该层祖先子树在本行之后
+              // 还有行 → 本列竖线向下延续穿过本行。拐角列 level =
+              // depth-1，延续与否与「本行自身有无后代」无关：水伊布是叶，
+              // 但伊布后续还有分支，主干必须继续（修复主干每行断开）。
+              continuity: row.guides[level],
+              cardCenterY: dense ? _kCardCenterYDense : _kCardCenterY,
               lineColor: scheme.outlineVariant,
             ),
           Expanded(
@@ -433,27 +455,39 @@ class _VerticalRow extends StatelessWidget {
 
 /// 缩进导引列：竖线 + 横线（├ / └ 视觉），2px outlineVariant。
 ///
-/// - 非拐角列（祖先列）：[showVLine] 为 true 画贯穿整行的竖线（该层
-///   祖先的子树在本行之后还有行），为 false 留空（└ 端点之下）。
-/// - 拐角列（├ / └）：上半竖线 + 横线常画；[showDropLine] 为 true 时
-///   加下半竖线（├ 形，衔接下一行同列导引），为 false 是 └ 端点。
+/// - 非拐角列（祖先贯穿列）：[continuity] 为 true 画贯穿整行的竖线
+///   （该层祖先子树在本行之后还有行），为 false 留空（└ 端点之下）。
+/// - 拐角列（├ / └）：上半竖线（行顶 → 卡身中心）+ 横线（卡身中心 →
+///   卡左缘）常画；[continuity] 为 true 时补下半竖线（卡身中心 → 行
+///   底，├ 形，衔接下一行同列的上半竖线），为 false 是 └ 端点。
 ///
-/// 用 Align + FractionallySizedBox 取半高（IntrinsicHeight 场景下
-/// LayoutBuilder 不支持内在尺寸计算，不可用）。
+/// [continuity] 两列统一取 `EvolutionRow.guides[level]`（拐角列
+/// level = depth-1）：竖线是否向下延续只看该层祖先子树在本行之后
+/// 是否还有行，与本行自身有无后代无关。
+///
+/// 线的纵向落点锚定卡身中心的固定偏移 [cardCenterY]（[_kCardCenterY]
+/// / [_kCardCenterYDense]）：行高含条件 chips 时会变化，旧的「行高
+/// 50%」比例中点不再等于卡中心，横线会偏离卡身中线。
 class _GuideColumn extends StatelessWidget {
   const _GuideColumn({
     required this.width,
     required this.isElbow,
-    required this.showVLine,
-    required this.showDropLine,
+    required this.continuity,
+    required this.cardCenterY,
     required this.lineColor,
   });
 
   final double width;
 
   final bool isElbow;
-  final bool showVLine;
-  final bool showDropLine;
+
+  /// 该层祖先子树在本行之后还有行：本列竖线延续穿过本行，衔接下一行
+  /// 同列导引；false 时本列竖线到本行即止（└ 端点）。
+  final bool continuity;
+
+  /// 本行卡身中心相对行顶的偏移（导引横线与下半竖线的起点）。
+  final double cardCenterY;
+
   final Color lineColor;
 
   @override
@@ -462,53 +496,37 @@ class _GuideColumn extends StatelessWidget {
     //（28 → 13，32 → 15）。
     final lineLeft = width / 2 - 1;
 
-    /// 半高竖线（[top] 为 true 取上半，否则取下半）。
-    Widget halfVLine({required bool top}) {
-      return Positioned.fill(
-        child: Align(
-          alignment: top ? Alignment.topLeft : Alignment.bottomLeft,
-          child: FractionallySizedBox(
-            heightFactor: 0.5,
-            child: Padding(
-              padding: EdgeInsets.only(left: lineLeft),
-              child: SizedBox(
-                width: 2,
-                child: ColoredBox(color: lineColor),
-              ),
-            ),
-          ),
-        ),
+    /// 全高 / 半高竖线段（[top] / [bottom] / [height] 由调用点给定）。
+    Widget vLine({double? top, double? bottom, double? height}) {
+      return Positioned(
+        left: lineLeft,
+        top: top,
+        bottom: bottom,
+        height: height,
+        width: 2,
+        child: ColoredBox(color: lineColor),
       );
     }
 
     final pieces = <Widget>[];
-    if (!isElbow) {
-      // 祖先导引：祖先子树在本行之后没有行时（└ 端点之下）不再画线。
-      if (showVLine) {
-        pieces.add(Positioned(
-          left: lineLeft,
-          top: 0,
-          bottom: 0,
-          width: 2,
-          child: ColoredBox(color: lineColor),
-        ));
-      }
-    } else {
-      pieces.add(halfVLine(top: true));
-      pieces.add(Positioned.fill(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              height: 2,
-              margin: EdgeInsets.only(left: lineLeft),
-              color: lineColor,
-            ),
-          ],
-        ),
+    if (isElbow) {
+      // 拐角列：上半竖线（行顶 → 卡身中心）+ 横线（卡身中心 → 卡左缘）；
+      // 延续时补下半竖线（卡身中心 → 行底）。
+      pieces.add(vLine(top: 0, height: cardCenterY));
+      pieces.add(Positioned(
+        top: cardCenterY - 1,
+        left: lineLeft,
+        right: 0,
+        height: 2,
+        child: ColoredBox(color: lineColor),
       ));
-      if (showDropLine) pieces.add(halfVLine(top: false));
+      if (continuity) {
+        pieces.add(vLine(top: cardCenterY, bottom: 0));
+      }
+    } else if (continuity) {
+      // 祖先贯穿列：竖线贯穿整行（该层祖先子树在本行之后还有行），
+      // 与上下行同列竖线连续；false 时该祖先线已到端点，留空。
+      pieces.add(vLine(top: 0, bottom: 0));
     }
 
     return SizedBox(
@@ -519,14 +537,16 @@ class _GuideColumn extends StatelessWidget {
 }
 
 /// 节点行：横向卡（缩略图 + 名 + 编号）+ 节点下方条件 chips，横排 /
-/// 纵向树两形态共用。[dense] 放大密度：缩略图 48→56、卡内 padding
-/// s→m，chips 缩进随之对齐到名称列。
+/// 纵向树 / 时间线三形态共用。[dense] 放大密度：缩略图 48→56、卡内
+/// padding s→m，chips 缩进随之对齐到名称列。
 class _EvolutionTile extends StatelessWidget {
   const _EvolutionTile({
     required this.node,
     required this.selected,
     required this.conditionLabels,
     this.dense = false,
+    this.cardWidth,
+    this.centerConditions = false,
   });
 
   final EvolutionNode node;
@@ -534,77 +554,104 @@ class _EvolutionTile extends StatelessWidget {
   final List<String> conditionLabels;
   final bool dense;
 
+  /// 卡列固定宽：横排形态传 [_kLinearNodeCardWidth]（卡身与卡下 chips
+  /// 同宽，各卡等宽 → 箭头间距恒定）；纵向树 / 时间线不传（null），
+  /// 卡身按缩略图 + 名称 intrinsic。
+  final double? cardWidth;
+
+  /// 条件 chips 是否居中于卡列宽内（横排传 true：chips 挂卡下、在
+  /// 150 卡宽内居中换行）；纵向树保持缩进对齐名称列（false）。
+  final bool centerConditions;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final thumbSize = dense ? _kThumbSizeDense : _kThumbSize;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.input),
-            onTap: selected
-                ? null
-                : () => context.push('/pokemon/${node.speciesId}'),
-            child: Container(
-              padding: EdgeInsets.all(dense ? AppSpacing.m : AppSpacing.s),
-              decoration: ShapeDecoration(
-                color: selected ? scheme.primaryContainer : scheme.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.input),
-                  side: BorderSide(
-                    color:
-                        selected ? scheme.primary : scheme.outlineVariant,
-                    width: selected ? 2 : 1,
-                  ),
+
+    final chips = Wrap(
+      alignment:
+          centerConditions ? WrapAlignment.center : WrapAlignment.start,
+      spacing: AppSpacing.s,
+      runSpacing: AppSpacing.xs,
+      children: [
+        for (final label in conditionLabels) ConditionChip(label: label),
+      ],
+    );
+
+    final tileColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.input),
+          onTap: selected
+              ? null
+              : () => context.push('/pokemon/${node.speciesId}'),
+          child: Container(
+            width: cardWidth,
+            padding: EdgeInsets.all(dense ? AppSpacing.m : AppSpacing.s),
+            decoration: ShapeDecoration(
+              color: selected ? scheme.primaryContainer : scheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.input),
+                side: BorderSide(
+                  color: selected ? scheme.primary : scheme.outlineVariant,
+                  width: selected ? 2 : 1,
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _NodeThumb(asset: node.thumbAsset, size: thumbSize),
-                  const SizedBox(width: AppSpacing.s),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        node.nameZh,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.labelLarge,
-                      ),
-                      Text(
-                        formatDexNumber(node.nationalDex),
-                        style: AppTypography.tabularFigures(
-                          textTheme.bodySmall ?? const TextStyle(),
-                        ).copyWith(color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _NodeThumb(asset: node.thumbAsset, size: thumbSize),
+                const SizedBox(width: AppSpacing.s),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      node.nameZh,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelLarge,
+                    ),
+                    Text(
+                      formatDexNumber(node.nationalDex),
+                      style: AppTypography.tabularFigures(
+                        textTheme.bodySmall ?? const TextStyle(),
+                      ).copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          if (conditionLabels.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.only(
-                left: thumbSize + AppSpacing.s,
-                top: AppSpacing.xs,
-              ),
-              child: Wrap(
-                spacing: AppSpacing.s,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  for (final label in conditionLabels)
-                    ConditionChip(label: label),
-                ],
-              ),
-            ),
-        ],
-      ),
+        ),
+        if (conditionLabels.isNotEmpty)
+          Padding(
+            // 横排：去掉名称列缩进，chips 挂卡下、居中于卡宽；纵向树：
+            // 保持 thumbSize + s 缩进（对齐卡内名称列）。
+            padding: centerConditions
+                ? const EdgeInsets.only(top: AppSpacing.xs)
+                : EdgeInsets.only(
+                    left: thumbSize + AppSpacing.s,
+                    top: AppSpacing.xs,
+                  ),
+            child: centerConditions
+                // Wrap 需铺满卡宽：Column 子级默认收缩到内容宽，
+                // 不定宽则 WrapAlignment.center 没有可居中的余量。
+                ? SizedBox(width: cardWidth, child: chips)
+                : chips,
+          ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      // 卡列（卡身 + chips）定宽：横排所有节点列等宽 150，卡间箭头
+      // 间距严格相等；纵向树 / 时间线保持 intrinsic。
+      child: cardWidth == null
+          ? tileColumn
+          : SizedBox(width: cardWidth, child: tileColumn),
     );
   }
 }
