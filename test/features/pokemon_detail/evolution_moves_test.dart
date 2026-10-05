@@ -615,6 +615,58 @@ void main() {
         270.0,
       );
     });
+
+    test('flattenEvolutionTree：线性链 guides 按「祖先子树是否延续」判定', () {
+      // 绿毛虫链 10→11→12，先序行号 0/1/2；子树行数 3/2/1 → 各节点
+      // 子树末行号均为 2。新语义 guides[j] = 第 j 层祖先子树末行 >
+      // 本行行号：
+      // - 行1 铁甲蛹：绿毛虫子树末行 2 > 1 → [true]（竖线穿过中间行，
+      //   修复旧「唯一孩子 = 末位」语义导致的断线）；
+      // - 行2 巴大蝶：各祖先子树末行 2 = 2 → [false, false]（└ 端点，
+      //   竖线不再向下悬空延伸）。
+      final rows = flattenEvolutionTree(repo.caterpieTree);
+      expect(
+        rows.map((r) => r.guides).toList(),
+        [
+          <bool>[],
+          [true],
+          [false, false],
+        ],
+      );
+      // hasDescendantRows：自身子树是否还有后续行（拐角 ├/└ 之辨）。
+      expect(
+        rows.map((r) => r.hasDescendantRows).toList(),
+        [true, true, false],
+      );
+    });
+
+    test('flattenEvolutionTree：伊布 8 分支根竖线穿过末分支之前的每一行', () {
+      // 伊布树先序行号 0..8：根子树行数 9 → 末行 8；分支全为叶子。
+      // 行1..7 分支行：伊布子树末行 8 > 当前行号 → guides=[true]；
+      // 行8（仙子伊布）为末行：8 = 8 → guides=[false]。分支行 depth=1
+      // 无祖先贯穿列，guides 不参与渲染，但语义上仍按公式判定；
+      // 拐角 ├/└ 由 hasDescendantRows 决定：根 true（行0 之后还有
+      // 分支行），叶子全 false（末分支 └ 端点）。
+      final rows = flattenEvolutionTree(repo.eeveeTree);
+      expect(
+        rows.map((r) => r.guides).toList(),
+        [
+          <bool>[],
+          [true],
+          [true],
+          [true],
+          [true],
+          [true],
+          [true],
+          [true],
+          [false],
+        ],
+      );
+      expect(
+        rows.map((r) => r.hasDescendantRows).toList(),
+        [true, false, false, false, false, false, false, false, false],
+      );
+    });
   });
 
   group('进化分区 · 伊布', () {

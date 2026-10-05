@@ -41,6 +41,22 @@ const double _kArrowColumnWidth = 72;
 /// 至 6 字名，判定只会偏保守（多回退纵向树），不会漏判溢出。
 const double _kLinearNodeCardWidth = 150;
 
+/// 横排卡身高度（尺寸推算值，非 token 管辖的几何常数，风格同
+/// evolution_layout.dart 的布局常数）：卡内上下 padding 各
+/// AppSpacing.s(8) + 缩略图 48（横排卡不走 dense，固定 [_kThumbSize]）。
+/// 名称 + 编号两行文字（labelLarge / bodySmall）合计约 34，textScale
+/// 放大后仍小于 48，卡身由缩略图定高。
+const double _kLinearCardHeight = AppSpacing.s * 2 + _kThumbSize;
+
+/// 横排箭头图标尺寸。
+const double _kArrowIconSize = 24;
+
+/// 箭头顶部内边距：横排行改顶对齐后，箭头列顶部留出与 [_EvolutionTile]
+/// 相同的外层 vertical xs（4），再下移半个「卡身高 − 图标高」，使
+/// 图标垂直中心精确落在卡身中心：4 + (64 − 24) / 2 = 24。
+const double _kArrowTopInset =
+    AppSpacing.xs + (_kLinearCardHeight - _kArrowIconSize) / 2;
+
 /// 进化分区（design-ui.md §5）：数据定形态的双形态渲染——
 /// - 纯线性链且分区本地宽 ≥ 估算行宽 → 横排一行（节点卡列 +
 ///   条件 chips 与箭头列交替）；
@@ -185,17 +201,27 @@ class _LinearChainRow extends StatelessWidget {
     final rows = flattenEvolutionTree(tree);
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
+      // 顶对齐：三张卡身结构相同（等高 [_kLinearCardHeight]），顶对齐
+      // 即卡身水平对齐，条件 chips 只向卡下方延伸、不参与对齐。此前
+      // 行内居中会让带 chips 的列整体下移，卡身中心错开约 12px
+      // （实机缺陷：横排行文字没对齐）。
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final (index, row) in rows.indexed) ...[
           if (index > 0)
             SizedBox(
               width: _kArrowColumnWidth,
-              child: Center(
-                child: Icon(
-                  Icons.arrow_forward,
-                  size: 24,
-                  color: scheme.onSurfaceVariant,
+              // 箭头对齐卡身垂直中心：顶部先补齐 [_EvolutionTile] 的
+              // 外层 vertical xs，再下移 [_kArrowTopInset]；Center 在
+              // 剩余空间内水平居中（列无固定高，收缩到图标尺寸）。
+              child: Padding(
+                padding: const EdgeInsets.only(top: _kArrowTopInset),
+                child: Center(
+                  child: Icon(
+                    Icons.arrow_forward,
+                    size: _kArrowIconSize,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),
@@ -266,9 +292,13 @@ class _VerticalRow extends StatelessWidget {
             _GuideColumn(
               width: dense ? _kGuideWidthDense : _kGuideWidth,
               isElbow: level == row.depth - 1,
-              ancestorIsLast:
-                  level < row.depth - 1 && row.guides[level],
-              isLastChild: row.isLastChild,
+              // 祖先贯穿列（非拐角）：该层祖先竖线是否延续穿过本行。
+              // 线性链中间行此处为 true（祖先子树还有后续行），竖线
+              // 不再断连。
+              showVLine: level < row.depth - 1 && row.guides[level],
+              // 拐角列（本节点的 ├/└）：自身子树还有后续行时拐角竖线
+              // 向下半行延续，衔接下一行同列导引；否则是 └ 端点。
+              showDropLine: row.hasDescendantRows,
               lineColor: scheme.outlineVariant,
             ),
           Expanded(
@@ -289,22 +319,27 @@ class _VerticalRow extends StatelessWidget {
 
 /// 缩进导引列：竖线 + 横线（├ / └ 视觉），2px outlineVariant。
 ///
+/// - 非拐角列（祖先列）：[showVLine] 为 true 画贯穿整行的竖线（该层
+///   祖先的子树在本行之后还有行），为 false 留空（└ 端点之下）。
+/// - 拐角列（├ / └）：上半竖线 + 横线常画；[showDropLine] 为 true 时
+///   加下半竖线（├ 形，衔接下一行同列导引），为 false 是 └ 端点。
+///
 /// 用 Align + FractionallySizedBox 取半高（IntrinsicHeight 场景下
 /// LayoutBuilder 不支持内在尺寸计算，不可用）。
 class _GuideColumn extends StatelessWidget {
   const _GuideColumn({
     required this.width,
     required this.isElbow,
-    required this.ancestorIsLast,
-    required this.isLastChild,
+    required this.showVLine,
+    required this.showDropLine,
     required this.lineColor,
   });
 
   final double width;
 
   final bool isElbow;
-  final bool ancestorIsLast;
-  final bool isLastChild;
+  final bool showVLine;
+  final bool showDropLine;
   final Color lineColor;
 
   @override
@@ -334,8 +369,8 @@ class _GuideColumn extends StatelessWidget {
 
     final pieces = <Widget>[];
     if (!isElbow) {
-      // 祖先导引：祖先为末位子节点时线到该行即止，不再向下延伸。
-      if (!ancestorIsLast) {
+      // 祖先导引：祖先子树在本行之后没有行时（└ 端点之下）不再画线。
+      if (showVLine) {
         pieces.add(Positioned(
           left: lineLeft,
           top: 0,
@@ -359,7 +394,7 @@ class _GuideColumn extends StatelessWidget {
           ],
         ),
       ));
-      if (!isLastChild) pieces.add(halfVLine(top: false));
+      if (showDropLine) pieces.add(halfVLine(top: false));
     }
 
     return SizedBox(

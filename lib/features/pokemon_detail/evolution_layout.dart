@@ -15,7 +15,7 @@ class EvolutionRow {
     required this.node,
     required this.depth,
     required this.guides,
-    required this.isLastChild,
+    required this.hasDescendantRows,
     this.edgeFromParent,
   });
 
@@ -27,12 +27,21 @@ class EvolutionRow {
   /// 到父节点的边（根为 null）。
   final EvolutionEdge? edgeFromParent;
 
-  /// 各祖先层级（0..depth-2）的「是否末位子节点」标记；
-  /// 末位子节点之下的竖线不再向下延伸（└ 语义）。
+  /// 各层祖先（j = 0..depth-1，第 0 层为根、第 depth-1 层为父）的
+  /// 导引竖线是否需要**延续穿过本行**：第 j 层祖先的子树在先序中
+  /// 于本行之后还有未渲染节点。false 时该祖先的竖线到上一行即止
+  /// （└ 端点语义，与 `tree` 命令的字符画一致）。
+  ///
+  /// 语义说明（v2，修复导引线断连）：旧语义是「祖先是否末位子节点」，
+  /// 但线性链的中间节点都是父的唯一孩子（按旧语义全是「末位」），
+  /// 祖先竖线会在中间行被错误抑制——三阶链的小火龙列在火恐龙行、
+  /// 喷火龙行都没线。「子树还有后续行」才决定竖线是否穿过本行。
   final List<bool> guides;
 
-  /// 本节点是否为其父节点的最后一个子节点（├ vs └）。
-  final bool isLastChild;
+  /// 本行自身子树在先序中是否还有后续行。拐角列（├ / └）之辨：
+  /// true 时拐角竖线向下半行延续，与下一行同列的导引线衔接；
+  /// false 时拐角是 └ 端点，不再向下延伸（如伊布最后一个分支）。
+  final bool hasDescendantRows;
 }
 
 /// 该节点的可用出边：目标在注册表内且未访问过（环路数据安全）。
@@ -47,8 +56,37 @@ List<EvolutionEdge> _childEdges(
           if (tree.nodesBySpeciesId[edge.toSpeciesId] != null) edge,
     ];
 
+/// 预计算：先序展开中各 speciesId 的子树占用的行数（含自身行）。
+///
+/// 访问顺序与 [flattenEvolutionTree] 的 visit 完全一致（同先序、同
+/// [_childEdges] 防环过滤、visited 同步演化），行数与实际展开精确
+/// 一致——环 / 菱形重复边数据下两者的过滤行为也一致。
+Map<int, int> _subtreeRowCounts(EvolutionTree tree) {
+  final visited = <int>{};
+  final counts = <int, int>{};
+
+  int count(EvolutionNode node) {
+    visited.add(node.speciesId);
+    var total = 1;
+    for (final edge in _childEdges(tree, node, visited)) {
+      total += count(tree.nodesBySpeciesId[edge.toSpeciesId]!);
+    }
+    counts[node.speciesId] = total;
+    return total;
+  }
+
+  count(tree.root);
+  return counts;
+}
+
 /// 先序展开整棵树，供 compact 纵向树逐行渲染。
+///
+/// 先序展开中子树的行是连续区段，因此每个节点的「子树末行号」可由
+/// 预计算的子树行数推出：末行号 = 自身行号 + 子树行数 − 1。每行的
+/// guides[j] = 第 j 层祖先的子树末行号 > 本行行号（祖先竖线延续穿
+/// 过本行），hasDescendantRows = 自身子树末行号 > 本行行号。
 List<EvolutionRow> flattenEvolutionTree(EvolutionTree tree) {
+  final subtreeRows = _subtreeRowCounts(tree);
   final rows = <EvolutionRow>[];
   final visited = <int>{};
 
@@ -56,16 +94,18 @@ List<EvolutionRow> flattenEvolutionTree(EvolutionTree tree) {
     EvolutionNode node,
     int depth,
     EvolutionEdge? edge,
-    List<bool> guides,
-    bool isLast,
+    List<int> ancestorEnds,
   ) {
     if (!visited.add(node.speciesId)) return;
+    final selfIndex = rows.length;
+    // 本子树在先序中的最后一行号。
+    final subtreeEnd = selfIndex + (subtreeRows[node.speciesId] ?? 1) - 1;
     rows.add(EvolutionRow(
       node: node,
       depth: depth,
       edgeFromParent: edge,
-      guides: List.unmodifiable(guides),
-      isLastChild: isLast,
+      guides: [for (final end in ancestorEnds) end > selfIndex],
+      hasDescendantRows: subtreeEnd > selfIndex,
     ));
     final childEdges = _childEdges(tree, node, visited);
     for (var i = 0; i < childEdges.length; i++) {
@@ -74,13 +114,12 @@ List<EvolutionRow> flattenEvolutionTree(EvolutionTree tree) {
         child,
         depth + 1,
         childEdges[i],
-        [...guides, i == childEdges.length - 1],
-        i == childEdges.length - 1,
+        [...ancestorEnds, subtreeEnd],
       );
     }
   }
 
-  visit(tree.root, 0, null, const <bool>[], true);
+  visit(tree.root, 0, null, const <int>[]);
   return rows;
 }
 
