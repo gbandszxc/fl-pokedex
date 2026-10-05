@@ -136,8 +136,16 @@ class FakeEvolutionMovesRepository implements PokedexRepository {
     },
   );
 
+  /// 无进化链（root 无孩子）：拉普拉斯真实无进化关系，覆盖空态的
+  /// `tree.root.children.isEmpty` 分支；`getEvolutionTree` 返回 null
+  /// 的分支由未收录 speciesId 天然覆盖，无需 fixture。
+  late final EvolutionTree laprasTree = _chain(
+    const {131: '拉普拉斯'},
+    const {},
+  );
+
   EvolutionTree? _treeFor(int speciesId) {
-    for (final tree in [eeveeTree, caterpieTree, slowpokeTree]) {
+    for (final tree in [eeveeTree, caterpieTree, slowpokeTree, laprasTree]) {
       if (tree.nodesBySpeciesId.containsKey(speciesId)) return tree;
     }
     return null;
@@ -510,6 +518,22 @@ void main() {
     return decoration.color!;
   }
 
+  /// 路由栈顶地址（经 context 反查 pumpSection 内构造的 GoRouter）。
+  /// 注意用 [RouteMatch.matchedLocation] 而非 `currentConfiguration.uri`：
+  /// 后者不含 `push` 产生的 ImperativeRouteMatch（同 two_pane_test 的做法）。
+  String currentLocation(WidgetTester tester) {
+    // push 后树上会有新旧两个分区实例，.first 恒为旧页面（必然存在）；
+    // InheritedGoRouter 由 MaterialApp.router 共享，任一 context 均可达。
+    final element = tester.element(
+      find.byType(EvolutionSectionPlaceholder).first,
+    );
+    return GoRouter.of(element)
+        .routerDelegate
+        .currentConfiguration
+        .last
+        .matchedLocation;
+  }
+
   group('进化布局纯逻辑', () {
     test('isLinearEvolutionChain：纯线性三阶链为 true', () {
       expect(isLinearEvolutionChain(repo.caterpieTree), isTrue);
@@ -724,6 +748,87 @@ void main() {
       expect(find.text('Lv.37'), findsOneWidget);
       expect(find.text('通信交换'), findsOneWidget);
       expect(find.text('携带王者之证交换'), findsOneWidget);
+    });
+  });
+
+  group('进化分区 · 空态', () {
+    testWidgets('root 无孩子（拉普拉斯）显示「该宝可梦没有进化关系」', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 131,
+      );
+
+      expect(find.text('该宝可梦没有进化关系'), findsOneWidget);
+      // 空态不渲染任何节点卡：分区内无可点击的节点。
+      expect(find.byType(InkWell), findsNothing);
+    });
+
+    testWidgets('getEvolutionTree 返回 null（fixture 未收录的 species）同样显示空态',
+        (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 25,
+      );
+
+      expect(find.text('该宝可梦没有进化关系'), findsOneWidget);
+    });
+  });
+
+  group('进化分区 · 节点点击导航', () {
+    testWidgets('线性链横排形态：点「巴大蝶」push 到 /pokemon/12', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 10,
+        size: const Size(1000, 900),
+      );
+      expect(currentLocation(tester), '/pokemon/10');
+
+      await tester.tap(find.text('巴大蝶'));
+      await tester.pump(const Duration(milliseconds: 300));
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+
+      expect(currentLocation(tester), '/pokemon/12');
+    });
+
+    testWidgets('分支链纵向树形态：点「水伊布」push 到 /pokemon/134', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 133,
+        size: const Size(1000, 900),
+      );
+
+      await tester.tap(find.text('水伊布'));
+      await tester.pump(const Duration(milliseconds: 300));
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+
+      expect(currentLocation(tester), '/pokemon/134');
+    });
+
+    testWidgets('点击当前 species 自身不导航', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 10,
+        size: const Size(1000, 900),
+      );
+
+      await tester.tap(find.text('绿毛虫'));
+      await tester.pump(const Duration(milliseconds: 300));
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+
+      expect(currentLocation(tester), '/pokemon/10');
+      // 当前节点 onTap 为 null，不 push 新页面：分区实例仍只有一个。
+      expect(find.byType(EvolutionSectionPlaceholder), findsOneWidget);
     });
   });
 
