@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/theme.dart';
 import '../../core/di.dart';
 import '../../domain/models/evolution.dart';
-import '../../shared/responsive/breakpoints.dart';
 import '../../shared/widgets/widgets.dart';
 import 'evolution_layout.dart';
 
@@ -18,20 +17,13 @@ final evolutionTreeProvider =
   return ref.watch(pokedexRepositoryProvider).getEvolutionTree(speciesId);
 });
 
-/// expanded 横向树布局常量（design-ui.md §5：节点宽 120、列距 80，
-/// 容器高按叶数 320~420）。
-const double _kNodeWidth = 120;
-const double _kColumnGap = 80;
-const double _kRowHeight = 136;
-
-/// 节点卡高：缩略图 48 + 间距 4 + 名 18 + 编号 16 + 上下边距 16。
-const double _kCardHeight = 102;
-
 /// compact 缩进导引列宽。
 const double _kGuideWidth = 28;
 
-/// 进化分区（design-ui.md §5）：compact(<840) 纵向树 / expanded(≥840)
-/// InteractiveViewer 横向树；无进化链显示空态；点击节点跳转对应详情。
+/// 进化分区（design-ui.md §5）：纵向树渲染全部分支（├ / └ 导引线 +
+/// 条件 chips）；原 expanded 横向画布已移除，「线性链横排 / 分支链
+/// 纵向树」双形态 UI 由后续单元接入；无进化链显示空态；点击节点
+/// 跳转对应详情。
 class EvolutionSectionPlaceholder extends ConsumerWidget {
   const EvolutionSectionPlaceholder({
     super.key,
@@ -125,12 +117,9 @@ class _EvolutionBody extends ConsumerWidget {
         if (tree == null || tree.root.children.isEmpty) {
           return const _NoEvolutionHint();
         }
-        final isExpanded =
-            windowSizeFor(MediaQuery.sizeOf(context).width) ==
-                WindowSize.expanded;
-        return isExpanded
-            ? _HorizontalTree(tree: tree, currentSpeciesId: speciesId)
-            : _VerticalTree(tree: tree, currentSpeciesId: speciesId);
+        // 画布形态已移除：各断点暂统一走纵向树，「线性链横排 /
+        // 分支链纵向树」双形态由后续单元接入。
+        return _VerticalTree(tree: tree, currentSpeciesId: speciesId);
       },
     );
   }
@@ -349,215 +338,6 @@ class _EvolutionTile extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// expanded 横向树：折线连接 + 节点卡，包在 InteractiveViewer 里平移缩放。
-class _HorizontalTree extends StatelessWidget {
-  const _HorizontalTree({required this.tree, required this.currentSpeciesId});
-
-  final EvolutionTree tree;
-  final int currentSpeciesId;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final layout = layoutEvolutionCanvas(
-      tree,
-      nodeWidth: _kNodeWidth,
-      columnGap: _kColumnGap,
-      rowHeight: _kRowHeight,
-    );
-    final bySpecies = {
-      for (final placement in layout.placements)
-        placement.node.speciesId: placement,
-    };
-
-    return SizedBox(
-      height: layout.viewportHeight,
-      child: InteractiveViewer(
-        constrained: false,
-        minScale: 0.5,
-        maxScale: 1.5,
-        alignment: Alignment.topLeft,
-        child: SizedBox(
-          width: layout.width,
-          height: layout.height,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _EvolutionEdgePainter(
-                    placements: layout.placements,
-                    bySpecies: bySpecies,
-                    nodeWidth: _kNodeWidth,
-                    columnGap: _kColumnGap,
-                    lineColor: scheme.outlineVariant,
-                  ),
-                ),
-              ),
-              for (final placement in layout.placements)
-                Positioned(
-                  // 两侧各让 24px 给可能较宽的条件 chips。
-                  left: placement.x - (_kNodeWidth + 48) / 2,
-                  top: placement.y - _kCardHeight / 2,
-                  width: _kNodeWidth + 48,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _EvolutionNodeCard(
-                        node: placement.node,
-                        width: _kNodeWidth,
-                        selected:
-                            placement.node.speciesId == currentSpeciesId,
-                      ),
-                      if (placement.edgeFromParent != null)
-                        _ConditionChipArea(
-                          labels: evolutionConditionLabels(
-                            placement.edgeFromParent!,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 节点卡下方的条件 chips（预留高已计入行高）。
-class _ConditionChipArea extends StatelessWidget {
-  const _ConditionChipArea({required this.labels});
-
-  final List<String> labels;
-
-  @override
-  Widget build(BuildContext context) {
-    if (labels.isEmpty) {
-      return const SizedBox(height: AppSpacing.xs);
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.xs),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: AppSpacing.xs,
-        runSpacing: AppSpacing.xs,
-        children: [for (final label in labels) ConditionChip(label: label)],
-      ),
-    );
-  }
-}
-
-/// 折线连接：父右缘 → 中线 → 子左缘（横平竖直，2px outlineVariant）。
-class _EvolutionEdgePainter extends CustomPainter {
-  _EvolutionEdgePainter({
-    required this.placements,
-    required this.bySpecies,
-    required this.nodeWidth,
-    required this.columnGap,
-    required this.lineColor,
-  });
-
-  final List<EvolutionNodePlacement> placements;
-  final Map<int, EvolutionNodePlacement> bySpecies;
-  final double nodeWidth;
-  final double columnGap;
-  final Color lineColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = lineColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round;
-    for (final placement in placements) {
-      final fromSpeciesId = placement.edgeFromParent?.fromSpeciesId;
-      if (fromSpeciesId == null) continue;
-      final parent = bySpecies[fromSpeciesId];
-      if (parent == null) continue;
-      final startX = parent.x + nodeWidth / 2;
-      final endX = placement.x - nodeWidth / 2;
-      final midX = startX + columnGap / 2;
-      canvas.drawPath(
-        Path()
-          ..moveTo(startX, parent.y)
-          ..lineTo(midX, parent.y)
-          ..lineTo(midX, placement.y)
-          ..lineTo(endX, placement.y),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_EvolutionEdgePainter oldDelegate) =>
-      oldDelegate.lineColor != lineColor ||
-      oldDelegate.nodeWidth != nodeWidth ||
-      oldDelegate.columnGap != columnGap ||
-      !identical(oldDelegate.placements, placements);
-}
-
-/// expanded 节点卡：纵向排布缩略图 / 名 / 编号，当前 species 高亮。
-class _EvolutionNodeCard extends StatelessWidget {
-  const _EvolutionNodeCard({
-    required this.node,
-    required this.width,
-    required this.selected,
-  });
-
-  final EvolutionNode node;
-  final double width;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.input),
-      onTap: selected
-          ? null
-          : () => context.push('/pokemon/${node.speciesId}'),
-      child: Container(
-        width: width,
-        padding: const EdgeInsets.all(AppSpacing.s),
-        decoration: ShapeDecoration(
-          color: selected ? scheme.primaryContainer : scheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.input),
-            side: BorderSide(
-              color: selected ? scheme.primary : scheme.outlineVariant,
-              width: selected ? 2 : 1,
-            ),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _NodeThumb(asset: node.thumbAsset),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              node.nameZh,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: textTheme.labelLarge,
-            ),
-            Text(
-              formatDexNumber(node.nationalDex),
-              style: AppTypography.tabularFigures(
-                textTheme.bodySmall ?? const TextStyle(),
-              ).copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
       ),
     );
   }

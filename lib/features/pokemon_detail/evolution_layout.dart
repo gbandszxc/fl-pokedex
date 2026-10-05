@@ -1,5 +1,6 @@
-/// 进化树纯逻辑（可单测）：compact 纵向展开、expanded 横向布局坐标计算，
-/// 以及进化边 → 条件文案的映射。
+/// 进化树纯逻辑（可单测）：线性链判定、横排行宽估算（方案 B：画布
+/// 形态已移除，改为「线性链横排 / 分支链纵向树」双形态）、compact
+/// 纵向展开，以及进化边 → 条件文案的映射。
 ///
 /// 文案原则（诚实显示）：有官方简中译名把握的标识符给中文；
 /// 没有把握的一律英文美化（`sacred-ash` → `Sacred Ash`），禁止编造。
@@ -83,110 +84,44 @@ List<EvolutionRow> flattenEvolutionTree(EvolutionTree tree) {
   return rows;
 }
 
-/// expanded 横向树中一个节点的摆放结果。
-class EvolutionNodePlacement {
-  const EvolutionNodePlacement({
-    required this.node,
-    required this.edgeFromParent,
-    required this.x,
-    required this.y,
-  });
+/// 线性链横排布局常数（尺寸/间距估算值，非 DESIGN token 管辖的
+/// 颜色/圆角/时长/断点，沿用画布时期文件内 const 的命名风格）。
+const double _kNodeMinWidth = 120;
+const double _kArrowColumnWidth = 72;
+const double _kRowPadding = 16;
 
-  final EvolutionNode node;
-
-  /// 到父节点的边（根为 null，连接线据此绘制）。
-  final EvolutionEdge? edgeFromParent;
-
-  /// 画布坐标（节点卡片中心）。
-  final double x;
-  final double y;
-}
-
-/// expanded 横向树的完整画布。
-class EvolutionCanvasLayout {
-  const EvolutionCanvasLayout({
-    required this.placements,
-    required this.width,
-    required this.height,
-    required this.viewportHeight,
-  });
-
-  final List<EvolutionNodePlacement> placements;
-
-  /// 画布全宽（InteractiveViewer 子节点的宽）。
-  final double width;
-
-  /// 画布全高（InteractiveViewer 子节点的高，可超出视口平移查看）。
-  final double height;
-
-  /// 外层视口高：按叶数在 320~420 内截断（design-ui.md §5）。
-  final double viewportHeight;
-}
-
-/// expanded 横向树布局（design-ui.md §5）：
-/// x = 深度 × (节点宽 + 列距)；子树高后序分配（叶 = 1 行，
-/// 内部节点 = Σ子树行），节点在其子树行区间内垂直居中。
-EvolutionCanvasLayout layoutEvolutionCanvas(
-  EvolutionTree tree, {
-  double nodeWidth = 120,
-  double columnGap = 80,
-  double rowHeight = 136,
-  double padding = 16,
-  double minViewportHeight = 320,
-  double maxViewportHeight = 420,
-}) {
-  final placements = <EvolutionNodePlacement>[];
+/// 是否为线性进化链：从根出发，每个节点的可用出边（经 [_childEdges]
+/// 的注册表过滤 + visited 防环语义）至多 1 条。
+///
+/// 空树（根无孩子）视为线性（true），空态由调用方另行处理；
+/// 环路数据走到已访问节点时按链尾终止，与 [flattenEvolutionTree] 的
+/// 防环行为一致。
+bool isLinearEvolutionChain(EvolutionTree tree) {
   final visited = <int>{};
-  var leafRows = 0;
-  var maxDepth = 0;
-
-  /// 后序摆放 [node]，返回 (子树占用行高， 节点中心 y)。
-  (double, double) place(
-    EvolutionNode node,
-    int depth,
-    EvolutionEdge? edge,
-    double top,
-  ) {
-    visited.add(node.speciesId);
-    if (depth > maxDepth) maxDepth = depth;
-    final x = padding + depth * (nodeWidth + columnGap) + nodeWidth / 2;
-    final childEdges = _childEdges(tree, node, visited);
-    if (childEdges.isEmpty) {
-      leafRows++;
-      final y = top + rowHeight / 2;
-      placements
-          .add(EvolutionNodePlacement(node: node, edgeFromParent: edge, x: x, y: y));
-      return (rowHeight, y);
-    }
-    var offset = top;
-    double firstY = 0;
-    double lastY = 0;
-    for (var i = 0; i < childEdges.length; i++) {
-      final child = tree.nodesBySpeciesId[childEdges[i].toSpeciesId]!;
-      final (childHeight, childCenterY) =
-          place(child, depth + 1, childEdges[i], offset);
-      offset += childHeight; // 内部节点子树高 = Σ子树行高
-      if (i == 0) firstY = childCenterY;
-      lastY = childCenterY;
-    }
-    // 节点在其子树行区间内垂直居中：取首末子节点中心的中点。
-    final y = (firstY + lastY) / 2;
-    placements
-        .add(EvolutionNodePlacement(node: node, edgeFromParent: edge, x: x, y: y));
-    return (offset - top, y);
+  var node = tree.root;
+  while (visited.add(node.speciesId)) {
+    final edges = _childEdges(tree, node, visited);
+    if (edges.length > 1) return false;
+    if (edges.isEmpty) return true;
+    node = tree.nodesBySpeciesId[edges.single.toSpeciesId]!;
   }
+  return true; // 环路兜底：回到已访问节点，视为链已终止。
+}
 
-  place(tree.root, 0, null, padding);
-
-  final width = padding * 2 + (maxDepth + 1) * nodeWidth + maxDepth * columnGap;
-  final contentHeight = padding * 2 + leafRows * rowHeight;
-  return EvolutionCanvasLayout(
-    placements: placements,
-    width: width,
-    height: contentHeight,
-    viewportHeight:
-        contentHeight.clamp(minViewportHeight, maxViewportHeight),
-  );
+/// 线性链横排一行的估算宽度：
+/// nodeCount × 卡最小宽 + (nodeCount - 1) × 箭头列宽 + 两侧 padding。
+///
+/// nodeCount < 2 时返回 0（不足两节点不会使用横排形态）。
+double linearChainRowWidth(
+  int nodeCount, {
+  double nodeMinWidth = _kNodeMinWidth,
+  double arrowColumnWidth = _kArrowColumnWidth,
+  double rowPadding = _kRowPadding,
+}) {
+  if (nodeCount < 2) return 0;
+  return nodeCount * nodeMinWidth +
+      (nodeCount - 1) * arrowColumnWidth +
+      rowPadding * 2;
 }
 
 /// trigger → 简中（EvolutionEdge.trigger 原样为 snake_case）。
@@ -201,6 +136,27 @@ const Map<String, String> _kTriggerZh = {
   'three-critical-hits': '一场战斗击中3次要害',
   'damage-location': '在特定地点受伤',
   'other': '特殊条件',
+  // 以下为 PokeAPI 官方 trigger 枚举（数据库实际取值），译名依据：
+  // use-move：使用特定招式若干次（火暴猴→弃世猴 20 次「恼怒」等），
+  //   具体招式/次数数据未承载，不写入文案。
+  // agile-style-move：以迅疾风格使用招式（《传说 阿尔宙斯》官方简中
+  //   「迅疾/刚猛」风格，惊角鹿→诡角鹿）。
+  // recoil-damage：洗翠巴斯库林→幽尾玄鱼累计受到反作用力伤害，
+  //   「反作用力伤害」为官方简中用语；具体数值数据未承载。
+  // take-damage：伽勒尔哭哭面具→死神板，从上次非濒死起累计受到
+  //   伤害后经特定地点；数值/地点由其余条件或 location 展示。
+  // three-defeated-bisharp：击败 3 只持有首领凭证的劈斩司令
+  //   （劈斩司令为官方简中译名），数字 3 为 trigger 语义自带。
+  // gimmighoul-coins：收集索财灵的硬币（官方简中道具名）后升级，
+  //   具体枚数数据未承载。
+  // meltan-candies：Pokémon GO 中使用美录坦糖果进化（官方糖果名）。
+  'use-move': '多次使用招式',
+  'agile-style-move': '以迅疾风格使用招式',
+  'recoil-damage': '受到反作用力伤害',
+  'take-damage': '累计受到伤害',
+  'three-defeated-bisharp': '击败3只劈斩司令',
+  'gimmighoul-coins': '收集索财灵的硬币',
+  'meltan-candies': '使用美录坦糖果',
 };
 
 /// 进化道具有官方简中译名的可信映射（39 项；未收录走英文美化）。

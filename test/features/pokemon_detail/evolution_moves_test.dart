@@ -19,6 +19,7 @@ import 'package:fl_pokedex/domain/models/species_info.dart';
 import 'package:fl_pokedex/domain/models/stat_block.dart';
 import 'package:fl_pokedex/domain/repositories/pokedex_repository.dart';
 import 'package:fl_pokedex/features/moves/move_detail_page.dart';
+import 'package:fl_pokedex/features/pokemon_detail/evolution_layout.dart';
 import 'package:fl_pokedex/features/pokemon_detail/evolution_section_placeholder.dart';
 import 'package:fl_pokedex/features/pokemon_detail/learnset_filter.dart'
     show MoveSort;
@@ -509,8 +510,91 @@ void main() {
     return decoration.color!;
   }
 
+  group('进化布局纯逻辑', () {
+    test('isLinearEvolutionChain：纯线性三阶链为 true', () {
+      expect(isLinearEvolutionChain(repo.caterpieTree), isTrue);
+    });
+
+    test('isLinearEvolutionChain：伊布型 1 根 8 分支为 false', () {
+      expect(isLinearEvolutionChain(repo.eeveeTree), isFalse);
+    });
+
+    test('isLinearEvolutionChain：二层分叉（根两条出边）为 false', () {
+      expect(isLinearEvolutionChain(repo.slowpokeTree), isFalse);
+    });
+
+    test('isLinearEvolutionChain：根无孩子视为线性（true，空态由调用方处理）',
+        () {
+      const loneRoot = EvolutionNode(
+        speciesId: 1,
+        nationalDex: 1,
+        nameZh: '独苗',
+        thumbAsset: null,
+        children: <EvolutionEdge>[],
+      );
+      final loneTree = EvolutionTree(
+        root: loneRoot,
+        nodesBySpeciesId: const {1: loneRoot},
+      );
+      expect(isLinearEvolutionChain(loneTree), isTrue);
+    });
+
+    test('isLinearEvolutionChain：环路数据按链尾终止，不炸不误判', () {
+      EvolutionEdge edge(int from, int to) => EvolutionEdge(
+            chainId: 1,
+            fromSpeciesId: from,
+            toSpeciesId: to,
+            trigger: 'level-up',
+            needsRain: false,
+            turnUpsideDown: false,
+          );
+      final nodeA = EvolutionNode(
+        speciesId: 1,
+        nationalDex: 1,
+        nameZh: '甲',
+        thumbAsset: null,
+        children: [edge(1, 2)],
+      );
+      final cycleTree = EvolutionTree(
+        root: nodeA,
+        nodesBySpeciesId: {
+          1: nodeA,
+          2: EvolutionNode(
+            speciesId: 2,
+            nationalDex: 2,
+            nameZh: '乙',
+            thumbAsset: null,
+            children: [edge(2, 1)],
+          ),
+        },
+      );
+      expect(isLinearEvolutionChain(cycleTree), isTrue);
+    });
+
+    test('linearChainRowWidth：3 节点 = 3×120 + 2×72 + 2×16', () {
+      expect(linearChainRowWidth(3), 536.0);
+    });
+
+    test('linearChainRowWidth：少于 2 节点返回 0', () {
+      expect(linearChainRowWidth(1), 0.0);
+      expect(linearChainRowWidth(0), 0.0);
+    });
+
+    test('linearChainRowWidth：自定义布局常数', () {
+      expect(
+        linearChainRowWidth(
+          2,
+          nodeMinWidth: 100,
+          arrowColumnWidth: 50,
+          rowPadding: 10,
+        ),
+        270.0,
+      );
+    });
+  });
+
   group('进化分区 · 伊布', () {
-    testWidgets('expanded 横向树渲染根与 8 个子节点', (tester) async {
+    testWidgets('宽屏渲染根与 8 个子节点（画布形态已移除，暂走纵向树）', (tester) async {
       await pumpSection(
         tester,
         section: (id) => EvolutionSectionPlaceholder(speciesId: id),
@@ -518,7 +602,7 @@ void main() {
         size: const Size(1000, 900),
       );
 
-      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(find.byType(InteractiveViewer), findsNothing);
       expect(find.text('伊布'), findsOneWidget);
       for (final name in [
         '水伊布', '雷伊布', '火伊布', '太阳伊布',
