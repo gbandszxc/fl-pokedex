@@ -57,13 +57,16 @@ const double _kArrowIconSize = 24;
 const double _kArrowTopInset =
     AppSpacing.xs + (_kLinearCardHeight - _kArrowIconSize) / 2;
 
-/// 进化分区（design-ui.md §5）：数据定形态的双形态渲染——
+/// 进化分区（design-ui.md §5）：数据定形态的三分支渲染——
+/// - 分支链 → 纵向树（├ / └ 导引线 + 条件 chips；本地宽 ≥840
+///   expanded 放大密度，形态结构不变）：缩进承载分支结构；
 /// - 纯线性链且分区本地宽 ≥ 估算行宽 → 横排一行（节点卡列 +
 ///   条件 chips 与箭头列交替）；
-/// - 分支链或宽不足 → 纵向树（├ / └ 导引线 + 条件 chips）；
-/// - 本地宽 ≥840（expanded）纵向树放大密度，形态结构不变。
+/// - 纯线性链且宽不足 → 垂直时间线（节点卡自上而下，连接段为
+///   连续竖线 + 条件 chips）：线性链每层仅一条边，缩进树的 └ 阶梯
+///   不携带任何分支信息，视觉支离破碎，故窄面板不再回退缩进树。
 /// 形态决策取 [LayoutBuilder] 的分区本地宽而非窗口宽：双栏
-/// master-detail 的窄详情面板自动回退纵向树。无进化链显示空态；
+/// master-detail 的窄详情面板自动回退纵向形态。无进化链显示空态；
 /// 点击节点跳转对应详情；一切内容随页面自然滚动（无画布交互）。
 class EvolutionSectionPlaceholder extends ConsumerWidget {
   const EvolutionSectionPlaceholder({
@@ -162,23 +165,28 @@ class _EvolutionBody extends ConsumerWidget {
           if (tree == null || tree.root.children.isEmpty) {
             return const _NoEvolutionHint();
           }
-          // 横排拦截：纯线性链且本地宽 ≥ 估算行宽；放不下即回退纵向
-          // 树，横排行内不做 Wrap / FittedBox / 横向滚动。节点卡宽预算
-          // 用校准过的 [_kLinearNodeCardWidth]（理由见其注释）。
+          // 三分支决策：分支链走纵向树（缩进承载分支结构）；线性链按
+          // 本地宽二选一——放得下估算行宽走横排一行，放不下走垂直
+          // 时间线（缩进树不再承接线性链：每层仅一条边，└ 阶梯不携带
+          // 分支信息）。
           final rows = flattenEvolutionTree(tree);
-          final useLinearRow = isLinearEvolutionChain(tree) &&
-              maxWidth >=
-                  linearChainRowWidth(
-                    rows.length,
-                    nodeMinWidth: _kLinearNodeCardWidth,
-                  );
-          return useLinearRow
+          if (!isLinearEvolutionChain(tree)) {
+            return _VerticalTree(
+              tree: tree,
+              currentSpeciesId: speciesId,
+              dense: windowSizeFor(maxWidth) == WindowSize.expanded,
+            );
+          }
+          // 横排拦截：行内不做 Wrap / FittedBox / 横向滚动。节点卡宽
+          // 预算用校准过的 [_kLinearNodeCardWidth]（理由见其注释）。
+          final fitsLinearRow = maxWidth >=
+              linearChainRowWidth(
+                rows.length,
+                nodeMinWidth: _kLinearNodeCardWidth,
+              );
+          return fitsLinearRow
               ? _LinearChainRow(tree: tree, currentSpeciesId: speciesId)
-              : _VerticalTree(
-                  tree: tree,
-                  currentSpeciesId: speciesId,
-                  dense: windowSizeFor(maxWidth) == WindowSize.expanded,
-                );
+              : _LinearTimeline(tree: tree, currentSpeciesId: speciesId);
         },
       );
     });
@@ -238,9 +246,115 @@ class _LinearChainRow extends StatelessWidget {
   }
 }
 
+/// 时间线竖线的水平中轴 = 卡身内缩略图中心：卡内 padding s(8) +
+/// 缩略图半径（compact 48 / 2 = 24）= 32。时间线不走 dense（时间线
+/// 只出现在横排门槛之下，见 [_EvolutionBody] 的三分支决策），恒按
+/// compact 缩略图 [_kThumbSize] 推算。尺寸推算值，非 token 管辖的
+/// 几何常数，风格同 [_kLinearCardHeight]。
+const double _kTimelineLineCenter = AppSpacing.s + _kThumbSize / 2;
+
+/// 线性链垂直时间线（design-ui.md §5 横排行之外的窄面板形态）：节点卡
+/// 自上而下排布，相邻两卡之间为「连接段」——一条 2px 连续竖线（与
+/// 纵向树导引线同色 outlineVariant）+ 右侧该边条件 chips。窄面板回退
+/// 不再用缩进树：线性链每层只有一条边，└ 缩进阶梯不携带分支信息；
+/// 时间线的连续竖线直接表达「同一链上的下一步」。
+///
+/// 节点卡复用 [_EvolutionTile]（条件 chips 传空——条件语义移到连接段，
+/// 挂在两条卡之间的边上）。不叠加方向箭头：垂直排布 + 贯穿连接段的
+/// 连续竖线已无歧义表达自上而下演进（时间轴隐喻自带方向），且与纵向
+/// 树「纵向形态不画箭头」的视觉约定一致；若叠图标需垫底色让位，反而
+/// 打断线的连续感并引入多余颜色耦合。
+class _LinearTimeline extends StatelessWidget {
+  const _LinearTimeline({required this.tree, required this.currentSpeciesId});
+
+  final EvolutionTree tree;
+  final int currentSpeciesId;
+
+  @override
+  Widget build(BuildContext context) {
+    // 线性链的先序展开即链序：第 i 行（i > 0）的连接段挂第 i 条边的
+    // 条件 chips。
+    final rows = flattenEvolutionTree(tree);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (index, row) in rows.indexed) ...[
+          if (index > 0)
+            _TimelineConnector(
+              conditionLabels: evolutionConditionLabels(row.edgeFromParent!),
+            ),
+          _EvolutionTile(
+            node: row.node,
+            selected: row.node.speciesId == currentSpeciesId,
+            conditionLabels: const <String>[],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// 时间线连接段：定宽线列（宽 = 竖线中轴 [_kTimelineLineCenter]，2px
+/// 竖线在中轴上左移 1px 居中，风格同 [_GuideColumn] 的 lineLeft）+
+/// chips 列。IntrinsicHeight + stretch 让两列等高、竖线贯穿连接段
+/// 全部高度（一笔到底，不允许线段断点）；chips 左缘固定「线列右
+/// s(8)」，多条边的 chips 天然左对齐。
+class _TimelineConnector extends StatelessWidget {
+  const _TimelineConnector({required this.conditionLabels});
+
+  final List<String> conditionLabels;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: _kTimelineLineCenter,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  left: _kTimelineLineCenter - 1,
+                  top: 0,
+                  bottom: 0,
+                  width: 2,
+                  child: ColoredBox(color: scheme.outlineVariant),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: AppSpacing.s,
+                top: AppSpacing.xs,
+                bottom: AppSpacing.xs,
+              ),
+              child: Wrap(
+                spacing: AppSpacing.s,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  for (final label in conditionLabels)
+                    ConditionChip(label: label),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 纵向树：根在上，子节点逐级缩进（├ / └ 导引线 + 条件 chips）。
-/// [dense] 为 true（分区本地宽 ≥840，[WindowSize.expanded]）时放大
-/// 密度：缩略图 56、卡内 padding m、导引列 32，形态结构不变。
+/// 只服务分支树（伊布 8 分支、奇鲁莉安型等）：缩进承载分支结构；
+/// 线性链改走时间线 / 横排行（缩进对单边链无信息量，见
+/// [_LinearTimeline]）。[dense] 为 true（分区本地宽 ≥840，
+/// [WindowSize.expanded]）时放大密度：缩略图 56、卡内 padding m、
+/// 导引列 32，形态结构不变。
 class _VerticalTree extends StatelessWidget {
   const _VerticalTree({
     required this.tree,

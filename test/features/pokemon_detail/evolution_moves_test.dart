@@ -742,7 +742,7 @@ void main() {
   });
 
   group('进化分区 · 绿毛虫三段链', () {
-    testWidgets('线性链宽屏走横排一行（三卡同排），窄面板回退纵向树', (tester) async {
+    testWidgets('线性链宽屏走横排一行（三卡同排），窄面板回退垂直时间线', (tester) async {
       await pumpSection(
         tester,
         section: (id) => EvolutionSectionPlaceholder(speciesId: id),
@@ -758,16 +758,27 @@ void main() {
       expect(find.text('Lv.10'), findsOneWidget);
       expect(find.text('Lv.16'), findsOneWidget);
 
-      // 窄面板放不下估算行宽：回退纵向树，根在上、后继逐行下移
-      //（行高 ~72，远大于横排的 chips 居中错位）。
+      // 窄面板放不下估算行宽：回退垂直时间线，根在上、后继逐卡下移
+      //（卡高 ~72 + 连接段 chips，远大于横排的 chips 居中错位）；
+      // 三卡（名称列）左缘 x 相同——缩进树会随深度右移（28/列），
+      // 横排行会随序次右移（~222/卡），左缘对齐即时间线语义。
       await pumpSection(
         tester,
         section: (id) => EvolutionSectionPlaceholder(speciesId: id),
         speciesId: 10,
         size: const Size(400, 900),
       );
+      double dxOf(String name) => tester.getTopLeft(find.text(name)).dx;
+      expect((dxOf('铁甲蛹') - dxOf('绿毛虫')).abs(), lessThan(2));
+      expect((dxOf('巴大蝶') - dxOf('铁甲蛹')).abs(), lessThan(2));
       expect(dyOf('铁甲蛹') - dyOf('绿毛虫'), greaterThan(48));
       expect(dyOf('巴大蝶') - dyOf('铁甲蛹'), greaterThan(48));
+      // 条件 chips 移到连接段：每条边 2 枚（trigger「等级提升」+
+      // Lv.N）× 2 条边 = 4 枚，Lv.10 / Lv.16 可见。
+      expect(find.text('Lv.10'), findsOneWidget);
+      expect(find.text('Lv.16'), findsOneWidget);
+      expect(find.text('等级提升'), findsNWidgets(2));
+      expect(find.byType(ConditionChip), findsNWidgets(4));
       expect(tester.takeException(), isNull);
     });
 
