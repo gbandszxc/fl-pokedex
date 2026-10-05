@@ -538,7 +538,7 @@ class _GuideColumn extends StatelessWidget {
 
 /// 节点行：横向卡（缩略图 + 名 + 编号）+ 节点下方条件 chips，横排 /
 /// 纵向树 / 时间线三形态共用。[dense] 放大密度：缩略图 48→56、卡内
-/// padding s→m，chips 缩进随之对齐到名称列。
+/// padding s→m（不影响 chips 缩进，见 [centerConditions]）。
 class _EvolutionTile extends StatelessWidget {
   const _EvolutionTile({
     required this.node,
@@ -560,7 +560,7 @@ class _EvolutionTile extends StatelessWidget {
   final double? cardWidth;
 
   /// 条件 chips 是否居中于卡列宽内（横排传 true：chips 挂卡下、在
-  /// 150 卡宽内居中换行）；纵向树保持缩进对齐名称列（false）。
+  /// 150 卡宽内居中换行）；纵向树传 false：chips 与卡身左缘对齐。
   final bool centerConditions;
 
   @override
@@ -628,14 +628,11 @@ class _EvolutionTile extends StatelessWidget {
         ),
         if (conditionLabels.isNotEmpty)
           Padding(
-            // 横排：去掉名称列缩进，chips 挂卡下、居中于卡宽；纵向树：
-            // 保持 thumbSize + s 缩进（对齐卡内名称列）。
-            padding: centerConditions
-                ? const EdgeInsets.only(top: AppSpacing.xs)
-                : EdgeInsets.only(
-                    left: thumbSize + AppSpacing.s,
-                    top: AppSpacing.xs,
-                  ),
+            // 横排：chips 挂卡下、居中于卡宽；纵向树：chips 与卡身左缘
+            // 对齐（缩进恒 0）——对齐基准从「卡内名称列」改为「卡身左
+            // 缘」（用户实机反馈：跨行 chips 左缘与卡左缘成一条竖线）；
+            // 不随 dense 缩略图尺寸变化，故两形态 padding 相同。
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
             child: centerConditions
                 // Wrap 需铺满卡宽：Column 子级默认收缩到内容宽，
                 // 不定宽则 WrapAlignment.center 没有可居中的余量。
