@@ -7,6 +7,7 @@ import '../../app/theme/tokens.dart';
 import '../../core/di.dart';
 import '../../domain/models/manifest.dart';
 import '../../shared/widgets/widgets.dart';
+import 'check_update_row.dart';
 import 'providers.dart';
 
 /// 数据清单（关于区块：数据版本 / 构建日期 / 规模）。
@@ -107,6 +108,8 @@ class SettingsPage extends ConsumerWidget {
                 error: (_, __) =>
                     const _AboutRow(label: '版本', value: '信息不可用'),
               ),
+              // 手动更新入口（design-ui.md §8）：紧跟版本号下方。
+              const CheckUpdateRow(),
               ref
                   .watch(manifestProvider)
                   .when(

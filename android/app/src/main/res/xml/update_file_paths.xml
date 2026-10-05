@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 更新包安装的 FileProvider 路径白名单（AndroidManifest.xml 引用）。
+     cache-path 对应 Context.getCacheDir()，即 Dart 侧
+     getTemporaryDirectory()/updates（UpdateService 下载目录）。 -->
+<paths>
+    <cache-path name="updates" path="updates/"/>
+</paths>

@@ -9,6 +9,7 @@ import '../features/pokemon_detail/pokemon_detail_page.dart';
 import '../features/settings/settings_page.dart';
 import 'shell/adaptive_scaffold.dart';
 import 'theme/theme.dart';
+import 'update_startup_check.dart';
 
 /// 路由表（architecture.md §9，路径锁死）：
 /// ```
@@ -23,8 +24,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     routes: [
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            AdaptiveScaffold(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => UpdateStartupCheck(
+          child: AdaptiveScaffold(navigationShell: navigationShell),
+        ),
         branches: [
           StatefulShellBranch(routes: [
             GoRoute(

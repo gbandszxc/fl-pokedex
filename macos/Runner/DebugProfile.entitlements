@@ -8,5 +8,8 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<!-- 更新通道：调试构建同样需要出站网络（检查 GitHub 发布网页 / 下载 dmg）。 -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>

@@ -2,7 +2,7 @@
 
 ## 项目
 
-完全离线的 Flutter 宝可梦图鉴。运行时 **0 网络请求**（代码里内置 HTTP 全量拦截器，请求即抛错）。UI 原创设计，Token 唯一来源 `DESIGN.md` + `lib/app/theme/`。
+完全离线的 Flutter 宝可梦图鉴。图鉴数据运行时 **0 网络请求**（内置 HTTP 拦截器，除更新通道白名单外请求即抛错）；唯一的联网用途是「检查更新 / 下载安装包」（`lib/core/update/`，经 GitHub 发布网页实现）。UI 原创设计，Token 唯一来源 `DESIGN.md` + `lib/app/theme/`。
 
 ## 关键文档（改动前先读）
 
@@ -23,7 +23,7 @@
 
 ## 硬性规则
 
-1. 运行时依赖禁止引入任何 HTTP 库；任何功能发现需要联网即视为设计错误，回报重议。
+1. 运行时依赖禁止引入任何 HTTP 库；联网只允许更新通道（`lib/core/update/`，GitHub 发布网页检查 + 资产下载，域名白名单见 `BlockingHttpOverrides`）。其它任何功能发现需要联网即视为设计错误，回报重议。
 2. drift 表/列名必须与 `docs/data-contract.md` DDL 逐字一致（snake_case，用 `@ColumnInfo` 显式命名）。
 3. UI 不得硬编码颜色/圆角/时长/断点，一律取 `lib/app/theme/tokens.dart`。
 4. 属性色只做徽章/Accent，禁止铺底色；详见 DESIGN.md 禁令。

@@ -12,6 +12,7 @@
 | E 首页 | `lib/features/pokedex/` |
 | F 详情 | `lib/features/pokemon_detail/` `lib/features/moves/` |
 | G 设置收藏 | `lib/features/settings/` `lib/features/favorites/` |
+| H 更新通道 | `lib/core/update/` `lib/app/update_startup_check.dart` `lib/features/settings/check_update_row.dart` |
 
 公共依赖顺序：`shared → domain → data → features → app`。features 之间禁止互相 import。
 
@@ -44,6 +45,8 @@ dev_dependencies:
 ```
 
 **运行时依赖里禁止出现任何 HTTP 库**（dio/http/http 等）。版本以 `flutter pub get` 实际解析为准，允许向上浮动小版本，不允许降级大版本。
+
+更新通道不引入任何依赖：检查/下载直接用 `dart:io` 的 `HttpClient`（经 `BlockingHttpOverrides` 白名单放行），系统架构用 `dart:ffi` 的 `Abi.current()` 判定，Android 安装包唤起走自建 MethodChannel + FileProvider。
 
 ## 2. 响应式（lib/shared/responsive/）
 
@@ -159,6 +162,11 @@ homeViewLayoutProvider: Notifier<HomeViewLayout>（首页布局，与 pokedex �
 appVersionProvider: FutureProvider<String>（安装包版本号，关于/许可页；读 package_info_plus，唯一事实来源为 pubspec `version`）
 externalUrlOpenerProvider: Provider<ExternalUrlOpener>（关于区「项目地址」跳系统浏览器；typedef ExternalUrlOpener = Future<bool> Function(Uri)，默认 launchUrl，测试注入 fake 断言目标 URL）
 kProjectRepoUrl: const String（仓库地址常量，取自 git remote origin）
+// lib/core/update/update_providers.dart
+updateTargetProvider: Provider<UpdateTarget?>（当前平台/架构；不在发布矩阵内为 null）
+updateServiceProvider: Provider<UpdateService>（检查/下载；默认 GitHub 发布网页实现，测试 override 成 fake 保证不触网）
+updateInstallerProvider: Provider<UpdateInstaller>（Android 平台通道 / Windows msiexec / macOS open）
+updatePromptSnoozedProvider: NotifierProvider<UpdatePromptSnooze, bool>（会话内已忽略启动提示；手动入口不受影响）
 // lib/features/favorites/providers.dart
 favoriteIdsProvider: StreamProvider<List<int>>
 recentIdsProvider: StreamProvider<List<int>>
@@ -186,13 +194,19 @@ WHERE ( national_dex = n  或为空 )
 排序固定 national_dex ASC。
 ```
 
-## 8. 离线保证（运行时 0 网络请求的三层机制）
+## 8. 离线保证与更新通道（运行时联网的唯一白名单）
 
 1. **数据全部随包**：`assets/database/pokedex.db` + `manifest.json` + `assets/pokemon/{full,thumb}/*.webp`。运行时只读 assets 与本地文件；首启把 db 复制到应用文档目录（`meta.schema_version` 与 manifest 比对决定是否覆盖，换数据重装需 `pm clear`），Drift 以 `query_only` 只读打开；图片 `Image.asset` + `cacheWidth`。
 2. **运行时依赖零 HTTP 库**：drift / riverpod / go_router 等均无网络能力，禁止引入 dio/http 等。`url_launcher` 不在此列——它走 MethodChannel 把 URL 交给系统浏览器/关联应用，请求由 OS 侧发起，本进程不产生任何 socket，`HttpOverrides` 也不受影响（唯一用途：设置页「项目地址」跳转）。
-3. **兜底拦截器**：`main()` 无条件 `HttpOverrides.global = BlockingHttpOverrides()`（lib/core/offline/），任何 `open/openUrl` 当场抛 `OfflineRequestBlocked`——未来任何依赖试图联网都会立刻暴露而非静默请求。
+3. **兜底拦截器 + 更新域名白名单**：`main()` 无条件 `HttpOverrides.global = BlockingHttpOverrides()`（lib/core/offline/），除下述更新通道白名单（`kUpdateChannelAllowedHosts`：github.com / release-assets.githubusercontent.com / objects.githubusercontent.com / github-releases.githubusercontent.com，且必须 https）外，任何 `open/openUrl` 当场抛 `OfflineRequestBlocked`——非更新功能试图联网会立刻暴露而非静默请求。检查与下载在 Dart 侧手动逐跳跟随重定向，每一跳都过白名单校验。
+4. **更新通道（唯一联网用途）**：`lib/core/update/`。
+   - `update_release.dart`：纯函数——版本号比较（数字段，`v` 前缀/构建号不参与）、`releases/latest` 重定向 tag 解析、`expanded_assets` HTML 里按平台/架构选包（资产命名契约见该文件注释）。
+   - `update_service.dart`：`UpdateService.checkForUpdate / download`。检查读 GitHub 发布**网页**（不使用 API、无 token/速率限制），失败以 `UpdateCheckFailed` 返回不抛；下载写 `getTemporaryDirectory()/updates/`，按 500ms 回调进度/速度，支持取消并删除半成品。
+   - `update_installer.dart`：Android 走宿主 MethodChannel（FileProvider content:// + 系统包安装器，未授权时跳「安装未知应用」设置）；Windows 拉起 `msiexec /i` 后退出应用（安装器要替换运行中的 exe）；macOS `open` dmg。
+   - `update_dialogs.dart` / `update_flow.dart`：发现新版本对话框 → 下载模态（进度 + 速度）→ 安装结果反馈；启动静默检查挂在外壳（`lib/app/update_startup_check.dart`），手动入口在设置页版本号下方（`CheckUpdateRow`）。
+   - Android 侧同步声明 `INTERNET` / `REQUEST_INSTALL_PACKAGES` 权限与 FileProvider（applicationId `.update_installer`）；macOS 两侧 entitlements 增加 `com.apple.security.network.client`。
 
-机器判据：`test/acceptance/offline_acceptance_test.dart` 在拦截器生效下，用真实 `pokedex.db` 驱动完整链路（首页→搜索→详情→进化→招式→图鉴说明→切主题），断言全程 0 请求且无异常。网络只允许出现在构建期（`tools/data_builder`，见其 README 的缓存与增量说明）。
+机器判据：`test/acceptance/offline_acceptance_test.dart` 在拦截器生效下，用真实 `pokedex.db` 驱动完整链路（首页→搜索→详情→进化→招式→图鉴说明→切主题），断言全程 0 请求且无异常（启动静默检查 override 成 fake）；`test/core/update/` 覆盖版本比较/选包/进度格式化/流程弹窗，`test/offline_guard_test.dart` 覆盖白名单口径。网络只允许出现在构建期（`tools/data_builder`，见其 README 的缓存与增量说明）。
 
 ## 9. 路由（go_router，路径锁死）
 
@@ -225,3 +239,4 @@ open.overrideFor(OperatingSystem.windows, () => DynamicLibrary.open('tool/sqlite
 - **详情页折叠头**：compact/medium 高度 = `clamp(视口高×0.5, 300, 440)`（非固定 512）。
 - **网格**：两档密度用固定 `mainAxisExtent`（244/200），弃用 childAspectRatio（防小屏溢出）。
 - **离线库副本**：按 `meta.schema_version` 与 manifest 比对决定是否覆盖；换数据重装需 `pm clear`。
+- **更新通道**：新增 `lib/core/update/`（H 单元，见 §8）。检查走 GitHub 发布网页（`releases/latest` 重定向 + `expanded_assets` 片段），不引入 HTTP 库（`dart:io HttpClient` + 守卫白名单）；架构判定用 `Abi.current()`（Android 分包后即所装 APK 的 ABI）；Android 安装走宿主 MethodChannel + FileProvider（`res/xml/update_file_paths.xml`），Windows 拉起 `msiexec /i` 后退出应用，macOS `open` dmg。启动静默检查为 `lib/app/update_startup_check.dart`（失败静默），手动入口为设置页版本号下方的 `CheckUpdateRow`。

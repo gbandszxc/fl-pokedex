@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 更新通道（PRODUCT.md / architecture.md §8）：检查更新读 GitHub 发布网页、
+         下载安装包走资产直链；这是应用运行时唯一的联网用途。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 8.0+ 应用内安装 APK 需要用户授权（未授权时跳系统设置页）。 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="Fl-PokeDex"
         android:name="${applicationName}"
@@ -25,6 +30,19 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- 更新包安装：把缓存目录里的 APK 以 content:// 交给系统包安装器
+             （file:// 在 Android 7.0+ 会抛 FileUriExposedException）。
+             路径白名单见 res/xml/update_file_paths.xml，与
+             UpdateService 的下载目录（cacheDir/updates）一致。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.update_installer"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths"/>
+        </provider>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

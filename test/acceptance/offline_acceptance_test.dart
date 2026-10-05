@@ -14,6 +14,7 @@ import 'package:fl_pokedex/data/database/user_database.dart';
 import 'package:fl_pokedex/features/settings/providers.dart';
 import 'package:fl_pokedex/shared/widgets/widgets.dart';
 
+import '../helpers/fake_update_service.dart';
 import '../helpers/sqlite_loader.dart';
 
 /// 「运行时 0 网络请求」验收（PRODUCT.md 硬性契约 / architecture.md §8）：
@@ -78,6 +79,9 @@ void main() {
         overrides: [
           pokedexDatabaseProvider.overrideWithValue(pokedexDb),
           userDatabaseProvider.overrideWithValue(userDb),
+          // 启动静默检查更新走 fake：本用例验收的是图鉴链路 0 请求，
+          // 更新通道（唯一联网用途）另有 test/core/update/ 覆盖。
+          ...noUpdateOverrides(),
         ],
       );
       addTearDown(container.dispose);

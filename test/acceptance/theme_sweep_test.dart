@@ -11,6 +11,7 @@ import 'package:fl_pokedex/features/settings/providers.dart';
 import 'package:fl_pokedex/shared/widgets/pokemon_card.dart';
 
 import '../features/pokedex/fakes.dart';
+import '../helpers/fake_update_service.dart';
 
 /// 深浅主题巡检（DESIGN.md §1）：
 ///
@@ -43,7 +44,10 @@ void main() {
     final pokedex = FakePokedexRepository();
     final favorites = FakeFavoritesRepository();
     final container = ProviderContainer(
-      overrides: fakeRepositoryOverrides(pokedex: pokedex, favorites: favorites),
+      overrides: [
+        ...fakeRepositoryOverrides(pokedex: pokedex, favorites: favorites),
+        ...noUpdateOverrides(),
+      ],
     );
     addTearDown(container.dispose);
     addTearDown(favorites.dispose);
@@ -141,7 +145,10 @@ void main() {
     final pokedex = FakePokedexRepository();
     final favorites = FakeFavoritesRepository();
     final container = ProviderContainer(
-      overrides: fakeRepositoryOverrides(pokedex: pokedex, favorites: favorites),
+      overrides: [
+        ...fakeRepositoryOverrides(pokedex: pokedex, favorites: favorites),
+        ...noUpdateOverrides(),
+      ],
     );
     addTearDown(container.dispose);
     addTearDown(favorites.dispose);

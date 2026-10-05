@@ -199,7 +199,9 @@ compact：BottomSheet（r20 顶圆角）        expanded：列表上方筛选条
 │ 桌面卡片密度 (紧凑|舒适)      │  ← 仅 expanded 显示
 │ ──────────────────────       │
 │ 关于                          │
-│  版本  <x.y.z> · 数据 <dataVersion> │
+│  版本  <x.y.z>                │
+│  检查更新                   › │  ← 手动更新入口（版本号正下方）；检查中行尾换 16 小转圈
+│  数据 <dataVersion>           │
 │  数据库构建 <buildDate>        │
 │  数据来源 PokéAPI（见开源许可）│
 │  项目地址              [GH] › │  ← 左文案 + 右 GitHub SVG 标志(20)，点按交系统浏览器
@@ -211,3 +213,26 @@ compact：BottomSheet（r20 顶圆角）        expanded：列表上方筛选条
 versionName（唯一事实来源 pubspec.yaml 的 version，运行时经 package_info_plus 读回），
 数据 = 离线库 manifest.dataVersion，数据库构建 = manifest.buildDate。
 ```
+
+### 8.1 检查更新（CheckUpdateRow）
+
+启动时**静默检查一次**（`lib/app/update_startup_check.dart`，失败与「已是最新」都不打扰）；
+设置页「检查更新」行给出全部反馈：已是最新 / 检查失败走 SnackBar，命中新版本走两个模态。
+
+```
+┌ 发现新版本 1.1.0 ──────────────┐   ┌ 正在下载更新 ──────────────────┐
+│ 当前版本  1.0.0                │   │ Fl-PokeDex-1.1.0-x86_64-        │
+│ 最新版本  1.1.0                │   │              release.apk        │
+│ 适用平台  Android · x86_64     │   │ ▓▓▓▓▓▓░░░░░░░░░░░░░░░░          │
+│ Fl-PokeDex-1.1.0-x86_64-       │   │ 12.0 MB / 84.0 MB · 4.2 MB/s    │
+│              release.apk       │   │                        [取消]   │
+│        [稍后] [下载并安装]      │   └────────────────────────────────┘
+└────────────────────────────────┘
+```
+
+- 安装包**按当前系统与架构自动选择**（Android 认 ABI：arm64-v8a / armeabi-v7a / x86_64；
+  Windows 取 x64 MSI；macOS arm64 取 arm64 dmg、x64 取 universal dmg），对话框「适用平台」行明示。
+- 进度模态不可点遮罩关闭；「取消」或返回键会中止下载并删除半成品。
+- 下载完成即交系统安装流程：Android 拉起系统包安装器（未授权时弹「需要安装权限」→ 前往系统设置；
+  安装包已缓存，重试不重复下载），Windows 拉起 `msiexec` 后退出应用，macOS `open` 磁盘映像。
+- 用户点「稍后」后本次运行不再自动弹窗；手动入口不受影响。

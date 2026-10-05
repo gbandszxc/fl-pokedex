@@ -2,9 +2,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fl_pokedex/app/app.dart';
 
+import 'helpers/fake_update_service.dart';
+
 void main() {
   testWidgets('应用启动后导航含「图鉴」入口', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: AmberDexApp()));
+    // 启动静默检查更新 override 为「已是最新」：用例不触网。
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: noUpdateOverrides(),
+        child: const AmberDexApp(),
+      ),
+    );
     // 首页首载走异步数据链，测试环境无平台插件时保持加载骨架（有
     // 循环动画，永不 settle），因此用有界泵帧代替 pumpAndSettle。
     await tester.pump(const Duration(milliseconds: 400));

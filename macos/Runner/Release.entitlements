@@ -4,5 +4,8 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- 更新通道（PRODUCT.md：唯一被放行的联网用途）：检查 GitHub 发布网页并下载 dmg。 -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>
