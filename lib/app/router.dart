@@ -56,10 +56,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final speciesId =
               int.tryParse(state.pathParameters['speciesId'] ?? '');
+          final initialFormId =
+              int.tryParse(state.uri.queryParameters['formId'] ?? '');
           final child = speciesId == null
               ? const PokemonDetailPage.notFound()
               : PokemonDetailPage(
                   speciesId: speciesId,
+                  initialFormId: initialFormId,
                   onApplyFilter: (FilterState filter) {
                     ref.read(filterProvider.notifier).replaceWith(filter);
                     router.go('/');

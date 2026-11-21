@@ -106,6 +106,7 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
   const PokemonDetailPage({
     super.key,
     required this.speciesId,
+    this.initialFormId,
     this.showBackButton = true,
     this.onApplyFilter,
   });
@@ -113,11 +114,15 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
   /// 路由参数不是合法整数时的「未找到」态。
   const PokemonDetailPage.notFound({super.key})
       : speciesId = null,
+        initialFormId = null,
         showBackButton = true,
         onApplyFilter = null;
 
   /// null 表示路由参数非法（渲染未找到空态）。
   final int? speciesId;
+
+  /// 路由直达或从进化链点击特定形态时预选中的 `formId`。
+  final int? initialFormId;
 
   /// 是否展示返回入口（AppBar 自动 leading）。路由全页用默认 true；
   /// 嵌入双栏详情面板时传 false（面板无路由栈，不提供返回）。
@@ -158,12 +163,34 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
   void initState() {
     super.initState();
     final speciesId = widget.speciesId;
+    final initialFormId = widget.initialFormId;
     if (speciesId != null) {
       // 打开即记入最近浏览（仓储侧幂等：去重取最新）。放在微任务里，
       // 避免构建期间触发仓储状态变更。
       Future<void>.microtask(() {
+        if (!mounted) return;
+        if (initialFormId != null) {
+          ref.read(selectedFormIdProvider(speciesId).notifier).state =
+              initialFormId;
+        }
+        ref.read(favoritesRepositoryProvider).addRecent(speciesId);
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PokemonDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final speciesId = widget.speciesId;
+    final initialFormId = widget.initialFormId;
+    if (speciesId != null &&
+        initialFormId != null &&
+        (oldWidget.speciesId != speciesId ||
+            oldWidget.initialFormId != initialFormId)) {
+      Future<void>.microtask(() {
         if (mounted) {
-          ref.read(favoritesRepositoryProvider).addRecent(speciesId);
+          ref.read(selectedFormIdProvider(speciesId).notifier).state =
+              initialFormId;
         }
       });
     }
@@ -287,6 +314,9 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
         ),
       );
     }
+    // 持活 selectedFormIdProvider：骨架加载期 _DetailScaffold 尚未挂载，
+    // 若不在页级 watch，initState 微任务写入的 initialFormId 会被 autoDispose 提前销毁。
+    ref.watch(selectedFormIdProvider(speciesId));
     // 双栏嵌入无切换交互，不解析相邻项。
     final dexOrder =
         _embeddedInPane ? null : ref.watch(speciesDexOrderProvider).valueOrNull;
@@ -494,6 +524,7 @@ class _DetailScaffold extends ConsumerWidget {
                   pad,
                   EvolutionSectionPlaceholder(
                     speciesId: detail.speciesId,
+                    selectedFormId: selectedForm.formId,
                   ),
                 ),
                 _tabPage(
@@ -686,6 +717,7 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
                                     2,
                                     EvolutionSectionPlaceholder(
                                       speciesId: detail.speciesId,
+                                      selectedFormId: selectedForm.formId,
                                     ),
                                   ),
                                   const SizedBox(height: AppSpacing.xxl),
@@ -798,6 +830,7 @@ class _TwoColumnDetail extends StatelessWidget {
                     2,
                     EvolutionSectionPlaceholder(
                       speciesId: detail.speciesId,
+                      selectedFormId: selectedForm.formId,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),

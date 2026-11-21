@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fl_pokedex/app/theme/theme.dart';
 import 'package:fl_pokedex/core/di.dart';
+import 'package:fl_pokedex/data/database/pokedex_database.dart';
+import 'package:fl_pokedex/data/repository/pokedex_repository_impl.dart';
 import 'package:fl_pokedex/domain/models/ability_ref.dart';
 import 'package:fl_pokedex/domain/models/evolution.dart';
 import 'package:fl_pokedex/domain/models/filters.dart';
@@ -24,7 +28,11 @@ import 'package:fl_pokedex/features/pokemon_detail/evolution_section_placeholder
 import 'package:fl_pokedex/features/pokemon_detail/learnset_filter.dart'
     show MoveSort;
 import 'package:fl_pokedex/features/pokemon_detail/moves_section_placeholder.dart';
+import 'package:fl_pokedex/features/pokemon_detail/pokemon_detail_page.dart';
 import 'package:fl_pokedex/shared/widgets/widgets.dart';
+
+import '../../helpers/sqlite_loader.dart';
+import 'fake_repositories.dart' show FakeFavoritesRepository;
 
 /// 进化 / 招式 fixtures（伊布 8 分支 + 绿毛虫三段链 + 呆呆兽分支）。
 class FakeEvolutionMovesRepository implements PokedexRepository {
@@ -41,6 +49,8 @@ class FakeEvolutionMovesRepository implements PokedexRepository {
   EvolutionEdge _edge(
     int from,
     int to, {
+    int? fromForm,
+    int? toForm,
     String trigger = 'level-up',
     int? minLevel,
     String? item,
@@ -48,6 +58,7 @@ class FakeEvolutionMovesRepository implements PokedexRepository {
     String? knownMove,
     String? knownMoveType,
     String? location,
+    String? region,
     String? timeOfDay,
     int? minHappiness,
     int? minAffection,
@@ -56,6 +67,8 @@ class FakeEvolutionMovesRepository implements PokedexRepository {
       chainId: 1,
       fromSpeciesId: from,
       toSpeciesId: to,
+      fromFormId: fromForm,
+      toFormId: toForm,
       trigger: trigger,
       minLevel: minLevel,
       item: item,
@@ -63,6 +76,7 @@ class FakeEvolutionMovesRepository implements PokedexRepository {
       knownMove: knownMove,
       knownMoveType: knownMoveType,
       location: location,
+      region: region,
       timeOfDay: timeOfDay,
       minHappiness: minHappiness,
       minAffection: minAffection,
@@ -144,8 +158,202 @@ class FakeEvolutionMovesRepository implements PokedexRepository {
     const {},
   );
 
+  /// 形态级进化树：魔尼尼(439) → 魔墙人偶(122/其他地区) &
+  /// 魔墙人偶(10168/伽勒尔地区) → 踏冰人偶(866/Lv.42)。
+  late final EvolutionTree mrMimeTree = () {
+    final mimeJr = EvolutionNode(
+      speciesId: 439,
+      formId: 439,
+      nationalDex: 439,
+      nameZh: '魔尼尼',
+      isDefaultForm: true,
+      typeIds: const ['psychic', 'fairy'],
+      children: [
+        _edge(439, 122, fromForm: 439, toForm: 122, knownMove: 'mimic'),
+        _edge(
+          439,
+          122,
+          fromForm: 439,
+          toForm: 10168,
+          knownMove: 'mimic',
+          region: 'galar',
+        ),
+      ],
+    );
+    const defaultMime = EvolutionNode(
+      speciesId: 122,
+      formId: 122,
+      nationalDex: 122,
+      nameZh: '魔墙人偶',
+      isDefaultForm: true,
+      typeIds: ['psychic', 'fairy'],
+      children: <EvolutionEdge>[],
+    );
+    final galarMime = EvolutionNode(
+      speciesId: 122,
+      formId: 10168,
+      nationalDex: 122,
+      nameZh: '魔墙人偶',
+      formNameZh: '伽勒尔的样子',
+      isDefaultForm: false,
+      typeIds: const ['ice', 'psychic'],
+      children: [
+        _edge(122, 866, fromForm: 10168, toForm: 866, minLevel: 42),
+      ],
+    );
+    const mrRime = EvolutionNode(
+      speciesId: 866,
+      formId: 866,
+      nationalDex: 866,
+      nameZh: '踏冰人偶',
+      isDefaultForm: true,
+      typeIds: ['ice', 'psychic'],
+      children: <EvolutionEdge>[],
+    );
+    return EvolutionTree(
+      root: mimeJr,
+      roots: [mimeJr],
+      nodesBySpeciesId: {
+        439: mimeJr,
+        122: defaultMime,
+        866: mrRime,
+      },
+      nodesByFormId: {
+        439: mimeJr,
+        122: defaultMime,
+        10168: galarMime,
+        866: mrRime,
+      },
+    );
+  }();
+
+  /// 仅非默认形态可进化：大葱鸭(83 未收录进树，仅伽勒尔的样子 10166 → 葱游兵 865)。
+  late final EvolutionTree farfetchdTree = () {
+    final galarRoot = EvolutionNode(
+      speciesId: 83,
+      formId: 10166,
+      nationalDex: 83,
+      nameZh: '大葱鸭',
+      formNameZh: '伽勒尔的样子',
+      isDefaultForm: false,
+      typeIds: const ['fighting'],
+      children: [
+        _edge(
+          83,
+          865,
+          fromForm: 10166,
+          toForm: 865,
+          trigger: 'three-critical-hits',
+        ),
+      ],
+    );
+    const sirfetchd = EvolutionNode(
+      speciesId: 865,
+      formId: 865,
+      nationalDex: 865,
+      nameZh: '葱游兵',
+      isDefaultForm: true,
+      typeIds: ['fighting'],
+      children: <EvolutionEdge>[],
+    );
+    return EvolutionTree(
+      root: galarRoot,
+      roots: [galarRoot],
+      nodesBySpeciesId: {83: galarRoot, 865: sirfetchd},
+      nodesByFormId: {10166: galarRoot, 865: sirfetchd},
+    );
+  }();
+
+  /// 多根并行链：喵喵 3 根（关都→猫老大 / 阿罗拉→阿罗拉猫老大 / 伽勒尔→喵头目）。
+  late final EvolutionTree meowthTree = () {
+    final kantoMeowth = EvolutionNode(
+      speciesId: 52,
+      formId: 52,
+      nationalDex: 52,
+      nameZh: '喵喵',
+      isDefaultForm: true,
+      typeIds: const ['normal'],
+      children: [_edge(52, 53, fromForm: 52, toForm: 53, minLevel: 28)],
+    );
+    const kantoPersian = EvolutionNode(
+      speciesId: 53,
+      formId: 53,
+      nationalDex: 53,
+      nameZh: '猫老大',
+      isDefaultForm: true,
+      typeIds: ['normal'],
+      children: <EvolutionEdge>[],
+    );
+    final alolaMeowth = EvolutionNode(
+      speciesId: 52,
+      formId: 10107,
+      nationalDex: 52,
+      nameZh: '喵喵',
+      formNameZh: '阿罗拉的样子',
+      isDefaultForm: false,
+      typeIds: const ['dark'],
+      children: [
+        _edge(52, 53, fromForm: 10107, toForm: 10108, minHappiness: 160),
+      ],
+    );
+    const alolaPersian = EvolutionNode(
+      speciesId: 53,
+      formId: 10108,
+      nationalDex: 53,
+      nameZh: '猫老大',
+      formNameZh: '阿罗拉的样子',
+      isDefaultForm: false,
+      typeIds: ['dark'],
+      children: <EvolutionEdge>[],
+    );
+    final galarMeowth = EvolutionNode(
+      speciesId: 52,
+      formId: 10161,
+      nationalDex: 52,
+      nameZh: '喵喵',
+      formNameZh: '伽勒尔的样子',
+      isDefaultForm: false,
+      typeIds: const ['steel'],
+      children: [_edge(52, 863, fromForm: 10161, toForm: 863, minLevel: 28)],
+    );
+    const perrserker = EvolutionNode(
+      speciesId: 863,
+      formId: 863,
+      nationalDex: 863,
+      nameZh: '喵头目',
+      isDefaultForm: true,
+      typeIds: ['steel'],
+      children: <EvolutionEdge>[],
+    );
+    return EvolutionTree(
+      root: kantoMeowth,
+      roots: [kantoMeowth, alolaMeowth, galarMeowth],
+      nodesBySpeciesId: {
+        52: kantoMeowth,
+        53: kantoPersian,
+        863: perrserker,
+      },
+      nodesByFormId: {
+        52: kantoMeowth,
+        53: kantoPersian,
+        10107: alolaMeowth,
+        10108: alolaPersian,
+        10161: galarMeowth,
+        863: perrserker,
+      },
+    );
+  }();
+
   EvolutionTree? _treeFor(int speciesId) {
-    for (final tree in [eeveeTree, caterpieTree, slowpokeTree, laprasTree]) {
+    for (final tree in [
+      eeveeTree,
+      caterpieTree,
+      slowpokeTree,
+      laprasTree,
+      mrMimeTree,
+      farfetchdTree,
+      meowthTree,
+    ]) {
       if (tree.nodesBySpeciesId.containsKey(speciesId)) return tree;
     }
     return null;
@@ -546,6 +754,13 @@ void main() {
         .matchedLocation;
   }
 
+  String currentUri(WidgetTester tester) {
+    final element = tester.element(
+      find.byType(EvolutionSectionPlaceholder).last,
+    );
+    return GoRouterState.of(element).uri.toString();
+  }
+
   group('进化布局纯逻辑', () {
     test('isLinearEvolutionChain：纯线性三阶链为 true', () {
       expect(isLinearEvolutionChain(repo.caterpieTree), isTrue);
@@ -745,7 +960,7 @@ void main() {
       expect(find.text('使用火之石'), findsOneWidget);
     });
 
-    testWidgets('纵向树导引线锚定卡身中心：水伊布拐角下半线延续，末分支为 └ 端点',
+    testWidgets('纵向树导引线锚定卡身中心：双子行零断线衔接，拐角精确落在卡中心',
         (tester) async {
       await pumpSection(
         tester,
@@ -754,70 +969,45 @@ void main() {
         size: const Size(400, 900),
       );
 
-      // 本行导引列的 Stack 与本行卡同处 _VerticalRow 的外层 Row：
-      // 该 Row 是名字文本的第 2 个 Row 祖先（第 1 个是卡内
-      // 缩略图 + 名称/编号 的 Row）。
-      Finder guideStackOf(String name) {
-        final row = find
-            .ancestor(of: find.text(name), matching: find.byType(Row))
-            .at(1);
-        return find.descendant(of: row, matching: find.byType(Stack)).first;
-      }
-
-      Finder piecesOf(String name) => find.descendant(
-            of: guideStackOf(name),
-            matching: find.byType(ColoredBox),
-          );
-
-      // 水伊布（伊布的第一个分支，本身是叶）：其自身无后代行，但伊布
-      // 子树之后还有 7 个分支行 → guides=[true]，拐角 = 上半竖线 +
-      // 横线 + 下半延续线（修复前误用「本行有无后代」判据，这里被切掉，
-      // 每行主干断开）。
+      final eeveeCard = cardRectOf(tester, '伊布');
+      final vaporEdge = tester.getRect(
+        find.byKey(const ValueKey('evo_tree_edge_134')),
+      );
+      final vaporRow = tester.getRect(
+        find.byKey(const ValueKey('evo_tree_card_row_134')),
+      );
+      final vaporElbow = tester.getRect(
+        find.byKey(const ValueKey('evo_tree_elbow_134')),
+      );
       final vaporCard = cardRectOf(tester, '水伊布');
-      final vaporStack = guideStackOf('水伊布');
-      expect(piecesOf('水伊布'), findsNWidgets(3));
-      final vaporPieces = [
-        for (var i = 0; i < 3; i++) tester.getRect(piecesOf('水伊布').at(i)),
-      ];
-      // Stack 子级顺序：上半竖线 / 横线 / 下半竖线。
-      final upper = vaporPieces[0];
-      final horizontal = vaporPieces[1];
-      final lower = vaporPieces[2];
-      final stackRect = tester.getRect(vaporStack);
+      final joltEdge = tester.getRect(
+        find.byKey(const ValueKey('evo_tree_edge_135')),
+      );
+      final sylveonElbow = tester.getRect(
+        find.byKey(const ValueKey('evo_tree_elbow_700')),
+      );
+      final sylveonCard = cardRectOf(tester, '仙子伊布');
 
-      expect(upper.top, moreOrLessEquals(stackRect.top, epsilon: 0.5));
-      expect(horizontal.height, moreOrLessEquals(2, epsilon: 0.001));
-      // 横线锚定卡身中心的固定偏移（xs 4 + 64/2 = 36），不再按行高 50%
-      //（含 chips 的行必然偏离卡中心）。
-      final cardCenterY = stackRect.top + 36;
-      expect(horizontal.center.dy, moreOrLessEquals(cardCenterY, epsilon: 0.5));
-      // 实测卡身外框中心因 ShapeDecoration 的 1px 描边内衬在 37，与
-      // 锚点偏差 ≤ 1.5px（与横排 _kArrowTopInset 同基准）。
-      expect((vaporCard.center.dy - horizontal.center.dy).abs(),
-          lessThanOrEqualTo(1.5));
-      // 上半竖线到卡中心，下半竖线从卡中心贯穿到行底（与下一行同列的
-      // 上半竖线首尾相接，主干连续）。
-      expect(upper.bottom, moreOrLessEquals(cardCenterY, epsilon: 0.5));
-      expect(lower.top, moreOrLessEquals(cardCenterY, epsilon: 0.5));
-      expect(lower.bottom, moreOrLessEquals(stackRect.bottom, epsilon: 0.5));
+      // 根卡底边 → 首条边行 → 首条卡行 → 下一兄弟边行：0px 断线无缝拼接。
+      expect(vaporEdge.top, moreOrLessEquals(eeveeCard.bottom, epsilon: 0.5));
+      expect(vaporRow.top, moreOrLessEquals(vaporEdge.bottom, epsilon: 0.5));
+      expect(joltEdge.top, moreOrLessEquals(vaporRow.bottom, epsilon: 0.5));
 
-      // 仙子伊布（末分支）：guides=[false] → └ 端点，只有上半竖线 +
-      // 横线，没有任何卡中心以下的下半线。
-      final fairyCard = cardRectOf(tester, '仙子伊布');
-      expect(piecesOf('仙子伊布'), findsNWidgets(2));
-      final fairyPieces = [
-        for (var i = 0; i < 2; i++) tester.getRect(piecesOf('仙子伊布').at(i)),
-      ];
-      for (final piece in fairyPieces) {
-        expect(piece.bottom, lessThanOrEqualTo(fairyCard.center.dy + 1.5),
-            reason: '末分支不应有卡中心以下的下半延续线');
-      }
+      // 拐角列与卡行等高，横线中点（height/2）精确落在水伊布、仙子伊布卡身垂直中心。
+      expect(
+        vaporElbow.center.dy,
+        moreOrLessEquals(vaporCard.center.dy, epsilon: 0.5),
+      );
+      expect(
+        sylveonElbow.center.dy,
+        moreOrLessEquals(sylveonCard.center.dy, epsilon: 0.5),
+      );
       expect(tester.takeException(), isNull);
     });
   });
 
   group('进化分区 · 绿毛虫三段链', () {
-    testWidgets('线性链宽屏走横排一行（三卡同排），窄面板回退垂直时间线', (tester) async {
+    testWidgets('线性链宽屏走横排一行（三卡同排），窄面板回退垂直时间线且 0px 断线', (tester) async {
       await pumpSection(
         tester,
         section: (id) => EvolutionSectionPlaceholder(speciesId: id),
@@ -825,18 +1015,11 @@ void main() {
         size: const Size(1000, 900),
       );
 
-      // 横排形态：三节点卡同排。条件 chips 下挂使带 chips 的卡列更高，
-      // 行内居中后卡中心错位 ±(chip 高 + 间距) / 2 ≈ 12px，仍远小于
-      // 纵向堆叠的整行高（~72）——用错位带断言同排，而非 dy 严格相等。
       double dyOf(String name) => tester.getCenter(find.text(name)).dy;
-      expect((dyOf('绿毛虫') - dyOf('巴大蝶')).abs(), lessThan(32));
+      expect((dyOf('绿毛虫') - dyOf('巴大蝶')).abs(), lessThan(4));
       expect(find.text('Lv.10'), findsOneWidget);
       expect(find.text('Lv.16'), findsOneWidget);
 
-      // 窄面板放不下估算行宽：回退垂直时间线，根在上、后继逐卡下移
-      //（卡高 ~72 + 连接段 chips，远大于横排的 chips 居中错位）；
-      // 三卡（名称列）左缘 x 相同——缩进树会随深度右移（28/列），
-      // 横排行会随序次右移（~222/卡），左缘对齐即时间线语义。
       await pumpSection(
         tester,
         section: (id) => EvolutionSectionPlaceholder(speciesId: id),
@@ -848,8 +1031,31 @@ void main() {
       expect((dxOf('巴大蝶') - dxOf('铁甲蛹')).abs(), lessThan(2));
       expect(dyOf('铁甲蛹') - dyOf('绿毛虫'), greaterThan(48));
       expect(dyOf('巴大蝶') - dyOf('铁甲蛹'), greaterThan(48));
-      // 条件 chips 移到连接段：每条边 2 枚（trigger「等级提升」+
-      // Lv.N）× 2 条边 = 4 枚，Lv.10 / Lv.16 可见。
+
+      // 垂直时间线连接段紧贴上下两张卡片边框（0px 断口）。
+      final conn11 = tester.getRect(
+        find.byKey(const ValueKey('evo_timeline_conn_11')),
+      );
+      final conn12 = tester.getRect(
+        find.byKey(const ValueKey('evo_timeline_conn_12')),
+      );
+      expect(
+        conn11.top,
+        moreOrLessEquals(cardRectOf(tester, '绿毛虫').bottom, epsilon: 0.5),
+      );
+      expect(
+        conn11.bottom,
+        moreOrLessEquals(cardRectOf(tester, '铁甲蛹').top, epsilon: 0.5),
+      );
+      expect(
+        conn12.top,
+        moreOrLessEquals(cardRectOf(tester, '铁甲蛹').bottom, epsilon: 0.5),
+      );
+      expect(
+        conn12.bottom,
+        moreOrLessEquals(cardRectOf(tester, '巴大蝶').top, epsilon: 0.5),
+      );
+
       expect(find.text('Lv.10'), findsOneWidget);
       expect(find.text('Lv.16'), findsOneWidget);
       expect(find.text('等级提升'), findsNWidgets(2));
@@ -857,7 +1063,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('横排卡列定宽 150：三卡等宽、两段箭头间距严格相等、chips 居中不撑宽',
+    testWidgets('52poke 横排形态：三卡等宽 140、间距相等 112，条件位于卡间箭头线上方',
         (tester) async {
       await pumpSection(
         tester,
@@ -866,45 +1072,26 @@ void main() {
         size: const Size(1000, 900),
       );
 
-      // 横排三卡实宽均为 150：条件 chips 不再把卡列撑宽（修复前
-      // 「等级提升 Lv.10」宽于卡身，卡列随 chips 变宽）。
       final cardRects = [
         for (final name in ['绿毛虫', '铁甲蛹', '巴大蝶'])
           cardRectOf(tester, name),
       ];
       for (final rect in cardRects) {
-        expect(rect.width, 150, reason: '横排卡身应固定 150 宽');
+        expect(rect.width, kHorizontalNodeWidthRoomy,
+            reason: '横排宽屏卡宽应固定为 140');
       }
 
-      // 两段箭头列间距 = 前卡右缘 → 后卡左缘：卡等宽且箭头列定宽
-      // （72，图标 24 居中），两段严格相等，与 chips 无关。
+      // 两段连接区宽度严格相等（112）。
       final gap1 = cardRects[1].left - cardRects[0].right;
       final gap2 = cardRects[2].left - cardRects[1].right;
-      expect(gap1, moreOrLessEquals(gap2, epsilon: 0.5),
-          reason: '两段箭头间距应相等（修复前 ~52px vs ~110px）');
+      expect(gap1, moreOrLessEquals(kHorizontalEdgeWidthRoomy, epsilon: 0.5));
+      expect(gap2, moreOrLessEquals(gap1, epsilon: 0.5));
 
-      // 铁甲蛹卡列内的条件 chips（等级提升 + Lv.10）：整组居中于
-      // 150 卡宽内，且不越出卡列（修复前按 56px 缩进左对齐、溢出卡宽）。
-      final tieColumn = find
-          .ancestor(of: find.text('铁甲蛹'), matching: find.byType(Column))
-          .at(1); // 0 = 卡内名称/编号列；1 = 卡列（卡身 + 卡下 chips）
-      final tileChips = find.descendant(
-        of: tieColumn,
-        matching: find.byType(ConditionChip),
-      );
-      expect(tileChips, findsNWidgets(2));
-      final chipRects = [
-        for (var i = 0; i < 2; i++) tester.getRect(tileChips.at(i)),
-      ];
-      final chipLeft =
-          chipRects.map((r) => r.left).reduce((a, b) => a < b ? a : b);
-      final chipRight =
-          chipRects.map((r) => r.right).reduce((a, b) => a > b ? a : b);
-      expect(chipLeft, greaterThanOrEqualTo(cardRects[1].left - 0.5));
-      expect(chipRight, lessThanOrEqualTo(cardRects[1].right + 0.5));
-      expect((chipLeft + chipRight) / 2,
-          moreOrLessEquals(cardRects[1].center.dx, epsilon: 0.5),
-          reason: '条件 chips 应居中于卡宽内');
+      // Lv.10 芯片落在卡 0 与卡 1 之间的连接段中，且位于卡片中线之上（箭头线上方）。
+      final lv10Rect = tester.getRect(find.text('Lv.10'));
+      expect(lv10Rect.left, greaterThanOrEqualTo(cardRects[0].right - 0.5));
+      expect(lv10Rect.right, lessThanOrEqualTo(cardRects[1].left + 0.5));
+      expect(lv10Rect.bottom, lessThan(cardRects[0].center.dy));
       expect(tester.takeException(), isNull);
     });
 
@@ -1018,6 +1205,298 @@ void main() {
       expect(currentLocation(tester), '/pokemon/10');
       // 当前节点 onTap 为 null，不 push 新页面：分区实例仍只有一个。
       expect(find.byType(EvolutionSectionPlaceholder), findsOneWidget);
+    });
+  });
+
+  group('进化分区 · 形态分支 / 多根并行 / 响应式零溢出', () {
+    Color formCardColor(WidgetTester tester, int formId) {
+      final containerFinder = find.descendant(
+        of: find.byKey(ValueKey('evo_card_$formId')),
+        matching: find.byWidgetPredicate(
+          (w) => w is Container && w.decoration is ShapeDecoration,
+        ),
+      );
+      final deco = tester.widget<Container>(containerFinder.first).decoration!
+          as ShapeDecoration;
+      return deco.color!;
+    }
+
+    testWidgets('魔墙人偶：52poke 横向阶梯树展示其他地区与伽勒尔地区分支，页内点击切形态',
+        (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 122,
+        size: const Size(800, 900),
+      );
+
+      // 魔尼尼(1) → [魔墙人偶(122) | 魔墙人偶-伽勒尔(10168) → 踏冰人偶(866)]。
+      expect(find.text('其他地区'), findsOneWidget);
+      expect(find.text('伽勒尔地区'), findsOneWidget);
+      expect(find.text('Lv.42'), findsOneWidget);
+      expect(find.text('伽勒尔的样子'), findsOneWidget);
+      expect(find.byType(TypeBadge), findsAtLeastNWidgets(6));
+
+      // 默认选中 122：122 高亮、10168 不高亮。
+      expect(formCardColor(tester, 122), AppColors.light.primaryContainer);
+      expect(formCardColor(tester, 10168), AppColors.light.bg);
+
+      // 横向阶梯树：魔墙人偶(122) 与 伽勒尔魔墙人偶(10168) 同列对齐，踏冰人偶位于第 3 阶更右。
+      final defaultRect =
+          tester.getRect(find.byKey(const ValueKey('evo_card_122')));
+      final galarRect =
+          tester.getRect(find.byKey(const ValueKey('evo_card_10168')));
+      final rimeRect =
+          tester.getRect(find.byKey(const ValueKey('evo_card_866')));
+      expect(defaultRect.left, moreOrLessEquals(galarRect.left, epsilon: 0.5));
+      expect(rimeRect.left, greaterThan(galarRect.right));
+      expect(galarRect.center.dy, moreOrLessEquals(rimeRect.center.dy, epsilon: 0.5));
+
+      // 同物种不同形态（10168）：点击原地切换 selectedFormIdProvider(122)，不 push 路由。
+      await tester.tap(find.byKey(const ValueKey('evo_card_10168')));
+      await tester.pump();
+      expect(currentLocation(tester), '/pokemon/122');
+      expect(find.byType(EvolutionSectionPlaceholder), findsOneWidget);
+      expect(formCardColor(tester, 10168), AppColors.light.primaryContainer);
+      expect(formCardColor(tester, 122), AppColors.light.bg);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('从魔尼尼点击伽勒尔魔墙人偶携带 ?formId=10168 导航', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 439,
+        size: const Size(800, 900),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('evo_card_10168')));
+      await tester.pump(const Duration(milliseconds: 300));
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+
+      expect(currentUri(tester), '/pokemon/122?formId=10168');
+    });
+
+    testWidgets('仅特定形态可进化（大葱鸭）：默认形态显示不可进化提示，切伽勒尔后消除',
+        (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 83,
+        size: const Size(360, 800),
+      );
+
+      expect(find.textContaining('当前形态无法进化'), findsOneWidget);
+      expect(find.textContaining('伽勒尔的样子'), findsWidgets);
+
+      await tester.tap(find.byKey(const ValueKey('evo_card_10166')));
+      await tester.pump();
+      expect(find.textContaining('当前形态无法进化'), findsNothing);
+      expect(formCardColor(tester, 10166), AppColors.light.primaryContainer);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('多根并行链（喵喵三形态）：渲染 3 条完整演化线及分隔线', (tester) async {
+      for (final width in [360.0, 720.0]) {
+        await pumpSection(
+          tester,
+          section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+          speciesId: 52,
+          size: Size(width, 900),
+        );
+
+        expect(find.text('喵喵'), findsNWidgets(3));
+        expect(find.text('猫老大'), findsNWidgets(2));
+        expect(find.text('喵头目'), findsOneWidget);
+        expect(find.byType(Divider), findsNWidgets(2));
+        expect(tester.takeException(), isNull);
+      }
+    });
+
+    testWidgets('全断点 + 1.25x 字号压力测试：魔墙人偶 / 伊布 / 绿毛虫 / 喵喵零溢出且不断线',
+        (tester) async {
+      const widths = [320.0, 360.0, 412.0, 480.0, 600.0, 720.0, 1000.0, 1280.0];
+      for (final width in widths) {
+        for (final speciesId in [122, 133, 10, 52]) {
+          tester.view.physicalSize = Size(width, 900);
+          tester.view.devicePixelRatio = 1.0;
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [pokedexRepositoryProvider.overrideWithValue(repo)],
+              child: MaterialApp(
+                theme: buildLightTheme(),
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: const TextScaler.linear(1.25)),
+                  child: Scaffold(
+                    body: SingleChildScrollView(child: child),
+                  ),
+                ),
+                home: EvolutionSectionPlaceholder(speciesId: speciesId),
+              ),
+            ),
+          );
+          for (var i = 0; i < 4; i++) {
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'species=$speciesId width=$width 1.25x 字号下出现异常',
+          );
+
+          // 所有节点卡不得超过视口右缘。
+          for (final element
+              in find.byType(InkWell).evaluate()) {
+            final box = element.renderObject as RenderBox?;
+            if (box == null || !box.hasSize) continue;
+            final topLeft = box.localToGlobal(Offset.zero);
+            expect(
+              topLeft.dx + box.size.width,
+              lessThanOrEqualTo(width + 0.5),
+              reason: 'species=$speciesId width=$width 存在横向越界',
+            );
+          }
+
+          // 若当前为纵向树，验证首条分支与根卡之间 0px 断线且拐角对齐卡中心。
+          if (speciesId == 122 &&
+              find.byKey(const ValueKey('evo_tree_elbow_10168')).evaluate().isNotEmpty) {
+            final edgeRect = tester.getRect(
+              find.byKey(const ValueKey('evo_tree_edge_122')),
+            );
+            final rootRect = tester.getRect(
+              find.byKey(const ValueKey('evo_card_439')),
+            );
+            expect(
+              edgeRect.top,
+              moreOrLessEquals(rootRect.bottom, epsilon: 0.5),
+            );
+            final galarElbow = tester.getRect(
+              find.byKey(const ValueKey('evo_tree_elbow_10168')),
+            );
+            final galarCard = tester.getRect(
+              find.byKey(const ValueKey('evo_card_10168')),
+            );
+            expect(
+              galarElbow.center.dy,
+              moreOrLessEquals(galarCard.center.dy, epsilon: 0.5),
+            );
+          }
+        }
+      }
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+  });
+
+  group('进化分区 · 真实离线库全形态链路', () {
+    loadSqliteForHostTests();
+
+    testWidgets('魔墙人偶 / 呆呆兽 / 喵喵 / 大葱鸭 / 伊布 / 蛇纹熊 / 黏黏宝 / 野蛮鲈鱼 / 熊徒弟窄屏与宽屏零异常',
+        (tester) async {
+      final db = PokedexDatabase(
+        PokedexDatabase.readOnlyExecutor(File('assets/database/pokedex.db')),
+      );
+      addTearDown(db.close);
+      final realRepo = PokedexRepositoryImpl(
+        db,
+        loadManifestJson: () async => const <String, dynamic>{},
+      );
+
+      for (final size in const [Size(360, 800), Size(800, 900)]) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        for (final speciesId in [122, 79, 52, 83, 133, 263, 704, 550, 891]) {
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [pokedexRepositoryProvider.overrideWithValue(realRepo)],
+              child: MaterialApp(
+                theme: buildLightTheme(),
+                home: Scaffold(
+                  body: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: EvolutionSectionPlaceholder(speciesId: speciesId),
+                  ),
+                ),
+              ),
+            ),
+          );
+          for (var i = 0; i < 6; i++) {
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: '真实库 species=$speciesId size=$size 渲染产生异常',
+          );
+          expect(find.text('该宝可梦没有进化关系'), findsNothing);
+        }
+      }
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    testWidgets('PokemonDetailPage 支持 initialFormId 预选特定形态并高亮进化树',
+        (tester) async {
+      final db = PokedexDatabase(
+        PokedexDatabase.readOnlyExecutor(File('assets/database/pokedex.db')),
+      );
+      addTearDown(db.close);
+      final realRepo = PokedexRepositoryImpl(
+        db,
+        loadManifestJson: () async => const <String, dynamic>{},
+      );
+      final favorites = FakeFavoritesRepository();
+      addTearDown(favorites.dispose);
+      tester.view.physicalSize = const Size(412, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            pokedexRepositoryProvider.overrideWithValue(realRepo),
+            favoritesRepositoryProvider.overrideWithValue(favorites),
+          ],
+          child: MaterialApp(
+            theme: buildLightTheme(),
+            home: const Scaffold(
+              body: PokemonDetailPage(speciesId: 122, initialFormId: 10168),
+            ),
+          ),
+        ),
+      );
+      final iceBadgeFinder = find.byKey(const ValueKey('detail_header_type_ice'));
+      for (var waited = 0;
+          iceBadgeFinder.evaluate().isEmpty && waited < 3000;
+          waited += 50) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      // 头部选中形态为伽勒尔的样子（冰/超能力属性）。
+      expect(iceBadgeFinder, findsOneWidget);
+
+      await tester.tap(find.text('进化'));
+      final galarEvoFinder = find.byKey(const ValueKey('evo_card_10168'));
+      for (var waited = 0;
+          galarEvoFinder.evaluate().isEmpty && waited < 3000;
+          waited += 50) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      final galarCardFinder = find.descendant(
+        of: galarEvoFinder,
+        matching: find.byWidgetPredicate(
+          (w) => w is Container && w.decoration is ShapeDecoration,
+        ),
+      );
+      final deco = tester.widget<Container>(galarCardFinder.first).decoration!
+          as ShapeDecoration;
+      expect(deco.color, AppColors.light.primaryContainer);
+      expect(tester.takeException(), isNull);
     });
   });
 

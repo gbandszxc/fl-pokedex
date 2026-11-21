@@ -11,11 +11,15 @@ class ConditionChip extends StatelessWidget {
     required this.label,
     this.onTap,
     this.tooltip,
+    this.maxLines = 1,
+    this.textAlign,
   });
 
   final String label;
   final VoidCallback? onTap;
   final String? tooltip;
+  final int? maxLines;
+  final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +30,10 @@ class ConditionChip extends StatelessWidget {
     );
     final labelText = Text(
       label,
-      maxLines: 1,
+      maxLines: maxLines,
+      softWrap: maxLines != 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: textAlign,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: scheme.onSecondaryContainer,
             fontWeight: FontWeight.w500,

@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +11,7 @@ import '../../domain/models/evolution.dart';
 import '../../shared/responsive/breakpoints.dart';
 import '../../shared/widgets/widgets.dart';
 import 'evolution_layout.dart';
+import 'providers.dart';
 
 /// 进化树数据（speciesId → 整条进化链；无链返回 null）。
 final evolutionTreeProvider =
@@ -24,84 +28,46 @@ const double _kGuideWidth = 28;
 /// dense 纵向树导引列宽（design-ui.md §5 密度放大）。
 const double _kGuideWidthDense = 32;
 
-/// compact 节点缩略图直径；dense 放大到 56。
+/// 节点缩略图直径；dense 放大到 56。
 const double _kThumbSize = 48;
 const double _kThumbSizeDense = 56;
 
-/// 纵向树卡身中心相对行顶的偏移（导引横线 / 拐角下半线的锚点）：
-/// [_EvolutionTile] 外层 vertical xs(4) + 卡身中心。卡身由缩略图定高
-///（compact s×2 + 48 = 64；dense m×2 + 56 = 80），故卡中心为
-/// 4 + 32 = 36 / 4 + 40 = 44。行高含条件 chips 时会变化，导引线不能再
-/// 按行高的 50% 取半高（那会偏离卡中心），必须用固定值。
-///
-/// 注：ShapeDecoration 的 RoundedRectangleBorder side 会经
-/// [ShapeDecoration.padding] 在卡身外框再加 1px 内衬（实测外框高
-/// 66 / 82），锚点与实测外框中心相差 1px——与横排箭头
-/// [_kArrowTopInset] 同基准（同为「xs + 64/2」），三形态一致。
-const double _kCardCenterY = AppSpacing.xs + (_kThumbSize + AppSpacing.s * 2) / 2;
-const double _kCardCenterYDense =
-    AppSpacing.xs + (_kThumbSizeDense + AppSpacing.m * 2) / 2;
+/// 水平连接线上方条件芯片组与中线之间的安全间距（避开 2px 线段与 8px 箭头）。
+const double _kConnectorLabelGap = 6;
 
-/// 横排箭头列宽：与 [linearChainRowWidth] 的估算常数（72）逐字对齐——
-/// 「放得下」判定基于同一估算，列宽偏离即判定失真。该常数在
-/// evolution_layout.dart 内私有且约定不改彼文件，故此处落对齐副本。
-const double _kArrowColumnWidth = 72;
+/// 垂直时间线竖线的水平中轴 = 卡身内缩略图中心：内边距 s(8) + 半径 24 = 32。
+const double _kTimelineLineCenter = AppSpacing.s + _kThumbSize / 2;
 
-/// 横排节点卡的固定宽（作为 nodeMinWidth 喂给 [linearChainRowWidth]，
-/// 同时是 [_EvolutionTile.cardWidth] 的实宽）：卡身固定部分
-///（padding s×2 + 缩略图 48 + 间距 s）= 72，加名称列上限 6 字 ×
-/// labelLarge 13 = 78。彼文件默认常数 120 只够 3 字名，4 字名实际
-/// 卡宽已到 124——继续用默认值会出现「判定放得下、实际行溢出」
-/// （如飞天螳螂→劈斧螳螂落在窗口 376–383 区间）。150 覆盖至 6 字名，
-/// 预算即实宽（卡身与卡列均 150），判定与实际闭环、无保守偏差。
-const double _kLinearNodeCardWidth = 150;
-
-/// 横排卡身高度（尺寸推算值，非 token 管辖的几何常数，风格同
-/// evolution_layout.dart 的布局常数）：卡内上下 padding 各
-/// AppSpacing.s(8) + 缩略图 48（横排卡不走 dense，固定 [_kThumbSize]）。
-/// 名称 + 编号两行文字（labelLarge / bodySmall）合计约 34，textScale
-/// 放大后仍小于 48，卡身由缩略图定高。
-const double _kLinearCardHeight = AppSpacing.s * 2 + _kThumbSize;
-
-/// 横排箭头图标尺寸。
-const double _kArrowIconSize = 24;
-
-/// 箭头顶部内边距：横排行改顶对齐后，箭头列顶部留出与 [_EvolutionTile]
-/// 相同的外层 vertical xs（4），再下移半个「卡身高 − 图标高」，使
-/// 图标垂直中心精确落在卡身中心：4 + (64 − 24) / 2 = 24。
-const double _kArrowTopInset =
-    AppSpacing.xs + (_kLinearCardHeight - _kArrowIconSize) / 2;
-
-/// 进化分区（design-ui.md §5）：数据定形态的三分支渲染——
-/// - 分支链 → 纵向树（├ / └ 导引线 + 条件 chips；本地宽 ≥840
-///   expanded 放大密度，形态结构不变）：缩进承载分支结构；
-/// - 纯线性链且分区本地宽 ≥ 估算行宽 → 横排一行（节点卡列 +
-///   条件 chips 与箭头列交替）；
-/// - 纯线性链且宽不足 → 垂直时间线（节点卡自上而下，连接段为
-///   连续竖线 + 条件 chips）：线性链每层仅一条边，缩进树的 └ 阶梯
-///   不携带任何分支信息，视觉支离破碎，故窄面板不再回退缩进树。
-/// 形态决策取 [LayoutBuilder] 的分区本地宽而非窗口宽：双栏
-/// master-detail 的窄详情面板自动回退纵向形态。无进化链显示空态；
-/// 点击节点跳转对应详情；一切内容随页面自然滚动（无画布交互）。
+/// 进化分区（design-ui.md §5）：形态级多根森林 + 三态自适应渲染：
+/// - 宽度充裕（横排整林宽度拟合，且分支链还要求 ≥ [kHorizontalBranchMinWidth]）：
+///   52poke 风格横向阶梯树（竖排中心卡 + 连续脊柱分支线 + 箭头线上方条件芯片）；
+/// - 窄宽且纯线性链：垂直时间线（零边距卡片 + 0px 断口连续竖线与下箭头）；
+/// - 窄宽或含分支/多根的纵向退化：双子行零断线纵向树（条件连线子行 + 动态卡中心拐角子行）。
 class EvolutionSectionPlaceholder extends ConsumerWidget {
   const EvolutionSectionPlaceholder({
     super.key,
     required this.speciesId,
+    this.selectedFormId,
   });
 
-  /// 当前宝可梦 speciesId：由页面显式传入（与 _FlavorSection 一致）。
-  /// 双栏（宽 ≥1080）下本页内嵌在图鉴分支 `/` 上，路由没有
-  /// :speciesId 路径参数，不能从 GoRouterState 反推。
   final int speciesId;
+
+  /// 当前详情页选中的形态 id；缺省时回退读取 [selectedFormIdProvider]。
+  final int? selectedFormId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final effectiveFormId =
+        selectedFormId ?? ref.watch(selectedFormIdProvider(speciesId));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionTitle(title: '进化'),
         const SizedBox(height: AppSpacing.m),
-        _EvolutionBody(speciesId: speciesId),
+        _EvolutionBody(
+          speciesId: speciesId,
+          selectedFormId: effectiveFormId,
+        ),
       ],
     );
   }
@@ -124,7 +90,7 @@ class _NoEvolutionHint extends StatelessWidget {
   }
 }
 
-/// 分区级加载失败：轻量文案 + 重试（与页面骨架的错误行同构）。
+/// 分区级加载失败：轻量文案 + 重试。
 class _SectionError extends StatelessWidget {
   const _SectionError({required this.onRetry});
 
@@ -150,15 +116,65 @@ class _SectionError extends StatelessWidget {
   }
 }
 
+/// 当当前选中的形态不在进化树内（如关都大葱鸭 / 普通野蛮鲈鱼）时的温和提示条。
+class _NonEvolvingFormNotice extends StatelessWidget {
+  const _NonEvolvingFormNotice({required this.evolvingFormNames});
+
+  final List<String> evolvingFormNames;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final detail = evolvingFormNames.isEmpty
+        ? '当前形态无法进化'
+        : '当前形态无法进化，仅${evolvingFormNames.map((name) => '「$name」').join(' / ')}存在以下进化';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.m,
+        vertical: AppSpacing.s,
+      ),
+      decoration: ShapeDecoration(
+        color: scheme.surfaceContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.input),
+          side: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.info_outline,
+            size: 16,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: AppSpacing.s),
+          Expanded(
+            child: Text(
+              detail,
+              style:
+                  textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EvolutionBody extends ConsumerWidget {
-  const _EvolutionBody({required this.speciesId});
+  const _EvolutionBody({
+    required this.speciesId,
+    required this.selectedFormId,
+  });
 
   final int speciesId;
+  final int? selectedFormId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 本地宽决策：maxWidth 是分区真实可用宽（双栏 master-detail 的窄
-    // 详情面板自动回退纵向树），与窗口宽 MediaQuery 无关。
     return LayoutBuilder(builder: (context, constraints) {
       final maxWidth = constraints.maxWidth;
       final treeAsync = ref.watch(evolutionTreeProvider(speciesId));
@@ -177,91 +193,153 @@ class _EvolutionBody extends ConsumerWidget {
           onRetry: () => ref.invalidate(evolutionTreeProvider(speciesId)),
         ),
         data: (tree) {
-          if (tree == null || tree.root.children.isEmpty) {
+          if (tree == null || !tree.hasAnyEvolution) {
             return const _NoEvolutionHint();
           }
-          // 三分支决策：分支链走纵向树（缩进承载分支结构）；线性链按
-          // 本地宽二选一——放得下估算行宽走横排一行，放不下走垂直
-          // 时间线（缩进树不再承接线性链：每层仅一条边，└ 阶梯不携带
-          // 分支信息）。
-          final rows = flattenEvolutionTree(tree);
-          if (!isLinearEvolutionChain(tree)) {
-            return _VerticalTree(
+          final highlightedFormId = resolveHighlightedEvolutionFormId(
+            tree,
+            speciesId: speciesId,
+            selectedFormId: selectedFormId,
+          );
+          final evolvingFormNames = <String>[
+            if (highlightedFormId == null)
+              for (final node in tree.effectiveNodesByFormId.values)
+                if (node.speciesId == speciesId && node.formNameZh != null)
+                  node.formNameZh!,
+          ];
+
+          void onNodeTap(EvolutionNode node) {
+            final targetFormId = node.resolvedFormId;
+            if (targetFormId == highlightedFormId) return;
+            if (node.speciesId == speciesId) {
+              ref.read(selectedFormIdProvider(speciesId).notifier).state =
+                  targetFormId;
+              return;
+            }
+            final location = node.isDefaultForm
+                ? '/pokemon/${node.speciesId}'
+                : '/pokemon/${node.speciesId}?formId=$targetFormId';
+            context.push(location);
+          }
+
+          final hasBranch = hasBranchingInForest(tree);
+          final horizontalAllowed =
+              !hasBranch || maxWidth >= kHorizontalBranchMinWidth;
+
+          final roomyWidth = horizontalForestWidth(
+            tree,
+            nodeWidth: kHorizontalNodeWidthRoomy,
+            edgeWidth: kHorizontalEdgeWidthRoomy,
+            branchSpineWidth: kHorizontalBranchSpineWidthRoomy,
+          );
+          final standardWidth = horizontalForestWidth(
+            tree,
+            nodeWidth: kHorizontalNodeWidth,
+            edgeWidth: kHorizontalEdgeWidth,
+            branchSpineWidth: kHorizontalBranchSpineWidth,
+          );
+
+          final Widget forest;
+          if (horizontalAllowed && maxWidth >= roomyWidth) {
+            forest = _HorizontalForest(
               tree: tree,
-              currentSpeciesId: speciesId,
-              dense: windowSizeFor(maxWidth) == WindowSize.expanded,
+              highlightedFormId: highlightedFormId,
+              onNodeTap: onNodeTap,
+              cardWidth: kHorizontalNodeWidthRoomy,
+              edgeWidth: kHorizontalEdgeWidthRoomy,
+              branchSpineWidth: kHorizontalBranchSpineWidthRoomy,
+            );
+          } else if (horizontalAllowed && maxWidth >= standardWidth) {
+            forest = _HorizontalForest(
+              tree: tree,
+              highlightedFormId: highlightedFormId,
+              onNodeTap: onNodeTap,
+              cardWidth: kHorizontalNodeWidth,
+              edgeWidth: kHorizontalEdgeWidth,
+              branchSpineWidth: kHorizontalBranchSpineWidth,
+            );
+          } else {
+            final dense = windowSizeFor(maxWidth) == WindowSize.expanded;
+            forest = _VerticalForest(
+              tree: tree,
+              highlightedFormId: highlightedFormId,
+              onNodeTap: onNodeTap,
+              dense: dense,
             );
           }
-          // 横排拦截：行内不做 Wrap / FittedBox / 横向滚动。节点卡宽
-          // 预算用校准过的 [_kLinearNodeCardWidth]（理由见其注释），
-          // 且即为卡列实宽（[_EvolutionTile.cardWidth] 同值）——门槛
-          // 估算与真实行宽闭环，不再有「预算 150、实际更窄」的保守偏差。
-          final fitsLinearRow = maxWidth >=
-              linearChainRowWidth(
-                rows.length,
-                nodeMinWidth: _kLinearNodeCardWidth,
-              );
-          return fitsLinearRow
-              ? _LinearChainRow(tree: tree, currentSpeciesId: speciesId)
-              : _LinearTimeline(tree: tree, currentSpeciesId: speciesId);
+
+          if (highlightedFormId != null) {
+            return forest;
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _NonEvolvingFormNotice(evolvingFormNames: evolvingFormNames),
+              const SizedBox(height: AppSpacing.m),
+              forest,
+            ],
+          );
         },
       );
     });
   }
 }
 
-/// 线性链横排一行（design-ui.md §5 形态一）：节点卡列（上卡、下该边
-/// 条件 chips）与箭头列交替，整行随分区左对齐。启用与否由
-/// [_EvolutionBody] 按本地宽与估算行宽拦截，行内不再自适应。
-class _LinearChainRow extends StatelessWidget {
-  const _LinearChainRow({required this.tree, required this.currentSpeciesId});
-
-  final EvolutionTree tree;
-  final int currentSpeciesId;
+/// 并行根之间的分隔线（如呆呆兽普通与伽勒尔线、喵喵三地区线）。
+class _ForestDivider extends StatelessWidget {
+  const _ForestDivider();
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // 线性链的先序展开即链序：第 i 行的目标卡挂第 i 条边的条件 chips。
-    final rows = flattenEvolutionTree(tree);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      // 顶对齐：三张卡身结构相同（等高 [_kLinearCardHeight]），顶对齐
-      // 即卡身水平对齐，条件 chips 只向卡下方延伸、不参与对齐。此前
-      // 行内居中会让带 chips 的列整体下移，卡身中心错开约 12px
-      // （实机缺陷：横排行文字没对齐）。
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+      child: Divider(
+        height: 1,
+        thickness: 1,
+        color: Theme.of(context).colorScheme.outlineVariant,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 形态一：52poke 风格横向阶梯树（同时支持线性链、单/多级分支与多根并行）
+// ---------------------------------------------------------------------------
+
+class _HorizontalForest extends StatelessWidget {
+  const _HorizontalForest({
+    required this.tree,
+    required this.highlightedFormId,
+    required this.onNodeTap,
+    required this.cardWidth,
+    required this.edgeWidth,
+    required this.branchSpineWidth,
+  });
+
+  final EvolutionTree tree;
+  final int? highlightedFormId;
+  final ValueChanged<EvolutionNode> onNodeTap;
+  final double cardWidth;
+  final double edgeWidth;
+  final double branchSpineWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final roots = tree.effectiveRoots;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final (index, row) in rows.indexed) ...[
-          if (index > 0)
-            SizedBox(
-              width: _kArrowColumnWidth,
-              // 箭头对齐卡身垂直中心：顶部先补齐 [_EvolutionTile] 的
-              // 外层 vertical xs，再下移 [_kArrowTopInset]；Center 在
-              // 剩余空间内水平居中（列无固定高，收缩到图标尺寸）。
-              child: Padding(
-                padding: const EdgeInsets.only(top: _kArrowTopInset),
-                child: Center(
-                  child: Icon(
-                    Icons.arrow_forward,
-                    size: _kArrowIconSize,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          _EvolutionTile(
-            node: row.node,
-            selected: row.node.speciesId == currentSpeciesId,
-            // 卡列固定 150（与门槛预算 [_kLinearNodeCardWidth] 同值）：
-            // 各卡等宽 → 卡右缘到箭头列的水平间距恒为
-            // (72 − 24) / 2 = 24；条件 chips 挂卡下、在 150 内居中换行，
-            // 不再把卡列撑宽。
-            cardWidth: _kLinearNodeCardWidth,
-            centerConditions: true,
-            conditionLabels: row.edgeFromParent == null
-                ? const <String>[]
-                : evolutionConditionLabels(row.edgeFromParent!),
+        for (final (index, root) in roots.indexed) ...[
+          if (index > 0) const _ForestDivider(),
+          _HorizontalSubtree(
+            tree: tree,
+            node: root,
+            visitedFormIds: <int>{},
+            highlightedFormId: highlightedFormId,
+            onNodeTap: onNodeTap,
+            cardWidth: cardWidth,
+            edgeWidth: edgeWidth,
+            branchSpineWidth: branchSpineWidth,
           ),
         ],
       ],
@@ -269,47 +347,616 @@ class _LinearChainRow extends StatelessWidget {
   }
 }
 
-/// 时间线竖线的水平中轴 = 卡身内缩略图中心：卡内 padding s(8) +
-/// 缩略图半径（compact 48 / 2 = 24）= 32。时间线不走 dense（时间线
-/// 只出现在横排门槛之下，见 [_EvolutionBody] 的三分支决策），恒按
-/// compact 缩略图 [_kThumbSize] 推算。尺寸推算值，非 token 管辖的
-/// 几何常数，风格同 [_kLinearCardHeight]。
-const double _kTimelineLineCenter = AppSpacing.s + _kThumbSize / 2;
-
-/// 线性链垂直时间线（design-ui.md §5 横排行之外的窄面板形态）：节点卡
-/// 自上而下排布，相邻两卡之间为「连接段」——一条 2px 连续竖线（与
-/// 纵向树导引线同色 outlineVariant）+ 右侧该边条件 chips。窄面板回退
-/// 不再用缩进树：线性链每层只有一条边，└ 缩进阶梯不携带分支信息；
-/// 时间线的连续竖线直接表达「同一链上的下一步」。
-///
-/// 节点卡复用 [_EvolutionTile]（条件 chips 传空——条件语义移到连接段，
-/// 挂在两条卡之间的边上）。不叠加方向箭头：垂直排布 + 贯穿连接段的
-/// 连续竖线已无歧义表达自上而下演进（时间轴隐喻自带方向），且与纵向
-/// 树「纵向形态不画箭头」的视觉约定一致；若叠图标需垫底色让位，反而
-/// 打断线的连续感并引入多余颜色耦合。
-class _LinearTimeline extends StatelessWidget {
-  const _LinearTimeline({required this.tree, required this.currentSpeciesId});
+class _HorizontalSubtree extends StatelessWidget {
+  const _HorizontalSubtree({
+    required this.tree,
+    required this.node,
+    required this.visitedFormIds,
+    required this.highlightedFormId,
+    required this.onNodeTap,
+    required this.cardWidth,
+    required this.edgeWidth,
+    required this.branchSpineWidth,
+  });
 
   final EvolutionTree tree;
-  final int currentSpeciesId;
+  final EvolutionNode node;
+  final Set<int> visitedFormIds;
+  final int? highlightedFormId;
+  final ValueChanged<EvolutionNode> onNodeTap;
+  final double cardWidth;
+  final double edgeWidth;
+  final double branchSpineWidth;
 
   @override
   Widget build(BuildContext context) {
-    // 线性链的先序展开即链序：第 i 行（i > 0）的连接段挂第 i 条边的
-    // 条件 chips。
-    final rows = flattenEvolutionTree(tree);
+    final scheme = Theme.of(context).colorScheme;
+    final nodes = tree.effectiveNodesByFormId;
+    final nextVisited = <int>{...visitedFormIds, node.resolvedFormId};
+    final edges = [
+      for (final edge in node.children)
+        if (!nextVisited.contains(edge.resolvedToFormId) &&
+            nodes[edge.resolvedToFormId] != null)
+          edge,
+    ];
+
+    final card = _HorizontalEvolutionCard(
+      node: node,
+      selected: node.resolvedFormId == highlightedFormId,
+      width: cardWidth,
+      onTap: () => onNodeTap(node),
+    );
+
+    if (edges.isEmpty) {
+      return card;
+    }
+
+    if (edges.length == 1) {
+      final edge = edges.single;
+      final child = nodes[edge.resolvedToFormId]!;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          card,
+          _HorizontalEdgeConnector(
+            width: edgeWidth,
+            conditionLabels: evolutionConditionLabels(
+              edge,
+              indicateOtherRegion: shouldIndicateOtherRegion(edge, edges),
+            ),
+          ),
+          _HorizontalSubtree(
+            tree: tree,
+            node: child,
+            visitedFormIds: nextVisited,
+            highlightedFormId: highlightedFormId,
+            onNodeTap: onNodeTap,
+            cardWidth: cardWidth,
+            edgeWidth: edgeWidth,
+            branchSpineWidth: branchSpineWidth,
+          ),
+        ],
+      );
+    }
+
+    // 多分支阶梯树：左卡 + 中央水平短桩 + 右侧连续脊柱分叉列。
+    final stubWidth = branchSpineWidth / 2;
+    final forkWidth = branchSpineWidth - stubWidth;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        card,
+        SizedBox(
+          width: stubWidth,
+          height: 2,
+          child: ColoredBox(color: scheme.outlineVariant),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (index, edge) in edges.indexed)
+              _HorizontalBranchRow(
+                tree: tree,
+                edge: edge,
+                siblings: edges,
+                child: nodes[edge.resolvedToFormId]!,
+                visitedFormIds: nextVisited,
+                highlightedFormId: highlightedFormId,
+                onNodeTap: onNodeTap,
+                cardWidth: cardWidth,
+                edgeWidth: edgeWidth,
+                branchSpineWidth: branchSpineWidth,
+                forkWidth: forkWidth,
+                isFirst: index == 0,
+                isLast: index == edges.length - 1,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HorizontalBranchRow extends StatelessWidget {
+  const _HorizontalBranchRow({
+    required this.tree,
+    required this.edge,
+    required this.siblings,
+    required this.child,
+    required this.visitedFormIds,
+    required this.highlightedFormId,
+    required this.onNodeTap,
+    required this.cardWidth,
+    required this.edgeWidth,
+    required this.branchSpineWidth,
+    required this.forkWidth,
+    required this.isFirst,
+    required this.isLast,
+  });
+
+  final EvolutionTree tree;
+  final EvolutionEdge edge;
+  final List<EvolutionEdge> siblings;
+  final EvolutionNode child;
+  final Set<int> visitedFormIds;
+  final int? highlightedFormId;
+  final ValueChanged<EvolutionNode> onNodeTap;
+  final double cardWidth;
+  final double edgeWidth;
+  final double branchSpineWidth;
+  final double forkWidth;
+  final bool isFirst;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IntrinsicHeight(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: forkWidth,
+            child: CustomPaint(
+              painter: _HorizontalSpinePainter(
+                lineColor: scheme.outlineVariant,
+                isFirst: isFirst,
+                isLast: isLast,
+              ),
+            ),
+          ),
+          // 上下对称 xs(4) 内边距承担分支间距，使行垂直中点与内部子树中心重合。
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _HorizontalEdgeConnector(
+                  width: edgeWidth,
+                  conditionLabels: evolutionConditionLabels(
+                    edge,
+                    indicateOtherRegion:
+                        shouldIndicateOtherRegion(edge, siblings),
+                  ),
+                ),
+                _HorizontalSubtree(
+                  tree: tree,
+                  node: child,
+                  visitedFormIds: visitedFormIds,
+                  highlightedFormId: highlightedFormId,
+                  onNodeTap: onNodeTap,
+                  cardWidth: cardWidth,
+                  edgeWidth: edgeWidth,
+                  branchSpineWidth: branchSpineWidth,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 分支脊柱绘制器：首分支从半高起竖线向下，末分支上半竖线止于半高，
+/// 中间分支贯穿全高，所有分支从半高向右水平接出。
+class _HorizontalSpinePainter extends CustomPainter {
+  const _HorizontalSpinePainter({
+    required this.lineColor,
+    required this.isFirst,
+    required this.isLast,
+  });
+
+  final Color lineColor;
+  final bool isFirst;
+  final bool isLast;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.square;
+
+    final midY = size.height / 2;
+    const lineX = 1.0;
+
+    if (!isFirst) {
+      canvas.drawLine(Offset(lineX, 0), Offset(lineX, midY), paint);
+    }
+    if (!isLast) {
+      canvas.drawLine(Offset(lineX, midY), Offset(lineX, size.height), paint);
+    }
+    canvas.drawLine(Offset(lineX, midY), Offset(size.width, midY), paint);
+  }
+
+  @override
+  bool shouldRepaint(_HorizontalSpinePainter oldDelegate) =>
+      oldDelegate.lineColor != lineColor ||
+      oldDelegate.isFirst != isFirst ||
+      oldDelegate.isLast != isLast;
+}
+
+/// 横向连接箭头与上方条件芯片：箭头横线与右端实心三角恒落在 `size.height / 2`，
+/// 芯片通过 [_SymmetricAboveCenter] 置于中线之上且控件自身对中线严格对称。
+class _HorizontalEdgeConnector extends StatelessWidget {
+  const _HorizontalEdgeConnector({
+    required this.width,
+    required this.conditionLabels,
+  });
+
+  final double width;
+  final List<String> conditionLabels;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: width,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _HorizontalArrowPainter(
+                lineColor: scheme.outlineVariant,
+                arrowColor: scheme.outline,
+              ),
+            ),
+          ),
+          _SymmetricAboveCenter(
+            gapAboveCenter: _kConnectorLabelGap,
+            child: conditionLabels.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs / 2,
+                      children: [
+                        for (final label in conditionLabels)
+                          ConditionChip(
+                            label: label,
+                            maxLines: 2,
+                            textAlign: TextAlign.center,
+                          ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HorizontalArrowPainter extends CustomPainter {
+  const _HorizontalArrowPainter({
+    required this.lineColor,
+    required this.arrowColor,
+  });
+
+  final Color lineColor;
+  final Color arrowColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final midY = size.height / 2;
+    const arrowLen = 6.0;
+    const arrowHalfH = 4.0;
+    final lineEnd = math.max(0.0, size.width - arrowLen);
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(0, midY), Offset(lineEnd, midY), linePaint);
+
+    final arrowPath = Path()
+      ..moveTo(size.width, midY)
+      ..lineTo(lineEnd, midY - arrowHalfH)
+      ..lineTo(lineEnd, midY + arrowHalfH)
+      ..close();
+    canvas.drawPath(arrowPath, Paint()..color = arrowColor);
+  }
+
+  @override
+  bool shouldRepaint(_HorizontalArrowPainter oldDelegate) =>
+      oldDelegate.lineColor != lineColor ||
+      oldDelegate.arrowColor != arrowColor;
+}
+
+/// 将唯一子组件置于垂直中心以上 `gapAboveCenter` 处，并把总高度对称撑开到
+/// `2 * (childHeight + gapAboveCenter)`，保证中线与箭头线段永不偏移。
+class _SymmetricAboveCenter extends SingleChildRenderObjectWidget {
+  const _SymmetricAboveCenter({
+    required this.gapAboveCenter,
+    required super.child,
+  });
+
+  final double gapAboveCenter;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSymmetricAboveCenter(gapAboveCenter: gapAboveCenter);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSymmetricAboveCenter renderObject,
+  ) {
+    renderObject.gapAboveCenter = gapAboveCenter;
+  }
+}
+
+class _RenderSymmetricAboveCenter extends RenderShiftedBox {
+  _RenderSymmetricAboveCenter({
+    required double gapAboveCenter,
+    RenderBox? child,
+  })  : _gapAboveCenter = gapAboveCenter,
+        super(child);
+
+  double _gapAboveCenter;
+  double get gapAboveCenter => _gapAboveCenter;
+  set gapAboveCenter(double value) {
+    if (_gapAboveCenter == value) return;
+    _gapAboveCenter = value;
+    markNeedsLayout();
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      child?.getMinIntrinsicWidth(height) ?? 0.0;
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      child?.getMaxIntrinsicWidth(height) ?? 0.0;
+
+  @override
+  double computeMinIntrinsicHeight(double width) {
+    final c = child;
+    if (c == null) return _gapAboveCenter * 2;
+    return 2 * (c.getMinIntrinsicHeight(width) + _gapAboveCenter);
+  }
+
+  @override
+  double computeMaxIntrinsicHeight(double width) {
+    final c = child;
+    if (c == null) return _gapAboveCenter * 2;
+    return 2 * (c.getMaxIntrinsicHeight(width) + _gapAboveCenter);
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final c = child;
+    if (c == null) {
+      return constraints.constrain(Size(0, _gapAboveCenter * 2));
+    }
+    final halfMaxH = constraints.hasBoundedHeight
+        ? math.max(0.0, constraints.maxHeight / 2 - _gapAboveCenter)
+        : double.infinity;
+    final childSize = c.getDryLayout(
+      BoxConstraints(
+        minWidth: 0,
+        maxWidth: constraints.maxWidth,
+        minHeight: 0,
+        maxHeight: halfMaxH,
+      ),
+    );
+    final desiredHeight = 2 * (childSize.height + _gapAboveCenter);
+    final w = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : constraints.constrainWidth(childSize.width);
+    return constraints.constrain(Size(w, desiredHeight));
+  }
+
+  @override
+  void performLayout() {
+    final c = child;
+    if (c == null) {
+      size = constraints.constrain(Size(0, _gapAboveCenter * 2));
+      return;
+    }
+    final halfMaxH = constraints.hasBoundedHeight
+        ? math.max(0.0, constraints.maxHeight / 2 - _gapAboveCenter)
+        : double.infinity;
+    c.layout(
+      BoxConstraints(
+        minWidth: 0,
+        maxWidth: constraints.maxWidth,
+        minHeight: 0,
+        maxHeight: halfMaxH,
+      ),
+      parentUsesSize: true,
+    );
+    final desiredHeight = 2 * (c.size.height + _gapAboveCenter);
+    final w = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : constraints.constrainWidth(c.size.width);
+    size = constraints.constrain(Size(w, desiredHeight));
+    final childX = math.max(0.0, (size.width - c.size.width) / 2);
+    final childY =
+        math.max(0.0, size.height / 2 - _gapAboveCenter - c.size.height);
+    (c.parentData! as BoxParentData).offset = Offset(childX, childY);
+  }
+}
+
+/// 52poke 风格横向竖卡：居中缩略图 + 中文名 + 编号 + 形态微胶囊 + 属性徽章。
+class _HorizontalEvolutionCard extends StatelessWidget {
+  const _HorizontalEvolutionCard({
+    required this.node,
+    required this.selected,
+    required this.width,
+    required this.onTap,
+  });
+
+  final EvolutionNode node;
+  final bool selected;
+  final double width;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('evo_card_${node.resolvedFormId}'),
+        borderRadius: BorderRadius.circular(AppRadius.input),
+        onTap: selected ? null : onTap,
+        child: Container(
+          width: width,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.s,
+            vertical: AppSpacing.s,
+          ),
+          decoration: ShapeDecoration(
+            color: selected ? scheme.primaryContainer : scheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.input),
+              side: BorderSide(
+                color: selected ? scheme.primary : scheme.outlineVariant,
+                width: selected ? 2 : 1,
+              ),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _NodeThumb(asset: node.thumbAsset, size: _kThumbSize),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                node.nameZh,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                formatDexNumber(node.nationalDex),
+                style: AppTypography.tabularFigures(
+                  textTheme.bodySmall ?? const TextStyle(),
+                ).copyWith(color: scheme.onSurfaceVariant),
+              ),
+              if (node.formNameZh != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                _FormTagPill(
+                  label: node.formNameZh!,
+                  onSelectedCard: selected,
+                ),
+              ],
+              if (node.typeIds.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final (i, typeId) in node.typeIds.indexed) ...[
+                        if (i > 0) const SizedBox(width: AppSpacing.xs),
+                        TypeBadge(type: typeId, size: TypeBadgeSize.sm),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 形态二 / 三：窄面板纵向布局（多根并行支持时间线与双子行零断线纵向树）
+// ---------------------------------------------------------------------------
+
+class _VerticalForest extends StatelessWidget {
+  const _VerticalForest({
+    required this.tree,
+    required this.highlightedFormId,
+    required this.onNodeTap,
+    required this.dense,
+  });
+
+  final EvolutionTree tree;
+  final int? highlightedFormId;
+  final ValueChanged<EvolutionNode> onNodeTap;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final roots = tree.effectiveRoots;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (index, root) in roots.indexed) ...[
+          if (index > 0) const _ForestDivider(),
+          if (isLinearEvolutionSubtree(tree, root))
+            _LinearTimeline(
+              rows: flattenEvolutionSubtree(tree, root),
+              highlightedFormId: highlightedFormId,
+              onNodeTap: onNodeTap,
+            )
+          else
+            _VerticalTree(
+              rows: flattenEvolutionSubtree(tree, root),
+              highlightedFormId: highlightedFormId,
+              onNodeTap: onNodeTap,
+              dense: dense,
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+/// 窄宽纯线性链：垂直时间线，卡片上下 0 外边距，竖线与下箭头从上卡底边直达下卡顶边。
+class _LinearTimeline extends StatelessWidget {
+  const _LinearTimeline({
+    required this.rows,
+    required this.highlightedFormId,
+    required this.onNodeTap,
+  });
+
+  final List<EvolutionRow> rows;
+  final int? highlightedFormId;
+  final ValueChanged<EvolutionNode> onNodeTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final (index, row) in rows.indexed) ...[
           if (index > 0)
             _TimelineConnector(
-              conditionLabels: evolutionConditionLabels(row.edgeFromParent!),
+              key: ValueKey('evo_timeline_conn_${row.node.resolvedFormId}'),
+              conditionLabels: row.edgeFromParent == null
+                  ? const <String>[]
+                  : evolutionConditionLabels(
+                      row.edgeFromParent!,
+                      indicateOtherRegion: row.indicateOtherRegion,
+                    ),
             ),
-          _EvolutionTile(
+          _VerticalEvolutionCard(
             node: row.node,
-            selected: row.node.speciesId == currentSpeciesId,
-            conditionLabels: const <String>[],
+            selected: row.node.resolvedFormId == highlightedFormId,
+            onTap: () => onNodeTap(row.node),
           ),
         ],
       ],
@@ -317,13 +964,11 @@ class _LinearTimeline extends StatelessWidget {
   }
 }
 
-/// 时间线连接段：定宽线列（宽 = 竖线中轴 [_kTimelineLineCenter]，2px
-/// 竖线在中轴上左移 1px 居中，风格同 [_GuideColumn] 的 lineLeft）+
-/// chips 列。IntrinsicHeight + stretch 让两列等高、竖线贯穿连接段
-/// 全部高度（一笔到底，不允许线段断点）；chips 左缘固定「线列右
-/// s(8)」，多条边的 chips 天然左对齐。
 class _TimelineConnector extends StatelessWidget {
-  const _TimelineConnector({required this.conditionLabels});
+  const _TimelineConnector({
+    super.key,
+    required this.conditionLabels,
+  });
 
   final List<String> conditionLabels;
 
@@ -336,34 +981,30 @@ class _TimelineConnector extends StatelessWidget {
         children: [
           SizedBox(
             width: _kTimelineLineCenter,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: _kTimelineLineCenter - 1,
-                  top: 0,
-                  bottom: 0,
-                  width: 2,
-                  child: ColoredBox(color: scheme.outlineVariant),
-                ),
-              ],
+            child: CustomPaint(
+              painter: _VerticalTimelineLinePainter(
+                lineColor: scheme.outlineVariant,
+                arrowColor: scheme.outline,
+              ),
             ),
           ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(
                 left: AppSpacing.s,
-                top: AppSpacing.xs,
-                bottom: AppSpacing.xs,
+                top: AppSpacing.s,
+                bottom: AppSpacing.s,
               ),
-              child: Wrap(
-                spacing: AppSpacing.s,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  for (final label in conditionLabels)
-                    ConditionChip(label: label),
-                ],
-              ),
+              child: conditionLabels.isEmpty
+                  ? const SizedBox(height: AppSpacing.s)
+                  : Wrap(
+                      spacing: AppSpacing.s,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        for (final label in conditionLabels)
+                          ConditionChip(label: label, maxLines: 2),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -372,79 +1013,140 @@ class _TimelineConnector extends StatelessWidget {
   }
 }
 
-/// 纵向树：根在上，子节点逐级缩进（├ / └ 导引线 + 条件 chips）。
-/// 只服务分支树（伊布 8 分支、奇鲁莉安型等）：缩进承载分支结构；
-/// 线性链改走时间线 / 横排行（缩进对单边链无信息量，见
-/// [_LinearTimeline]）。[dense] 为 true（分区本地宽 ≥840，
-/// [WindowSize.expanded]）时放大密度：缩略图 56、卡内 padding m、
-/// 导引列 32，形态结构不变。
+class _VerticalTimelineLinePainter extends CustomPainter {
+  const _VerticalTimelineLinePainter({
+    required this.lineColor,
+    required this.arrowColor,
+  });
+
+  final Color lineColor;
+  final Color arrowColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final x = size.width - 1;
+    const arrowLen = 6.0;
+    const arrowHalfW = 4.0;
+    final lineEnd = math.max(0.0, size.height - arrowLen);
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(x, 0), Offset(x, lineEnd), linePaint);
+
+    final arrowPath = Path()
+      ..moveTo(x, size.height)
+      ..lineTo(x - arrowHalfW, lineEnd)
+      ..lineTo(x + arrowHalfW, lineEnd)
+      ..close();
+    canvas.drawPath(arrowPath, Paint()..color = arrowColor);
+  }
+
+  @override
+  bool shouldRepaint(_VerticalTimelineLinePainter oldDelegate) =>
+      oldDelegate.lineColor != lineColor ||
+      oldDelegate.arrowColor != arrowColor;
+}
+
+/// 窄宽分支纵向树：每条非根分支拆成紧贴的两行——
+/// 1) [_VerticalTreeEdgeRow]：连续导引竖线 + 该边条件芯片；
+/// 2) [_VerticalTreeCardRow]：动态 50% 卡高拐角 + 卡片。
+/// 两行均为 0 外边距拼接，彻底消除硬编码高度偏差或断线。
 class _VerticalTree extends StatelessWidget {
   const _VerticalTree({
-    required this.tree,
-    required this.currentSpeciesId,
+    required this.rows,
+    required this.highlightedFormId,
+    required this.onNodeTap,
     this.dense = false,
   });
 
-  final EvolutionTree tree;
-  final int currentSpeciesId;
+  final List<EvolutionRow> rows;
+  final int? highlightedFormId;
+  final ValueChanged<EvolutionNode> onNodeTap;
   final bool dense;
 
   @override
   Widget build(BuildContext context) {
-    final rows = flattenEvolutionTree(tree);
+    final guideWidth = dense ? _kGuideWidthDense : _kGuideWidth;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final row in rows)
-          _VerticalRow(
-            row: row,
-            currentSpeciesId: currentSpeciesId,
-            dense: dense,
-          ),
+        for (final (index, row) in rows.indexed)
+          if (row.depth == 0)
+            _VerticalEvolutionCard(
+              node: row.node,
+              selected: row.node.resolvedFormId == highlightedFormId,
+              dense: dense,
+              onTap: () => onNodeTap(row.node),
+            )
+          else ...[
+            _VerticalTreeEdgeRow(
+              row: row,
+              guideWidth: guideWidth,
+              isFirstChildAfterParent: rows[index - 1].depth == row.depth - 1,
+            ),
+            _VerticalTreeCardRow(
+              row: row,
+              guideWidth: guideWidth,
+              selected: row.node.resolvedFormId == highlightedFormId,
+              dense: dense,
+              onTap: () => onNodeTap(row.node),
+            ),
+          ],
       ],
     );
   }
 }
 
-class _VerticalRow extends StatelessWidget {
-  const _VerticalRow({
+class _VerticalTreeEdgeRow extends StatelessWidget {
+  const _VerticalTreeEdgeRow({
     required this.row,
-    required this.currentSpeciesId,
-    this.dense = false,
+    required this.guideWidth,
+    required this.isFirstChildAfterParent,
   });
 
   final EvolutionRow row;
-  final int currentSpeciesId;
-  final bool dense;
+  final double guideWidth;
+  final bool isFirstChildAfterParent;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // IntrinsicHeight 让导引线与本行内容等高，行与行之间竖线得以连续。
+    final labels = row.edgeFromParent == null
+        ? const <String>[]
+        : evolutionConditionLabels(
+            row.edgeFromParent!,
+            indicateOtherRegion: row.indicateOtherRegion,
+          );
     return IntrinsicHeight(
+      key: ValueKey('evo_tree_edge_${row.node.resolvedFormId}'),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (var level = 0; level < row.depth; level++)
-            _GuideColumn(
-              width: dense ? _kGuideWidthDense : _kGuideWidth,
-              isElbow: level == row.depth - 1,
-              // 单一判定（贯穿列与拐角列统一）：该层祖先子树在本行之后
-              // 还有行 → 本列竖线向下延续穿过本行。拐角列 level =
-              // depth-1，延续与否与「本行自身有无后代」无关：水伊布是叶，
-              // 但伊布后续还有分支，主干必须继续（修复主干每行断开）。
-              continuity: row.guides[level],
-              cardCenterY: dense ? _kCardCenterYDense : _kCardCenterY,
+            _TreePassThroughColumn(
+              width: guideWidth,
+              // `depth - 1` 是父节点连往本分支拐角的主干竖线，必须贯通本条件行。
+              visible: level == row.depth - 1 || row.guides[level],
               lineColor: scheme.outlineVariant,
             ),
           Expanded(
-            child: _EvolutionTile(
-              node: row.node,
-              selected: row.node.speciesId == currentSpeciesId,
-              dense: dense,
-              conditionLabels: row.edgeFromParent == null
-                  ? const <String>[]
-                  : evolutionConditionLabels(row.edgeFromParent!),
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: isFirstChildAfterParent ? AppSpacing.s : AppSpacing.m,
+                bottom: AppSpacing.xs,
+              ),
+              child: labels.isEmpty
+                  ? const SizedBox(height: AppSpacing.xs)
+                  : Wrap(
+                      spacing: AppSpacing.s,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        for (final label in labels)
+                          ConditionChip(label: label, maxLines: 2),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -453,115 +1155,168 @@ class _VerticalRow extends StatelessWidget {
   }
 }
 
-/// 缩进导引列：竖线 + 横线（├ / └ 视觉），2px outlineVariant。
-///
-/// - 非拐角列（祖先贯穿列）：[continuity] 为 true 画贯穿整行的竖线
-///   （该层祖先子树在本行之后还有行），为 false 留空（└ 端点之下）。
-/// - 拐角列（├ / └）：上半竖线（行顶 → 卡身中心）+ 横线（卡身中心 →
-///   卡左缘）常画；[continuity] 为 true 时补下半竖线（卡身中心 → 行
-///   底，├ 形，衔接下一行同列的上半竖线），为 false 是 └ 端点。
-///
-/// [continuity] 两列统一取 `EvolutionRow.guides[level]`（拐角列
-/// level = depth-1）：竖线是否向下延续只看该层祖先子树在本行之后
-/// 是否还有行，与本行自身有无后代无关。
-///
-/// 线的纵向落点锚定卡身中心的固定偏移 [cardCenterY]（[_kCardCenterY]
-/// / [_kCardCenterYDense]）：行高含条件 chips 时会变化，旧的「行高
-/// 50%」比例中点不再等于卡中心，横线会偏离卡身中线。
-class _GuideColumn extends StatelessWidget {
-  const _GuideColumn({
-    required this.width,
-    required this.isElbow,
-    required this.continuity,
-    required this.cardCenterY,
-    required this.lineColor,
+class _VerticalTreeCardRow extends StatelessWidget {
+  const _VerticalTreeCardRow({
+    required this.row,
+    required this.guideWidth,
+    required this.selected,
+    required this.dense,
+    required this.onTap,
   });
 
-  final double width;
-
-  final bool isElbow;
-
-  /// 该层祖先子树在本行之后还有行：本列竖线延续穿过本行，衔接下一行
-  /// 同列导引；false 时本列竖线到本行即止（└ 端点）。
-  final bool continuity;
-
-  /// 本行卡身中心相对行顶的偏移（导引横线与下半竖线的起点）。
-  final double cardCenterY;
-
-  final Color lineColor;
+  final EvolutionRow row;
+  final double guideWidth;
+  final bool selected;
+  final bool dense;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // 竖线 / 横线的横向落点：列宽中线左移半线宽，线随列宽居中
-    //（28 → 13，32 → 15）。
-    final lineLeft = width / 2 - 1;
-
-    /// 全高 / 半高竖线段（[top] / [bottom] / [height] 由调用点给定）。
-    Widget vLine({double? top, double? bottom, double? height}) {
-      return Positioned(
-        left: lineLeft,
-        top: top,
-        bottom: bottom,
-        height: height,
-        width: 2,
-        child: ColoredBox(color: lineColor),
-      );
-    }
-
-    final pieces = <Widget>[];
-    if (isElbow) {
-      // 拐角列：上半竖线（行顶 → 卡身中心）+ 横线（卡身中心 → 卡左缘）；
-      // 延续时补下半竖线（卡身中心 → 行底）。
-      pieces.add(vLine(top: 0, height: cardCenterY));
-      pieces.add(Positioned(
-        top: cardCenterY - 1,
-        left: lineLeft,
-        right: 0,
-        height: 2,
-        child: ColoredBox(color: lineColor),
-      ));
-      if (continuity) {
-        pieces.add(vLine(top: cardCenterY, bottom: 0));
-      }
-    } else if (continuity) {
-      // 祖先贯穿列：竖线贯穿整行（该层祖先子树在本行之后还有行），
-      // 与上下行同列竖线连续；false 时该祖先线已到端点，留空。
-      pieces.add(vLine(top: 0, bottom: 0));
-    }
-
-    return SizedBox(
-      width: width,
-      child: Stack(clipBehavior: Clip.none, children: pieces),
+    final scheme = Theme.of(context).colorScheme;
+    return IntrinsicHeight(
+      key: ValueKey('evo_tree_card_row_${row.node.resolvedFormId}'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var level = 0; level < row.depth - 1; level++)
+            _TreePassThroughColumn(
+              width: guideWidth,
+              visible: row.guides[level],
+              lineColor: scheme.outlineVariant,
+            ),
+          SizedBox(
+            key: ValueKey('evo_tree_elbow_${row.node.resolvedFormId}'),
+            width: guideWidth,
+            child: CustomPaint(
+              painter: _VerticalTreeElbowPainter(
+                lineColor: scheme.outlineVariant,
+                arrowColor: scheme.outline,
+                continueDown: row.guides[row.depth - 1],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _VerticalEvolutionCard(
+                node: row.node,
+                selected: selected,
+                dense: dense,
+                onTap: onTap,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// 节点行：横向卡（缩略图 + 名 + 编号）+ 节点下方条件 chips，横排 /
-/// 纵向树 / 时间线三形态共用。[dense] 放大密度：缩略图 48→56、卡内
-/// padding s→m（不影响 chips 缩进，见 [centerConditions]）。
-class _EvolutionTile extends StatelessWidget {
-  const _EvolutionTile({
+class _TreePassThroughColumn extends StatelessWidget {
+  const _TreePassThroughColumn({
+    required this.width,
+    required this.visible,
+    required this.lineColor,
+  });
+
+  final double width;
+  final bool visible;
+  final Color lineColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) {
+      return SizedBox(width: width);
+    }
+    return SizedBox(
+      width: width,
+      child: CustomPaint(
+        painter: _VerticalPassThroughPainter(lineColor: lineColor),
+      ),
+    );
+  }
+}
+
+class _VerticalPassThroughPainter extends CustomPainter {
+  const _VerticalPassThroughPainter({required this.lineColor});
+
+  final Color lineColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final x = size.width / 2;
+    final paint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(_VerticalPassThroughPainter oldDelegate) =>
+      oldDelegate.lineColor != lineColor;
+}
+
+class _VerticalTreeElbowPainter extends CustomPainter {
+  const _VerticalTreeElbowPainter({
+    required this.lineColor,
+    required this.arrowColor,
+    required this.continueDown,
+  });
+
+  final Color lineColor;
+  final Color arrowColor;
+  final bool continueDown;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final x = size.width / 2;
+    final midY = size.height / 2;
+    const arrowLen = 6.0;
+    const arrowHalfH = 4.0;
+    final horizEnd = math.max(x, size.width - arrowLen);
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.square;
+
+    canvas.drawLine(
+      Offset(x, 0),
+      Offset(x, continueDown ? size.height : midY),
+      linePaint,
+    );
+    canvas.drawLine(Offset(x, midY), Offset(horizEnd, midY), linePaint);
+
+    final arrowPath = Path()
+      ..moveTo(size.width, midY)
+      ..lineTo(horizEnd, midY - arrowHalfH)
+      ..lineTo(horizEnd, midY + arrowHalfH)
+      ..close();
+    canvas.drawPath(arrowPath, Paint()..color = arrowColor);
+  }
+
+  @override
+  bool shouldRepaint(_VerticalTreeElbowPainter oldDelegate) =>
+      oldDelegate.lineColor != lineColor ||
+      oldDelegate.arrowColor != arrowColor ||
+      oldDelegate.continueDown != continueDown;
+}
+
+/// 窄面板节点横卡（0 上下外边距，支持完整名称 + 编号 + 形态胶囊 + 属性徽章，无溢出）。
+class _VerticalEvolutionCard extends StatelessWidget {
+  const _VerticalEvolutionCard({
     required this.node,
     required this.selected,
-    required this.conditionLabels,
+    required this.onTap,
     this.dense = false,
-    this.cardWidth,
-    this.centerConditions = false,
   });
 
   final EvolutionNode node;
   final bool selected;
-  final List<String> conditionLabels;
+  final VoidCallback onTap;
   final bool dense;
-
-  /// 卡列固定宽：横排形态传 [_kLinearNodeCardWidth]（卡身与卡下 chips
-  /// 同宽，各卡等宽 → 箭头间距恒定）；纵向树 / 时间线不传（null），
-  /// 卡身按缩略图 + 名称 intrinsic。
-  final double? cardWidth;
-
-  /// 条件 chips 是否居中于卡列宽内（横排传 true：chips 挂卡下、在
-  /// 150 卡宽内居中换行）；纵向树传 false：chips 与卡身左缘对齐。
-  final bool centerConditions;
 
   @override
   Widget build(BuildContext context) {
@@ -569,86 +1324,123 @@ class _EvolutionTile extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final thumbSize = dense ? _kThumbSizeDense : _kThumbSize;
 
-    final chips = Wrap(
-      alignment:
-          centerConditions ? WrapAlignment.center : WrapAlignment.start,
-      spacing: AppSpacing.s,
-      runSpacing: AppSpacing.xs,
-      children: [
-        for (final label in conditionLabels) ConditionChip(label: label),
-      ],
-    );
-
-    final tileColumn = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(AppRadius.input),
-          onTap: selected
-              ? null
-              : () => context.push('/pokemon/${node.speciesId}'),
-          child: Container(
-            width: cardWidth,
-            padding: EdgeInsets.all(dense ? AppSpacing.m : AppSpacing.s),
-            decoration: ShapeDecoration(
-              color: selected ? scheme.primaryContainer : scheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.input),
-                side: BorderSide(
-                  color: selected ? scheme.primary : scheme.outlineVariant,
-                  width: selected ? 2 : 1,
-                ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('evo_card_${node.resolvedFormId}'),
+        borderRadius: BorderRadius.circular(AppRadius.input),
+        onTap: selected ? null : onTap,
+        child: Container(
+          padding: EdgeInsets.all(dense ? AppSpacing.m : AppSpacing.s),
+          decoration: ShapeDecoration(
+            color: selected ? scheme.primaryContainer : scheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.input),
+              side: BorderSide(
+                color: selected ? scheme.primary : scheme.outlineVariant,
+                width: selected ? 2 : 1,
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _NodeThumb(asset: node.thumbAsset, size: thumbSize),
-                const SizedBox(width: AppSpacing.s),
-                Column(
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _NodeThumb(asset: node.thumbAsset, size: thumbSize),
+              const SizedBox(width: AppSpacing.s),
+              Flexible(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      node.nameZh,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.labelLarge,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            node.nameZh,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.labelLarge,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          formatDexNumber(node.nationalDex),
+                          style: AppTypography.tabularFigures(
+                            textTheme.bodySmall ?? const TextStyle(),
+                          ).copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
                     ),
-                    Text(
-                      formatDexNumber(node.nationalDex),
-                      style: AppTypography.tabularFigures(
-                        textTheme.bodySmall ?? const TextStyle(),
-                      ).copyWith(color: scheme.onSurfaceVariant),
-                    ),
+                    if (node.formNameZh != null) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      _FormTagPill(
+                        label: node.formNameZh!,
+                        onSelectedCard: selected,
+                      ),
+                    ],
+                    if (node.typeIds.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Wrap(
+                        spacing: AppSpacing.xs,
+                        runSpacing: AppSpacing.xs / 2,
+                        children: [
+                          for (final typeId in node.typeIds)
+                            TypeBadge(type: typeId, size: TypeBadgeSize.sm),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        if (conditionLabels.isNotEmpty)
-          Padding(
-            // 横排：chips 挂卡下、居中于卡宽；纵向树：chips 与卡身左缘
-            // 对齐（缩进恒 0）——对齐基准从「卡内名称列」改为「卡身左
-            // 缘」（用户实机反馈：跨行 chips 左缘与卡左缘成一条竖线）；
-            // 不随 dense 缩略图尺寸变化，故两形态 padding 相同。
-            padding: const EdgeInsets.only(top: AppSpacing.xs),
-            child: centerConditions
-                // Wrap 需铺满卡宽：Column 子级默认收缩到内容宽，
-                // 不定宽则 WrapAlignment.center 没有可居中的余量。
-                ? SizedBox(width: cardWidth, child: chips)
-                : chips,
-          ),
-      ],
+      ),
     );
+  }
+}
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      // 卡列（卡身 + chips）定宽：横排所有节点列等宽 150，卡间箭头
-      // 间距严格相等；纵向树 / 时间线保持 intrinsic。
-      child: cardWidth == null
-          ? tileColumn
-          : SizedBox(width: cardWidth, child: tileColumn),
+/// 形态副标题微胶囊（遵守 DESIGN.md 对比度规范，全 6 种主题明暗均 ≥ 4.5:1）。
+class _FormTagPill extends StatelessWidget {
+  const _FormTagPill({
+    required this.label,
+    required this.onSelectedCard,
+  });
+
+  final String label;
+  final bool onSelectedCard;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final bg = onSelectedCard ? scheme.surface : scheme.primaryContainer;
+    final fg = onSelectedCard ? scheme.onSurface : scheme.onPrimaryContainer;
+    final shape = onSelectedCard
+        ? StadiumBorder(side: BorderSide(color: scheme.outlineVariant))
+        : const StadiumBorder();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s,
+        vertical: AppSpacing.xs / 2,
+      ),
+      decoration: ShapeDecoration(color: bg, shape: shape),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: (textTheme.labelSmall ?? const TextStyle()).copyWith(
+          fontSize: 10,
+          height: 1.2,
+          color: fg,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }
@@ -658,12 +1450,13 @@ class _NodeThumb extends StatelessWidget {
   const _NodeThumb({required this.size, this.asset});
 
   final double size;
-
   final String? asset;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final innerSize = size - 4;
     final placeholder = Icon(
       Icons.catching_pokemon,
       size: 24,
@@ -682,8 +1475,9 @@ class _NodeThumb extends StatelessWidget {
           : ClipOval(
               child: Image.asset(
                 asset!,
-                width: size - 4,
-                height: size - 4,
+                width: innerSize,
+                height: innerSize,
+                cacheWidth: (innerSize * dpr).round(),
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => placeholder,
               ),
