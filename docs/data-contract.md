@@ -16,7 +16,7 @@ manifest.json：
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "dataVersion": "pokeapi@<short-sha>",
   "pokemonCount": 1025,
   "formCount": 0,
@@ -137,17 +137,21 @@ CREATE TABLE evolution_edges(
   chain_id INTEGER NOT NULL,
   from_species_id INTEGER,           -- NULL 表示根节点自指行（root→root）
   to_species_id INTEGER NOT NULL,
+  from_form_id INTEGER,              -- NULL 表示根节点自指行；否则为进化前 forms.id
+  to_form_id INTEGER NOT NULL,       -- 进化后（或根节点）forms.id
   trigger TEXT NOT NULL,             -- level-up / trade / use-item / shed / spin / ...
   min_level INTEGER, item TEXT, held_item TEXT,
-  known_move TEXT, known_move_type TEXT, location TEXT, time_of_day TEXT,
+  known_move TEXT, known_move_type TEXT, location TEXT, region TEXT, time_of_day TEXT,
   gender TEXT, min_happiness INTEGER, min_affection INTEGER, min_beauty INTEGER,
   relative_physical_stats TEXT,      -- greater / less / equal
   party_species TEXT, party_type TEXT, trade_species TEXT,
   needs_overworld_rain INTEGER NOT NULL DEFAULT 0,
   turn_upside_down INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY(chain_id, to_species_id));
+  PRIMARY KEY(chain_id, to_form_id));
 CREATE INDEX idx_evo_from ON evolution_edges(from_species_id);
 CREATE INDEX idx_evo_to ON evolution_edges(to_species_id);
+CREATE INDEX idx_evo_from_form ON evolution_edges(from_form_id);
+CREATE INDEX idx_evo_to_form ON evolution_edges(to_form_id);
 
 CREATE TABLE versions(
   id INTEGER PRIMARY KEY, identifier TEXT NOT NULL UNIQUE,
@@ -255,5 +259,6 @@ identifier 后缀 → 官方中文：
 10. pokedexes 含 region kanto..paldea；species_dex_numbers 覆盖全部地区图鉴成员。
 11. 归属前后守恒：flavor_texts ∪ form_flavor_texts 的行集合与归属前的 species 文本集合一一对应（不多不少）。
 12. 检索增强：`species_aliases` ≥ 300 条、外键无悬空且含典型旧译；`species_tags` 各标签计数准确（`fossil=25` / `paradox=22` / `starter=81` / `pseudo_legendary=30` / `baby=19` / `ultra_beast=11` 等）；`species_pinyin` 覆盖全部 1025 只且非空。
+13. 形态级进化（§8.6b / §8.9）：`evolution_edges.to_form_id` 与 `from_form_id`（非空时）全部可解析到 `forms.id`；魔尼尼/呆呆兽/喵喵/大葱鸭形态分支及 `region` 字段完整；`forms.id=10247`（白条纹的样子）/`10151`（我行我素）译名准确。
 
 输出结束时打印：各表行数、db 文件大小、图片数量与总体积。

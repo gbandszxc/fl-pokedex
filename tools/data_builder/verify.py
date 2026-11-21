@@ -147,6 +147,56 @@ def main(argv: list[str] | None = None) -> int:
     c.check("§8.6 土居忍士 shed 边存在（290→292）",
             shed is not None and shed[0] == 290 and shed[1] == 292, str(tuple(shed) if shed else None))
 
+    # ---- 6b. 形态级进化分支与地区条件 ----
+    chain57 = q(
+        "SELECT from_form_id, to_form_id, trigger, min_level, known_move, region "
+        "FROM evolution_edges WHERE chain_id = 57 ORDER BY to_form_id"
+    ).fetchall()
+    c.check("§8.6b 链 57(魔尼尼) 439→122 与 439→10168(galar) 与 10168→866(Lv.42)",
+            any(r["from_form_id"] == 439 and r["to_form_id"] == 122 and r["known_move"] == "mimic" for r in chain57)
+            and any(r["from_form_id"] == 439 and r["to_form_id"] == 10168 and r["region"] == "galar" for r in chain57)
+            and any(r["from_form_id"] == 10168 and r["to_form_id"] == 866 and r["min_level"] == 42 for r in chain57)
+            and not any(r["from_form_id"] == 122 for r in chain57),
+            str([tuple(r) for r in chain57]))
+
+    chain33 = q(
+        "SELECT from_form_id, to_form_id, trigger, min_level, item, held_item "
+        "FROM evolution_edges WHERE chain_id = 33"
+    ).fetchall()
+    c.check("§8.6b 链 33(呆呆兽) 双根四支",
+            sum(1 for r in chain33 if r["trigger"] == "root" and r["to_form_id"] in (79, 10164)) == 2
+            and any(r["from_form_id"] == 79 and r["to_form_id"] == 80 and r["min_level"] == 37 for r in chain33)
+            and any(r["from_form_id"] == 79 and r["to_form_id"] == 199 and r["held_item"] == "kings-rock" for r in chain33)
+            and any(r["from_form_id"] == 10164 and r["to_form_id"] == 10165 and r["item"] == "galarica-cuff" for r in chain33)
+            and any(r["from_form_id"] == 10164 and r["to_form_id"] == 10172 and r["item"] == "galarica-wreath" for r in chain33),
+            str([tuple(r) for r in chain33]))
+
+    chain22 = q(
+        "SELECT from_form_id, to_form_id, trigger FROM evolution_edges WHERE chain_id = 22"
+    ).fetchall()
+    c.check("§8.6b 链 22(喵喵) 三根并行",
+            {r["to_form_id"] for r in chain22 if r["trigger"] == "root"} == {52, 10107, 10161}
+            and any(r["from_form_id"] == 52 and r["to_form_id"] == 53 for r in chain22)
+            and any(r["from_form_id"] == 10107 and r["to_form_id"] == 10108 for r in chain22)
+            and any(r["from_form_id"] == 10161 and r["to_form_id"] == 863 for r in chain22),
+            str([tuple(r) for r in chain22]))
+
+    chain35 = q(
+        "SELECT from_form_id, to_form_id, trigger FROM evolution_edges WHERE chain_id = 35"
+    ).fetchall()
+    c.check("§8.6b 链 35(大葱鸭) 仅伽勒尔形态 10166→865",
+            [r["to_form_id"] for r in chain35 if r["trigger"] == "root"] == [10166]
+            and any(r["from_form_id"] == 10166 and r["to_form_id"] == 865 for r in chain35)
+            and not any(r["from_form_id"] == 83 for r in chain35),
+            str([tuple(r) for r in chain35]))
+
+    f10247 = q("SELECT form_name_zh FROM forms WHERE id = 10247").fetchone()
+    f10151 = q("SELECT form_name_zh FROM forms WHERE id = 10151").fetchone()
+    c.check("§8.6b 进化形态译名修复（10247=白条纹的样子, 10151=我行我素）",
+            f10247 is not None and f10247[0] == "白条纹的样子"
+            and f10151 is not None and f10151[0] == "我行我素",
+            f"10247={f10247[0] if f10247 else None}, 10151={f10151[0] if f10151 else None}")
+
     # ---- 7. 招式 ≥900 且 name_zh_hans 非空 ----
     n_moves = q("SELECT COUNT(*) FROM moves").fetchone()[0]
     c.check("§8.7 moves ≥ 900", n_moves >= 900, f"实际 {n_moves}")
@@ -239,6 +289,11 @@ def main(argv: list[str] | None = None) -> int:
         ("evolution_edges.from_species_id → species(或 NULL)",
          "SELECT COUNT(*) FROM evolution_edges x LEFT JOIN species s ON s.id = x.from_species_id "
          "WHERE x.from_species_id IS NOT NULL AND s.id IS NULL"),
+        ("evolution_edges.to_form_id → forms",
+         "SELECT COUNT(*) FROM evolution_edges x LEFT JOIN forms f ON f.id = x.to_form_id WHERE f.id IS NULL"),
+        ("evolution_edges.from_form_id → forms(或 NULL)",
+         "SELECT COUNT(*) FROM evolution_edges x LEFT JOIN forms f ON f.id = x.from_form_id "
+         "WHERE x.from_form_id IS NOT NULL AND f.id IS NULL"),
         ("species_dex_numbers.pokedex_id → pokedexes",
          "SELECT COUNT(*) FROM species_dex_numbers x LEFT JOIN pokedexes p ON p.id = x.pokedex_id WHERE p.id IS NULL"),
         ("species_dex_numbers.species_id → species",

@@ -63,7 +63,7 @@ MANIFEST_PATH = ASSETS_DB_DIR / "manifest.json"
 ASSETS_FULL_DIR = REPO_ROOT / "assets" / "pokemon" / "full"
 ASSETS_THUMB_DIR = REPO_ROOT / "assets" / "pokemon" / "thumb"
 
-SCHEMA_VERSION = 3  # 新增 species_aliases / species_tags / species_pinyin 并修复究极异兽名单时 +1
+SCHEMA_VERSION = 4  # evolution_edges 升级为形态级图谱（from_form_id / to_form_id / region）并补全进化形态译名时 +1
 
 # ---------------------------------------------------------------------------
 # 数据契约常量（docs/data-contract.md §2/§4/§5）
@@ -141,6 +141,12 @@ FORM_SUFFIX_ZH_TEMPLATE = {
     "incarnate": "化身形态",
     "black": "黑色形态",
     "white": "白色形态",
+    "white-striped": "白条纹的样子",
+    "own-tempo": "我行我素",
+    "female": "雌性的样子",
+    "three-segment": "三节形态",
+    "family-of-three": "三只家庭",
+    "white-plumage": "白羽毛",
 }
 
 # 进化触发词根（evolution_triggers.csv identifier 直接沿用；根节点自指行固定为 root）

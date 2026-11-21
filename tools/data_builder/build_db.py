@@ -118,17 +118,21 @@ CREATE TABLE evolution_edges(
   chain_id INTEGER NOT NULL,
   from_species_id INTEGER,           -- NULL 表示根节点自指行（root→root）
   to_species_id INTEGER NOT NULL,
+  from_form_id INTEGER,              -- NULL 表示根节点自指行；否则为进化前 forms.id
+  to_form_id INTEGER NOT NULL,       -- 进化后（或根节点）forms.id
   trigger TEXT NOT NULL,             -- level-up / trade / use-item / shed / spin / ...
   min_level INTEGER, item TEXT, held_item TEXT,
-  known_move TEXT, known_move_type TEXT, location TEXT, time_of_day TEXT,
+  known_move TEXT, known_move_type TEXT, location TEXT, region TEXT, time_of_day TEXT,
   gender TEXT, min_happiness INTEGER, min_affection INTEGER, min_beauty INTEGER,
   relative_physical_stats TEXT,      -- greater / less / equal
   party_species TEXT, party_type TEXT, trade_species TEXT,
   needs_overworld_rain INTEGER NOT NULL DEFAULT 0,
   turn_upside_down INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY(chain_id, to_species_id));
+  PRIMARY KEY(chain_id, to_form_id));
 CREATE INDEX idx_evo_from ON evolution_edges(from_species_id);
 CREATE INDEX idx_evo_to ON evolution_edges(to_species_id);
+CREATE INDEX idx_evo_from_form ON evolution_edges(from_form_id);
+CREATE INDEX idx_evo_to_form ON evolution_edges(to_form_id);
 
 CREATE TABLE versions(
   id INTEGER PRIMARY KEY, identifier TEXT NOT NULL UNIQUE,
@@ -635,10 +639,11 @@ class Builder:
             return None
         if form_identifier in cfg.FORM_SUFFIX_ZH_TEMPLATE:
             return cfg.FORM_SUFFIX_ZH_TEMPLATE[form_identifier]
-        # 前缀匹配（如 alola-battle → 阿罗拉的样子；paldea-combat → 帕底亚的样子）
-        for suffix, zh in cfg.FORM_SUFFIX_ZH_TEMPLATE.items():
+        # 前缀匹配仅用于地区变体（如 alola-battle → 阿罗拉的样子；
+        # 避免 white-striped / white-plumage 误命中酋雷姆的 white）
+        for suffix in cfg.REGIONAL_SUFFIXES:
             if form_identifier.startswith(suffix + "-"):
-                return zh
+                return cfg.FORM_SUFFIX_ZH_TEMPLATE[suffix]
         return None
 
     # -- learnsets --
@@ -698,54 +703,119 @@ class Builder:
         chain_members: dict[int, list[int]] = defaultdict(list)
         for sid, chain in chain_of.items():
             chain_members[chain].append(sid)
+        pf_to_variety = {
+            int(r["id"]): int(r["pokemon_id"]) for r in self.read("pokemon_forms.csv")
+        }
         triggers = {r["id"]: r["identifier"] for r in self.read("evolution_triggers.csv")}
         items = {r["id"]: r["identifier"] for r in self.read("items.csv")}
         locations = {r["id"]: r["identifier"] for r in self.read("locations.csv")}
+        regions = {r["id"]: r["identifier"] for r in self.read("regions.csv")}
         genders = {r["id"]: r["identifier"] for r in self.read("genders.csv")}
         types = {r["id"]: r["identifier"] for r in self.read("types.csv")}
         species_ident = {int(r["id"]): r["identifier"] for r in sp}
         moves_ident = {r[0]: r[1] for r in self.rows["moves"]}
         rel_phys = {"1": "greater", "-1": "less", "0": "equal"}
 
-        # 根节点自指行（root→root，trigger=root）
-        for chain in sorted(chain_members):
-            root = min(sid for sid in chain_members[chain] if evolves_from[sid] is None)
-            self.rows["evolution_chains"].append((chain, root))
-            self.rows["evolution_edges"].append(
-                (chain, None, root, cfg.EVO_ROOT_TRIGGER,
-                 None, None, None, None, None, None, None, None,
-                 None, None, None, None, None, None, None, 0, 0))
+        # forms 表元数据（build_forms 已先行落入 self.rows["forms"]）
+        form_species = {r[0]: r[1] for r in self.rows["forms"]}
+        form_is_default = {r[0]: r[5] for r in self.rows["forms"]}
+        form_order = {r[0]: r[10] for r in self.rows["forms"]}
 
-        # 同一 (chain, to) 存在跨版本组的条件变体（如 蚊香蝌蚪・叶之石/苔藓岩），
-        # DDL PK(chain, to) 要求合并为一行：取最新 version_group 的条件（最贴近现行游戏）。
-        grouped: dict[tuple, list[dict]] = defaultdict(list)
+        # 按形态对 (chain_id, from_form_id, to_form_id) 分组，保留各形态分支与跨版本变体合并。
+        grouped: dict[tuple[int, int, int], list[dict]] = defaultdict(list)
         for r in self.read("pokemon_evolution.csv"):
             to_sid = int(r["evolved_species_id"])
-            grouped[(chain_of[to_sid], to_sid)].append(r)
+            from_sid = evolves_from[to_sid]
+            assert from_sid is not None, f"pokemon_evolution 行 {r['id']} 缺少前置 species"
+            from_fid = (
+                pf_to_variety[int(r["required_pokemon_form_id"])]
+                if r["required_pokemon_form_id"]
+                else from_sid
+            )
+            to_fid = (
+                pf_to_variety[int(r["evolved_pokemon_form_id"])]
+                if r["evolved_pokemon_form_id"]
+                else to_sid
+            )
+            grouped[(chain_of[to_sid], from_fid, to_fid)].append(r)
+
         merged_out = sum(len(v) - 1 for v in grouped.values())
-        for (chain, to_sid) in sorted(grouped):
-            r = max(grouped[(chain, to_sid)], key=lambda x: int(x["version_group_id"] or 0))
-            self.rows["evolution_edges"].append((
-                chain,
-                evolves_from[to_sid],
-                to_sid,
-                triggers[r["evolution_trigger_id"]],
-                _int(r["minimum_level"]),
-                items.get(r["trigger_item_id"]) if r["trigger_item_id"] else None,
-                items.get(r["held_item_id"]) if r["held_item_id"] else None,
-                moves_ident.get(int(r["known_move_id"])) if r["known_move_id"] else None,
-                types.get(r["known_move_type_id"]) if r["known_move_type_id"] else None,
-                locations.get(r["location_id"]) if r["location_id"] else None,
-                r["time_of_day"] or None,
-                genders.get(r["gender_id"]) if r["gender_id"] else None,
-                _int(r["minimum_happiness"]), _int(r["minimum_affection"]), _int(r["minimum_beauty"]),
-                rel_phys.get(r["relative_physical_stats"]) or None,
-                species_ident.get(int(r["party_species_id"])) if r["party_species_id"] else None,
-                types.get(r["party_type_id"]) if r["party_type_id"] else None,
-                species_ident.get(int(r["trade_species_id"])) if r["trade_species_id"] else None,
-                _flag(r["needs_overworld_rain"]),
-                _flag(r["turn_upside_down"]),
-            ))
+        edges_by_chain: dict[int, list[tuple[int, int, dict]]] = defaultdict(list)
+        seen_to_form: dict[int, set[int]] = defaultdict(set)
+        for (chain, from_fid, to_fid), rows in sorted(grouped.items()):
+            assert to_fid not in seen_to_form[chain], (
+                f"chain {chain} 存在多个指向同一 to_form_id={to_fid} 的进化边"
+            )
+            seen_to_form[chain].add(to_fid)
+            defs = [row for row in rows if row["is_default"] == "1"]
+            pool = defs if defs else rows
+            chosen = max(
+                pool,
+                key=lambda x: (int(x["version_group_id"] or 0), -int(x["id"])),
+            )
+            edges_by_chain[chain].append((from_fid, to_fid, chosen))
+
+        for chain in sorted(chain_members):
+            root_species = min(sid for sid in chain_members[chain] if evolves_from[sid] is None)
+            self.rows["evolution_chains"].append((chain, root_species))
+
+            chain_edges = edges_by_chain.get(chain, [])
+            if chain_edges:
+                froms = {fv for fv, _, _ in chain_edges}
+                tos = {tv for _, tv, _ in chain_edges}
+                root_forms = sorted(
+                    froms - tos,
+                    key=lambda fid: (
+                        0 if form_is_default[fid] else 1,
+                        form_species[fid],
+                        form_order[fid],
+                        fid,
+                    ),
+                )
+            else:
+                root_forms = [root_species]
+
+            # 根节点自指行（按形态根输出；多地区并行链会有多个自指行）
+            for rf in root_forms:
+                self.rows["evolution_edges"].append(
+                    (chain, None, form_species[rf], None, rf, cfg.EVO_ROOT_TRIGGER,
+                     *([None] * 16), 0, 0))
+
+            for from_fid, to_fid, r in sorted(
+                chain_edges,
+                key=lambda item: (
+                    0 if form_is_default[item[1]] else 1,
+                    form_species[item[1]],
+                    form_order[item[1]],
+                    item[1],
+                ),
+            ):
+                to_sid = int(r["evolved_species_id"])
+                from_sid = form_species[from_fid]
+                self.rows["evolution_edges"].append((
+                    chain,
+                    from_sid,
+                    to_sid,
+                    from_fid,
+                    to_fid,
+                    triggers[r["evolution_trigger_id"]],
+                    _int(r["minimum_level"]),
+                    items.get(r["trigger_item_id"]) if r["trigger_item_id"] else None,
+                    items.get(r["held_item_id"]) if r["held_item_id"] else None,
+                    moves_ident.get(int(r["known_move_id"])) if r["known_move_id"] else None,
+                    types.get(r["known_move_type_id"]) if r["known_move_type_id"] else None,
+                    locations.get(r["location_id"]) if r["location_id"] else None,
+                    regions.get(r["region_id"]) if r["region_id"] else None,
+                    r["time_of_day"] or None,
+                    genders.get(r["gender_id"]) if r["gender_id"] else None,
+                    _int(r["minimum_happiness"]), _int(r["minimum_affection"]), _int(r["minimum_beauty"]),
+                    rel_phys.get(r["relative_physical_stats"]) or None,
+                    species_ident.get(int(r["party_species_id"])) if r["party_species_id"] else None,
+                    types.get(r["party_type_id"]) if r["party_type_id"] else None,
+                    species_ident.get(int(r["trade_species_id"])) if r["trade_species_id"] else None,
+                    _flag(r["needs_overworld_rain"]),
+                    _flag(r["turn_upside_down"]),
+                ))
         if merged_out:
             self.notes["evolution_variant_rows_merged"] = merged_out
 
