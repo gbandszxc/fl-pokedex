@@ -46,7 +46,7 @@ const double kHorizontalBranchSpineWidth = 20;
 
 /// 宽屏充裕档横排布局常数。
 const double kHorizontalNodeWidthRoomy = 140;
-const double kHorizontalEdgeWidthRoomy = 112;
+const double kHorizontalEdgeWidthRoomy = 120;
 const double kHorizontalBranchSpineWidthRoomy = 24;
 
 /// 多分支链启用横向阶梯树的最小本地宽度：避免窄手机竖屏下分支树过挤。
@@ -121,7 +121,6 @@ List<EvolutionRow> flattenEvolutionSubtree(
     final formId = node.resolvedFormId;
     if (!visited.add(formId)) return;
     final selfIndex = rows.length;
-    final subtreeEnd = selfIndex + (subtreeRows[formId] ?? 1) - 1;
     rows.add(EvolutionRow(
       node: node,
       depth: depth,
@@ -130,6 +129,12 @@ List<EvolutionRow> flattenEvolutionSubtree(
       guides: [for (final end in ancestorEnds) end > selfIndex],
     ));
     final childEdges = _childEdges(tree, node, visited);
+    if (childEdges.isEmpty) return;
+    // 该节点自身向直接子节点的竖干，到最后一个直接子节点起点即止，不再穿过末子节点的后代。
+    final lastChildFormId = childEdges.last.resolvedToFormId;
+    final trunkEnd = selfIndex +
+        (subtreeRows[formId] ?? 1) -
+        (subtreeRows[lastChildFormId] ?? 1);
     for (var i = 0; i < childEdges.length; i++) {
       final childEdge = childEdges[i];
       final child = nodes[childEdge.resolvedToFormId]!;
@@ -138,7 +143,7 @@ List<EvolutionRow> flattenEvolutionSubtree(
         depth + 1,
         childEdge,
         shouldIndicateOtherRegion(childEdge, childEdges),
-        [...ancestorEnds, subtreeEnd],
+        [...ancestorEnds, trunkEnd],
       );
     }
   }

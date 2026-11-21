@@ -843,26 +843,36 @@ void main() {
       );
     });
 
-    test('flattenEvolutionTree：线性链 guides 按「祖先子树是否延续」判定', () {
-      // 绿毛虫链 10→11→12，先序行号 0/1/2；子树行数 3/2/1 → 各节点
-      // 子树末行号均为 2。新语义 guides[j] = 第 j 层祖先子树末行 >
-      // 本行行号：
-      // - 行1 铁甲蛹：绿毛虫子树末行 2 > 1 → [true]（竖线穿过中间行，
-      //   修复旧「唯一孩子 = 末位」语义导致的断线）；
-      // - 行2 巴大蝶：各祖先子树末行 2 = 2 → [false, false]（└ 端点，
-      //   竖线不再向下悬空延伸）。
+    test('flattenEvolutionTree：线性链 guides 按「祖先直系末子终点」判定', () {
+      // 绿毛虫链 10→11→12，先序行号 0/1/2；各节点均只有一个直系孩子。
+      // 行1（铁甲蛹）是绿毛虫唯一直系孩子（同时为末子），绿毛虫向直系子节点
+      // 延伸的竖干在行1拐角处收束（guides=[false]，即 └ 端点）；行2（巴大蝶）
+      // 列0保持空白、列1由 EdgeRow 接续铁甲蛹到巴大蝶并收束为 [false, false]。
       final rows = flattenEvolutionTree(repo.caterpieTree);
       expect(
         rows.map((r) => r.guides).toList(),
         [
           <bool>[],
-          [true],
+          [false],
           [false, false],
         ],
       );
-      // guides 同时是拐角 ├/└ 下半竖线的延续判据（UI 不再有独立
-      // hasDescendantRows）：行1 铁甲蛹 [true] → 拐角延续；行2 巴大蝶
-      // [false, false] → └ 端点。
+    });
+
+    test('flattenEvolutionTree：末支含孙代时祖先竖干到末直系子节即止（魔墙人偶）', () {
+      // 魔尼尼(行0) → 魔墙人偶(行1) & 魔墙人偶-伽勒尔(行2) → 踏冰人偶(行3)。
+      // 行1 为首支，列0竖干延续 [true]；行2 为魔尼尼末个直系孩子，列0应于拐角处
+      // 收束为 [false]（不拖至伽勒尔卡底边）；行3 踏冰人偶列0留白、列1收束 [false, false]。
+      final rows = flattenEvolutionTree(repo.mrMimeTree);
+      expect(
+        rows.map((r) => r.guides).toList(),
+        [
+          <bool>[],
+          [true],
+          [false],
+          [false, false],
+        ],
+      );
     });
 
     test('flattenEvolutionTree：伊布 8 分支根竖线穿过末分支之前的每一行', () {
@@ -1063,7 +1073,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('52poke 横排形态：三卡等宽 140、间距相等 112，条件位于卡间箭头线上方',
+    testWidgets('52poke 横排形态：三卡等宽 140、间距相等 120，条件位于卡间箭头线上方',
         (tester) async {
       await pumpSection(
         tester,
@@ -1277,6 +1287,30 @@ void main() {
       }
 
       expect(currentUri(tester), '/pokemon/122?formId=10168');
+    });
+
+    testWidgets('窄屏纵向卡片属性徽章保持紧凑同行排布，不横向拉满卡片', (tester) async {
+      await pumpSection(
+        tester,
+        section: (id) => EvolutionSectionPlaceholder(speciesId: id),
+        speciesId: 122,
+        size: const Size(360, 800),
+      );
+
+      final rootCard = find.byKey(const ValueKey('evo_card_439'));
+      final badges = find.descendant(
+        of: rootCard,
+        matching: find.byType(TypeBadge),
+      );
+      expect(badges, findsNWidgets(2));
+      final rootRect = tester.getRect(rootCard);
+      final psychicRect = tester.getRect(badges.at(0));
+      final fairyRect = tester.getRect(badges.at(1));
+      expect(psychicRect.top, moreOrLessEquals(fairyRect.top, epsilon: 0.5),
+          reason: '双属性徽章应同行并排');
+      expect(fairyRect.left, greaterThan(psychicRect.right));
+      expect(fairyRect.right, lessThanOrEqualTo(rootRect.right));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('仅特定形态可进化（大葱鸭）：默认形态显示不可进化提示，切伽勒尔后消除',

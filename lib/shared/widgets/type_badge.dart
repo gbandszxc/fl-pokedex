@@ -91,18 +91,22 @@ class TypeBadge extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
-        child: Container(
+        child: SizedBox(
           height: size.height,
-          padding: EdgeInsets.symmetric(horizontal: size.paddingH),
-          alignment: Alignment.center,
-          child: Text(
-            label ?? kTypeNamesZh[type] ?? type,
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: size.fontSize,
-              height: 1.1,
-              fontWeight: FontWeight.w500,
-              color: fg,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: size.paddingH),
+            child: Center(
+              widthFactor: 1.0,
+              child: Text(
+                label ?? kTypeNamesZh[type] ?? type,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: size.fontSize,
+                  height: 1.1,
+                  fontWeight: FontWeight.w500,
+                  color: fg,
+                ),
+              ),
             ),
           ),
         ),

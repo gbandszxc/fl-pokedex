@@ -616,7 +616,7 @@ class _HorizontalEdgeConnector extends StatelessWidget {
                 ? const SizedBox.shrink()
                 : Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xs,
+                      horizontal: AppSpacing.xs / 2,
                     ),
                     child: Wrap(
                       alignment: WrapAlignment.center,

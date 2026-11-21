@@ -26,7 +26,7 @@ class ConditionChip extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final padding = EdgeInsets.symmetric(
       horizontal: AppSpacing.s,
-      vertical: AppSpacing.xs / 2,
+      vertical: maxLines == 1 ? AppSpacing.xs / 2 : AppSpacing.xs,
     );
     final labelText = Text(
       label,
