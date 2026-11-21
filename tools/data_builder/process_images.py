@@ -85,16 +85,28 @@ def resize_to(img: Image.Image, max_side: int) -> Image.Image:
 
 def process_form(form_id: int, species_id: int, is_default: int, force: bool) -> dict:
     """单个形态：解析图片源 id（variety → species 默认形态回退），产出 full/thumb。"""
+    full_path = cfg.ASSETS_FULL_DIR / f"{form_id}.webp"
+    thumb_path = cfg.ASSETS_THUMB_DIR / f"{form_id}.webp" if is_default else None
+    if (
+        not force
+        and full_path.exists()
+        and full_path.stat().st_size > 0
+        and (thumb_path is None or (thumb_path.exists() and thumb_path.stat().st_size > 0))
+    ):
+        return {
+            "form_id": form_id, "is_default": bool(is_default), "missing": False,
+            "full": full_path, "thumb": thumb_path, "bytes": full_path.stat().st_size
+            + (thumb_path.stat().st_size if thumb_path else 0),
+        }
+
     src = download_png(form_id, force) or download_png(species_id, force)
     if src is None:
         return {"form_id": form_id, "is_default": bool(is_default), "missing": True}
 
     img = Image.open(io.BytesIO(src.read_bytes()))
-    full_path = cfg.ASSETS_FULL_DIR / f"{form_id}.webp"
     resize_to(img, FULL_SIZE).save(full_path, "WEBP", quality=FULL_QUALITY, method=4)
-    thumb_path = None
     if is_default:
-        thumb_path = cfg.ASSETS_THUMB_DIR / f"{form_id}.webp"
+        assert thumb_path is not None
         resize_to(img, THUMB_SIZE).save(thumb_path, "WEBP", quality=THUMB_QUALITY, method=4)
     return {
         "form_id": form_id, "is_default": bool(is_default), "missing": False,

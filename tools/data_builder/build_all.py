@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["requests", "pillow"]
+# dependencies = ["requests", "pillow", "pypinyin"]
 # ///
 """数据构建总编排：fetch → build_db → process_images → verify，最后输出产物汇总。
 

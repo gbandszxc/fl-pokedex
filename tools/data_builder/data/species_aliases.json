@@ -1,0 +1,960 @@
+{
+  "1": [
+    {"alias": "奇异种子", "kind": "legacy_hk", "priority": 100},
+    {"alias": "蒜头王八", "kind": "nickname", "priority": 90},
+    {"alias": "蒜头蛤蟆", "kind": "nickname", "priority": 80}
+  ],
+  "2": [
+    {"alias": "奇异草", "kind": "legacy_hk", "priority": 100}
+  ],
+  "3": [
+    {"alias": "奇异花", "kind": "legacy_hk", "priority": 100}
+  ],
+  "6": [
+    {"alias": "老喷", "kind": "nickname", "priority": 100}
+  ],
+  "7": [
+    {"alias": "车厘龟", "kind": "legacy_hk", "priority": 100}
+  ],
+  "8": [
+    {"alias": "卡美龟", "kind": "legacy_tw", "priority": 100}
+  ],
+  "12": [
+    {"alias": "巴大蝴", "kind": "legacy_cn", "priority": 100}
+  ],
+  "18": [
+    {"alias": "比雕", "kind": "legacy_cn", "priority": 100},
+    {"alias": "大比雕", "kind": "legacy_tw", "priority": 95}
+  ],
+  "19": [
+    {"alias": "小哥达", "kind": "legacy_hk", "priority": 95}
+  ],
+  "20": [
+    {"alias": "哥达", "kind": "legacy_hk", "priority": 95}
+  ],
+  "21": [
+    {"alias": "鬼雀", "kind": "legacy_hk", "priority": 95}
+  ],
+  "22": [
+    {"alias": "魔雀", "kind": "legacy_hk", "priority": 95}
+  ],
+  "23": [
+    {"alias": "阿伯蛇", "kind": "typo", "priority": 90}
+  ],
+  "24": [
+    {"alias": "阿伯怪", "kind": "typo", "priority": 90}
+  ],
+  "25": [
+    {"alias": "比卡超", "kind": "legacy_hk", "priority": 100},
+    {"alias": "皮神", "kind": "nickname", "priority": 90},
+    {"alias": "电老鼠", "kind": "nickname", "priority": 80}
+  ],
+  "26": [
+    {"alias": "雷超", "kind": "legacy_hk", "priority": 100}
+  ],
+  "39": [
+    {"alias": "波波球", "kind": "legacy_hk", "priority": 95}
+  ],
+  "40": [
+    {"alias": "肥波球", "kind": "legacy_hk", "priority": 95}
+  ],
+  "41": [
+    {"alias": "波音蝠", "kind": "legacy_hk", "priority": 95}
+  ],
+  "43": [
+    {"alias": "行路草", "kind": "legacy_hk", "priority": 95}
+  ],
+  "44": [
+    {"alias": "怪味花", "kind": "legacy_hk", "priority": 95}
+  ],
+  "49": [
+    {"alias": "末入蛾", "kind": "legacy_cn", "priority": 100}
+  ],
+  "50": [
+    {"alias": "钻地鼠", "kind": "legacy_hk", "priority": 95}
+  ],
+  "52": [
+    {"alias": "喵喵怪", "kind": "legacy_hk", "priority": 100}
+  ],
+  "54": [
+    {"alias": "傻鸭", "kind": "legacy_hk", "priority": 100}
+  ],
+  "55": [
+    {"alias": "高超鸭", "kind": "legacy_hk", "priority": 95}
+  ],
+  "57": [
+    {"alias": "爆猴", "kind": "legacy_hk", "priority": 95}
+  ],
+  "58": [
+    {"alias": "护主犬", "kind": "legacy_hk", "priority": 95}
+  ],
+  "59": [
+    {"alias": "奉神犬", "kind": "legacy_hk", "priority": 95}
+  ],
+  "60": [
+    {"alias": "蚊香蛙", "kind": "legacy_cn", "priority": 95}
+  ],
+  "62": [
+    {"alias": "快泳蛙", "kind": "legacy_cn", "priority": 100}
+  ],
+  "63": [
+    {"alias": "卡斯", "kind": "legacy_hk", "priority": 95}
+  ],
+  "64": [
+    {"alias": "勇吉拉", "kind": "typo", "priority": 95},
+    {"alias": "尤基拉", "kind": "legacy_hk", "priority": 90}
+  ],
+  "65": [
+    {"alias": "富迪", "kind": "legacy_hk", "priority": 100}
+  ],
+  "66": [
+    {"alias": "铁腕", "kind": "legacy_hk", "priority": 90}
+  ],
+  "68": [
+    {"alias": "大力神", "kind": "legacy_hk", "priority": 90}
+  ],
+  "76": [
+    {"alias": "滚石", "kind": "legacy_hk", "priority": 85}
+  ],
+  "80": [
+    {"alias": "呆河马", "kind": "legacy_cn", "priority": 100},
+    {"alias": "大傻兽", "kind": "legacy_hk", "priority": 90}
+  ],
+  "82": [
+    {"alias": "三合磁怪", "kind": "typo", "priority": 90}
+  ],
+  "83": [
+    {"alias": "火葱鸭", "kind": "legacy_cn", "priority": 100}
+  ],
+  "89": [
+    {"alias": "烂泥", "kind": "legacy_hk", "priority": 90}
+  ],
+  "91": [
+    {"alias": "铁甲贝", "kind": "legacy_cn", "priority": 100}
+  ],
+  "94": [
+    {"alias": "胖鬼", "kind": "nickname", "priority": 90}
+  ],
+  "96": [
+    {"alias": "素利普", "kind": "legacy_cn", "priority": 100}
+  ],
+  "97": [
+    {"alias": "素利柏", "kind": "legacy_cn", "priority": 100}
+  ],
+  "100": [
+    {"alias": "雷电球", "kind": "legacy_cn", "priority": 100}
+  ],
+  "101": [
+    {"alias": "顽皮弹", "kind": "legacy_cn", "priority": 100}
+  ],
+  "104": [
+    {"alias": "可拉可拉", "kind": "legacy_tw", "priority": 100}
+  ],
+  "105": [
+    {"alias": "嘎拉嘎拉", "kind": "typo", "priority": 95}
+  ],
+  "106": [
+    {"alias": "沙瓦郎", "kind": "legacy_cn", "priority": 100}
+  ],
+  "107": [
+    {"alias": "艾比郎", "kind": "legacy_cn", "priority": 100}
+  ],
+  "111": [
+    {"alias": "铁甲犀牛", "kind": "legacy_cn", "priority": 100}
+  ],
+  "112": [
+    {"alias": "铁甲暴龙", "kind": "legacy_cn", "priority": 100}
+  ],
+  "113": [
+    {"alias": "蛋蛋兽", "kind": "legacy_hk", "priority": 90}
+  ],
+  "115": [
+    {"alias": "袋龙", "kind": "legacy_cn", "priority": 100}
+  ],
+  "122": [
+    {"alias": "吸盘魔偶", "kind": "legacy_cn", "priority": 100}
+  ],
+  "126": [
+    {"alias": "鸭嘴火龙", "kind": "legacy_cn", "priority": 100}
+  ],
+  "127": [
+    {"alias": "大甲", "kind": "legacy_cn", "priority": 100}
+  ],
+  "129": [
+    {"alias": "大鲤鱼", "kind": "nickname", "priority": 85}
+  ],
+  "130": [
+    {"alias": "鲤鱼龙", "kind": "legacy_hk", "priority": 100}
+  ],
+  "131": [
+    {"alias": "乘龙", "kind": "legacy_cn", "priority": 100},
+    {"alias": "背背龙", "kind": "legacy_hk", "priority": 95}
+  ],
+  "132": [
+    {"alias": "变变怪", "kind": "legacy_hk", "priority": 90}
+  ],
+  "134": [
+    {"alias": "水精灵", "kind": "legacy_cn", "priority": 100}
+  ],
+  "135": [
+    {"alias": "雷精灵", "kind": "legacy_cn", "priority": 100}
+  ],
+  "136": [
+    {"alias": "火精灵", "kind": "legacy_cn", "priority": 100}
+  ],
+  "137": [
+    {"alias": "3D龙", "kind": "legacy_cn", "priority": 100},
+    {"alias": "立方兽", "kind": "legacy_hk", "priority": 90}
+  ],
+  "142": [
+    {"alias": "化石飞龙", "kind": "legacy_tw", "priority": 95}
+  ],
+  "143": [
+    {"alias": "卡比", "kind": "nickname", "priority": 90}
+  ],
+  "149": [
+    {"alias": "肥大", "kind": "nickname", "priority": 100},
+    {"alias": "启暴龙", "kind": "legacy_hk", "priority": 100}
+  ],
+  "150": [
+    {"alias": "超梦梦", "kind": "legacy_hk", "priority": 100}
+  ],
+  "151": [
+    {"alias": "梦梦", "kind": "legacy_hk", "priority": 100}
+  ],
+  "154": [
+    {"alias": "大菊花", "kind": "legacy_cn", "priority": 100}
+  ],
+  "157": [
+    {"alias": "火爆兽", "kind": "legacy_cn", "priority": 100}
+  ],
+  "172": [
+    {"alias": "比超", "kind": "legacy_hk", "priority": 100}
+  ],
+  "173": [
+    {"alias": "小皮皮", "kind": "legacy_cn", "priority": 95}
+  ],
+  "174": [
+    {"alias": "小胖丁", "kind": "legacy_cn", "priority": 95}
+  ],
+  "175": [
+    {"alias": "小波克比", "kind": "nickname", "priority": 80}
+  ],
+  "181": [
+    {"alias": "电绵羊", "kind": "nickname", "priority": 85}
+  ],
+  "183": [
+    {"alias": "玛丽露", "kind": "legacy_cn", "priority": 100}
+  ],
+  "184": [
+    {"alias": "玛丽露丽", "kind": "legacy_cn", "priority": 100},
+    {"alias": "水老鼠", "kind": "nickname", "priority": 85}
+  ],
+  "185": [
+    {"alias": "胡说树", "kind": "legacy_cn", "priority": 100}
+  ],
+  "186": [
+    {"alias": "牛蛙君", "kind": "legacy_cn", "priority": 100}
+  ],
+  "196": [
+    {"alias": "太阳精灵", "kind": "legacy_cn", "priority": 100},
+    {"alias": "光精灵", "kind": "legacy_tw", "priority": 95}
+  ],
+  "197": [
+    {"alias": "月亮精灵", "kind": "legacy_cn", "priority": 100},
+    {"alias": "月精灵", "kind": "legacy_tw", "priority": 98},
+    {"alias": "月布", "kind": "nickname", "priority": 95}
+  ],
+  "198": [
+    {"alias": "暗鸦", "kind": "legacy_hk", "priority": 95}
+  ],
+  "199": [
+    {"alias": "河马王", "kind": "legacy_cn", "priority": 100}
+  ],
+  "212": [
+    {"alias": "红螳螂", "kind": "nickname", "priority": 90}
+  ],
+  "215": [
+    {"alias": "纽拉", "kind": "typo", "priority": 90}
+  ],
+  "227": [
+    {"alias": "钢鸟", "kind": "nickname", "priority": 95}
+  ],
+  "229": [
+    {"alias": "地狱犬", "kind": "nickname", "priority": 85}
+  ],
+  "230": [
+    {"alias": "海马龙", "kind": "nickname", "priority": 85}
+  ],
+  "233": [
+    {"alias": "3D龙2", "kind": "legacy_cn", "priority": 100},
+    {"alias": "多边兽2", "kind": "typo", "priority": 95}
+  ],
+  "237": [
+    {"alias": "柯波朗", "kind": "legacy_cn", "priority": 100}
+  ],
+  "241": [
+    {"alias": "奶牛", "kind": "nickname", "priority": 85}
+  ],
+  "242": [
+    {"alias": "快乐蛋", "kind": "legacy_cn", "priority": 100},
+    {"alias": "粉蛋", "kind": "nickname", "priority": 90}
+  ],
+  "243": [
+    {"alias": "雷皇", "kind": "legacy_cn", "priority": 100}
+  ],
+  "246": [
+    {"alias": "由基拉", "kind": "legacy_cn", "priority": 100}
+  ],
+  "247": [
+    {"alias": "沙基拉", "kind": "legacy_cn", "priority": 100}
+  ],
+  "248": [
+    {"alias": "班吉拉", "kind": "legacy_cn", "priority": 100},
+    {"alias": "老班", "kind": "nickname", "priority": 95},
+    {"alias": "班吉拉斯", "kind": "typo", "priority": 90}
+  ],
+  "249": [
+    {"alias": "路基亚", "kind": "legacy_cn", "priority": 100},
+    {"alias": "利基亚", "kind": "legacy_hk", "priority": 95}
+  ],
+  "250": [
+    {"alias": "凤凰", "kind": "legacy_cn", "priority": 100}
+  ],
+  "251": [
+    {"alias": "雪拉比", "kind": "legacy_cn", "priority": 100}
+  ],
+  "254": [
+    {"alias": "草蜥蜴", "kind": "nickname", "priority": 85}
+  ],
+  "255": [
+    {"alias": "火雉鸡", "kind": "typo", "priority": 95}
+  ],
+  "257": [
+    {"alias": "火鸡", "kind": "nickname", "priority": 90},
+    {"alias": "加速鸡", "kind": "nickname", "priority": 85}
+  ],
+  "260": [
+    {"alias": "水沼怪", "kind": "nickname", "priority": 85}
+  ],
+  "280": [
+    {"alias": "拉鲁拉斯", "kind": "typo", "priority": 95}
+  ],
+  "282": [
+    {"alias": "超能女皇", "kind": "legacy_hk", "priority": 95},
+    {"alias": "沙耐朵", "kind": "typo", "priority": 90},
+    {"alias": "老婆兽", "kind": "nickname", "priority": 85}
+  ],
+  "286": [
+    {"alias": "蘑菇袋鼠", "kind": "legacy_cn", "priority": 95}
+  ],
+  "292": [
+    {"alias": "鬼蝉", "kind": "nickname", "priority": 95}
+  ],
+  "306": [
+    {"alias": "钢甲暴龙", "kind": "nickname", "priority": 85}
+  ],
+  "311": [
+    {"alias": "正拍拍", "kind": "nickname", "priority": 85}
+  ],
+  "312": [
+    {"alias": "负电拍拍", "kind": "typo", "priority": 100},
+    {"alias": "负拍拍", "kind": "nickname", "priority": 85}
+  ],
+  "329": [
+    {"alias": "震动幼虫", "kind": "legacy_cn", "priority": 95}
+  ],
+  "330": [
+    {"alias": "蜻蜓龙", "kind": "nickname", "priority": 90}
+  ],
+  "349": [
+    {"alias": "笨笨鱼", "kind": "legacy_cn", "priority": 100}
+  ],
+  "351": [
+    {"alias": "天气小子", "kind": "legacy_cn", "priority": 95}
+  ],
+  "359": [
+    {"alias": "灾兽", "kind": "nickname", "priority": 90}
+  ],
+  "363": [
+    {"alias": "冰海豹", "kind": "nickname", "priority": 85}
+  ],
+  "373": [
+    {"alias": "血翼飞龙", "kind": "legacy_cn", "priority": 100},
+    {"alias": "暴蝾螈", "kind": "legacy_tw", "priority": 98},
+    {"alias": "血翼", "kind": "nickname", "priority": 90}
+  ],
+  "376": [
+    {"alias": "合金十字", "kind": "legacy_cn", "priority": 100}
+  ],
+  "377": [
+    {"alias": "岩神柱", "kind": "nickname", "priority": 90}
+  ],
+  "378": [
+    {"alias": "冰神柱", "kind": "nickname", "priority": 90}
+  ],
+  "379": [
+    {"alias": "钢神柱", "kind": "nickname", "priority": 90}
+  ],
+  "380": [
+    {"alias": "红水都", "kind": "nickname", "priority": 90}
+  ],
+  "381": [
+    {"alias": "蓝水都", "kind": "nickname", "priority": 90}
+  ],
+  "382": [
+    {"alias": "海皇牙", "kind": "legacy_cn", "priority": 100},
+    {"alias": "胖头鱼", "kind": "nickname", "priority": 90}
+  ],
+  "383": [
+    {"alias": "古拉顿", "kind": "legacy_cn", "priority": 100},
+    {"alias": "不会飞", "kind": "nickname", "priority": 85}
+  ],
+  "384": [
+    {"alias": "裂空座", "kind": "legacy_cn", "priority": 100},
+    {"alias": "天空龙", "kind": "legacy_hk", "priority": 95}
+  ],
+  "385": [
+    {"alias": "许愿星", "kind": "nickname", "priority": 85}
+  ],
+  "386": [
+    {"alias": "迪奥西斯", "kind": "legacy_cn", "priority": 100}
+  ],
+  "392": [
+    {"alias": "大师兄", "kind": "nickname", "priority": 95},
+    {"alias": "豪火猴", "kind": "legacy_tw", "priority": 95}
+  ],
+  "395": [
+    {"alias": "企鹅", "kind": "nickname", "priority": 85}
+  ],
+  "398": [
+    {"alias": "家门鸟", "kind": "nickname", "priority": 85}
+  ],
+  "405": [
+    {"alias": "雷鸣狮", "kind": "legacy_cn", "priority": 95}
+  ],
+  "407": [
+    {"alias": "假面玫瑰", "kind": "legacy_tw", "priority": 95}
+  ],
+  "417": [
+    {"alias": "电松鼠", "kind": "nickname", "priority": 85}
+  ],
+  "428": [
+    {"alias": "兔女郎", "kind": "nickname", "priority": 85}
+  ],
+  "430": [
+    {"alias": "绅士鸦", "kind": "legacy_cn", "priority": 95}
+  ],
+  "437": [
+    {"alias": "古铜钟", "kind": "legacy_cn", "priority": 95}
+  ],
+  "438": [
+    {"alias": "胡说盆栽", "kind": "legacy_cn", "priority": 100}
+  ],
+  "439": [
+    {"alias": "小吸盘魔偶", "kind": "legacy_cn", "priority": 95}
+  ],
+  "445": [
+    {"alias": "地龙", "kind": "nickname", "priority": 100}
+  ],
+  "446": [
+    {"alias": "小卡比", "kind": "nickname", "priority": 90}
+  ],
+  "447": [
+    {"alias": "利奥路", "kind": "legacy_cn", "priority": 95}
+  ],
+  "448": [
+    {"alias": "卢卡里奥", "kind": "legacy_cn", "priority": 100},
+    {"alias": "狗哥", "kind": "nickname", "priority": 85}
+  ],
+  "450": [
+    {"alias": "河马", "kind": "nickname", "priority": 85}
+  ],
+  "460": [
+    {"alias": "雪人", "kind": "nickname", "priority": 85}
+  ],
+  "461": [
+    {"alias": "冰爪", "kind": "nickname", "priority": 85}
+  ],
+  "462": [
+    {"alias": "磁怪", "kind": "nickname", "priority": 90},
+    {"alias": "幽浮磁怪", "kind": "legacy_cn", "priority": 90}
+  ],
+  "464": [
+    {"alias": "重甲暴龙", "kind": "legacy_cn", "priority": 100},
+    {"alias": "钻角犀牛", "kind": "typo", "priority": 85}
+  ],
+  "466": [
+    {"alias": "电击魔", "kind": "legacy_cn", "priority": 95}
+  ],
+  "467": [
+    {"alias": "鸭嘴焰龙", "kind": "legacy_cn", "priority": 95}
+  ],
+  "468": [
+    {"alias": "波克飞机", "kind": "nickname", "priority": 95},
+    {"alias": "飞机", "kind": "nickname", "priority": 90}
+  ],
+  "469": [
+    {"alias": "古蜻蜓", "kind": "legacy_cn", "priority": 95}
+  ],
+  "470": [
+    {"alias": "叶精灵", "kind": "legacy_cn", "priority": 100},
+    {"alias": "草精灵", "kind": "legacy_tw", "priority": 95}
+  ],
+  "471": [
+    {"alias": "冰精灵", "kind": "legacy_cn", "priority": 100}
+  ],
+  "472": [
+    {"alias": "天蝎", "kind": "nickname", "priority": 90}
+  ],
+  "473": [
+    {"alias": "猛犸", "kind": "nickname", "priority": 90}
+  ],
+  "474": [
+    {"alias": "3D龙Z", "kind": "legacy_cn", "priority": 100},
+    {"alias": "多边兽Z", "kind": "legacy_tw", "priority": 98}
+  ],
+  "475": [
+    {"alias": "超能斗士", "kind": "legacy_tw", "priority": 95}
+  ],
+  "477": [
+    {"alias": "夜黑魔人", "kind": "legacy_cn", "priority": 95}
+  ],
+  "478": [
+    {"alias": "雪女", "kind": "nickname", "priority": 90}
+  ],
+  "479": [
+    {"alias": "电鬼", "kind": "nickname", "priority": 100},
+    {"alias": "洗衣机", "kind": "nickname", "priority": 90}
+  ],
+  "480": [
+    {"alias": "黄菇", "kind": "nickname", "priority": 85}
+  ],
+  "481": [
+    {"alias": "红菇", "kind": "nickname", "priority": 85}
+  ],
+  "482": [
+    {"alias": "蓝菇", "kind": "nickname", "priority": 85}
+  ],
+  "483": [
+    {"alias": "迪亚鲁加", "kind": "legacy_cn", "priority": 100},
+    {"alias": "时间神", "kind": "nickname", "priority": 95}
+  ],
+  "484": [
+    {"alias": "帕鲁奇亚", "kind": "legacy_cn", "priority": 100},
+    {"alias": "空间神", "kind": "nickname", "priority": 95}
+  ],
+  "485": [
+    {"alias": "火钢", "kind": "nickname", "priority": 95}
+  ],
+  "486": [
+    {"alias": "圣柱王", "kind": "nickname", "priority": 90}
+  ],
+  "487": [
+    {"alias": "冥王龙", "kind": "legacy_cn", "priority": 100},
+    {"alias": "鬼龙", "kind": "nickname", "priority": 95},
+    {"alias": "基拉蒂纳", "kind": "legacy_tw", "priority": 90}
+  ],
+  "488": [
+    {"alias": "美梦神", "kind": "nickname", "priority": 95}
+  ],
+  "489": [
+    {"alias": "菲奥娜", "kind": "legacy_cn", "priority": 95}
+  ],
+  "490": [
+    {"alias": "沧海王子", "kind": "nickname", "priority": 90}
+  ],
+  "491": [
+    {"alias": "噩梦神", "kind": "nickname", "priority": 95},
+    {"alias": "达克莱", "kind": "typo", "priority": 85}
+  ],
+  "492": [
+    {"alias": "洁米", "kind": "legacy_cn", "priority": 95}
+  ],
+  "493": [
+    {"alias": "创世神", "kind": "nickname", "priority": 100},
+    {"alias": "羊驼", "kind": "nickname", "priority": 95}
+  ],
+  "497": [
+    {"alias": "草蛇", "kind": "nickname", "priority": 90}
+  ],
+  "500": [
+    {"alias": "二师兄", "kind": "nickname", "priority": 90}
+  ],
+  "530": [
+    {"alias": "鼹鼠", "kind": "nickname", "priority": 90}
+  ],
+  "532": [
+    {"alias": "搬运小工", "kind": "legacy_cn", "priority": 95}
+  ],
+  "534": [
+    {"alias": "民工", "kind": "nickname", "priority": 100},
+    {"alias": "修缮老头", "kind": "legacy_cn", "priority": 95}
+  ],
+  "547": [
+    {"alias": "棉花", "kind": "nickname", "priority": 90}
+  ],
+  "553": [
+    {"alias": "混混鳄", "kind": "nickname", "priority": 85}
+  ],
+  "555": [
+    {"alias": "火狒狒", "kind": "nickname", "priority": 90}
+  ],
+  "563": [
+    {"alias": "死神棺", "kind": "legacy_cn", "priority": 100}
+  ],
+  "571": [
+    {"alias": "狐狸", "kind": "nickname", "priority": 80}
+  ],
+  "579": [
+    {"alias": "细胞仔", "kind": "nickname", "priority": 90}
+  ],
+  "590": [
+    {"alias": "精灵球菇", "kind": "nickname", "priority": 85}
+  ],
+  "591": [
+    {"alias": "盾菇", "kind": "nickname", "priority": 95}
+  ],
+  "593": [
+    {"alias": "水母", "kind": "nickname", "priority": 85}
+  ],
+  "594": [
+    {"alias": "保母曼波", "kind": "legacy_tw", "priority": 95}
+  ],
+  "597": [
+    {"alias": "草钢蛋", "kind": "nickname", "priority": 85}
+  ],
+  "598": [
+    {"alias": "草钢", "kind": "nickname", "priority": 100}
+  ],
+  "609": [
+    {"alias": "鬼灯", "kind": "nickname", "priority": 95}
+  ],
+  "611": [
+    {"alias": "利牙龙", "kind": "legacy_cn", "priority": 95}
+  ],
+  "612": [
+    {"alias": "斧牙龙", "kind": "legacy_cn", "priority": 95}
+  ],
+  "625": [
+    {"alias": "钢兵", "kind": "nickname", "priority": 90}
+  ],
+  "635": [
+    {"alias": "三头龙", "kind": "legacy_cn", "priority": 100},
+    {"alias": "恶龙", "kind": "nickname", "priority": 85}
+  ],
+  "636": [
+    {"alias": "火虫", "kind": "nickname", "priority": 85}
+  ],
+  "637": [
+    {"alias": "火蛾", "kind": "nickname", "priority": 95}
+  ],
+  "641": [
+    {"alias": "风神", "kind": "nickname", "priority": 90}
+  ],
+  "642": [
+    {"alias": "雷神", "kind": "nickname", "priority": 90}
+  ],
+  "643": [
+    {"alias": "白龙", "kind": "nickname", "priority": 95}
+  ],
+  "644": [
+    {"alias": "黑龙", "kind": "nickname", "priority": 95}
+  ],
+  "645": [
+    {"alias": "土神", "kind": "nickname", "priority": 95},
+    {"alias": "土地老头", "kind": "nickname", "priority": 85}
+  ],
+  "646": [
+    {"alias": "冰龙", "kind": "nickname", "priority": 90}
+  ],
+  "647": [
+    {"alias": "凯尔迪奥", "kind": "legacy_cn", "priority": 95}
+  ],
+  "649": [
+    {"alias": "虫神", "kind": "nickname", "priority": 90},
+    {"alias": "钢虫", "kind": "nickname", "priority": 85}
+  ],
+  "655": [
+    {"alias": "火狐", "kind": "nickname", "priority": 85}
+  ],
+  "658": [
+    {"alias": "忍蛙", "kind": "nickname", "priority": 100},
+    {"alias": "小智忍蛙", "kind": "nickname", "priority": 90}
+  ],
+  "663": [
+    {"alias": "家门鸟", "kind": "nickname", "priority": 85},
+    {"alias": "火隼", "kind": "nickname", "priority": 95}
+  ],
+  "681": [
+    {"alias": "鬼剑", "kind": "nickname", "priority": 100}
+  ],
+  "700": [
+    {"alias": "仙子精灵", "kind": "legacy_cn", "priority": 100},
+    {"alias": "仙布", "kind": "nickname", "priority": 98}
+  ],
+  "704": [
+    {"alias": "粘粘宝", "kind": "typo", "priority": 95}
+  ],
+  "705": [
+    {"alias": "粘美儿", "kind": "typo", "priority": 95}
+  ],
+  "706": [
+    {"alias": "粘美露龙", "kind": "legacy_cn", "priority": 100},
+    {"alias": "黏美露龙", "kind": "typo", "priority": 95}
+  ],
+  "707": [
+    {"alias": "钥匙串", "kind": "nickname", "priority": 90}
+  ],
+  "716": [
+    {"alias": "X鹿", "kind": "nickname", "priority": 100}
+  ],
+  "717": [
+    {"alias": "Y鸟", "kind": "nickname", "priority": 100}
+  ],
+  "718": [
+    {"alias": "Z神", "kind": "nickname", "priority": 100},
+    {"alias": "基加尔德", "kind": "typo", "priority": 85}
+  ],
+  "724": [
+    {"alias": "草枭", "kind": "nickname", "priority": 85}
+  ],
+  "727": [
+    {"alias": "咆哮虎", "kind": "nickname", "priority": 100},
+    {"alias": "虎哥", "kind": "nickname", "priority": 90},
+    {"alias": "宇宙第一", "kind": "nickname", "priority": 80}
+  ],
+  "748": [
+    {"alias": "水毒星", "kind": "nickname", "priority": 85}
+  ],
+  "768": [
+    {"alias": "大具足虫", "kind": "nickname", "priority": 85}
+  ],
+  "778": [
+    {"alias": "谜拟Q", "kind": "legacy_cn", "priority": 100},
+    {"alias": "谜拟Ｑ", "kind": "legacy_tw", "priority": 98},
+    {"alias": "画皮", "kind": "nickname", "priority": 85}
+  ],
+  "785": [
+    {"alias": "鸣鸣", "kind": "nickname", "priority": 90},
+    {"alias": "卡璞鸣鸣", "kind": "typo", "priority": 95}
+  ],
+  "786": [
+    {"alias": "蝶蝶", "kind": "nickname", "priority": 90},
+    {"alias": "卡璞蝶蝶", "kind": "typo", "priority": 95}
+  ],
+  "787": [
+    {"alias": "哞哞", "kind": "nickname", "priority": 90},
+    {"alias": "卡璞哞哞", "kind": "typo", "priority": 95}
+  ],
+  "788": [
+    {"alias": "鳍鳍", "kind": "nickname", "priority": 90},
+    {"alias": "卡璞鳍鳍", "kind": "typo", "priority": 95}
+  ],
+  "789": [
+    {"alias": "小星云", "kind": "nickname", "priority": 95}
+  ],
+  "791": [
+    {"alias": "日神", "kind": "nickname", "priority": 95}
+  ],
+  "792": [
+    {"alias": "月神", "kind": "nickname", "priority": 95}
+  ],
+  "793": [
+    {"alias": "水母异兽", "kind": "nickname", "priority": 85}
+  ],
+  "795": [
+    {"alias": "蟑螂", "kind": "nickname", "priority": 85}
+  ],
+  "796": [
+    {"alias": "电树", "kind": "nickname", "priority": 85}
+  ],
+  "797": [
+    {"alias": "辉夜", "kind": "nickname", "priority": 90}
+  ],
+  "798": [
+    {"alias": "纸片", "kind": "nickname", "priority": 85}
+  ],
+  "800": [
+    {"alias": "光辉大神", "kind": "nickname", "priority": 90}
+  ],
+  "808": [
+    {"alias": "螺母", "kind": "nickname", "priority": 85}
+  ],
+  "809": [
+    {"alias": "大螺母", "kind": "nickname", "priority": 85}
+  ],
+  "812": [
+    {"alias": "草猩猩", "kind": "nickname", "priority": 90}
+  ],
+  "815": [
+    {"alias": "火兔", "kind": "nickname", "priority": 90}
+  ],
+  "823": [
+    {"alias": "钢鸦", "kind": "nickname", "priority": 90}
+  ],
+  "865": [
+    {"alias": "大葱鸭进化", "kind": "nickname", "priority": 80}
+  ],
+  "867": [
+    {"alias": "死神板", "kind": "legacy_tw", "priority": 100}
+  ],
+  "887": [
+    {"alias": "多龙", "kind": "nickname", "priority": 95}
+  ],
+  "888": [
+    {"alias": "剑狗", "kind": "nickname", "priority": 100},
+    {"alias": "剑王", "kind": "nickname", "priority": 95}
+  ],
+  "889": [
+    {"alias": "盾狗", "kind": "nickname", "priority": 100},
+    {"alias": "盾王", "kind": "nickname", "priority": 95}
+  ],
+  "890": [
+    {"alias": "无极", "kind": "nickname", "priority": 90}
+  ],
+  "892": [
+    {"alias": "熊师", "kind": "nickname", "priority": 95},
+    {"alias": "水熊", "kind": "nickname", "priority": 85},
+    {"alias": "恶熊", "kind": "nickname", "priority": 85}
+  ],
+  "898": [
+    {"alias": "骑马王", "kind": "nickname", "priority": 90},
+    {"alias": "黑马王", "kind": "nickname", "priority": 85},
+    {"alias": "白马王", "kind": "nickname", "priority": 85}
+  ],
+  "901": [
+    {"alias": "赫月", "kind": "nickname", "priority": 90}
+  ],
+  "908": [
+    {"alias": "草猫", "kind": "nickname", "priority": 95}
+  ],
+  "911": [
+    {"alias": "骨鳄", "kind": "nickname", "priority": 90}
+  ],
+  "925": [
+    {"alias": "鼠鼠", "kind": "nickname", "priority": 85}
+  ],
+  "937": [
+    {"alias": "苍炎", "kind": "nickname", "priority": 85}
+  ],
+  "959": [
+    {"alias": "大锤", "kind": "nickname", "priority": 90}
+  ],
+  "964": [
+    {"alias": "海豚", "kind": "nickname", "priority": 85}
+  ],
+  "977": [
+    {"alias": "大鲶鱼", "kind": "nickname", "priority": 85}
+  ],
+  "983": [
+    {"alias": "大将军", "kind": "nickname", "priority": 90}
+  ],
+  "984": [
+    {"alias": "顿甲古代种", "kind": "nickname", "priority": 85}
+  ],
+  "985": [
+    {"alias": "胖丁古代种", "kind": "nickname", "priority": 85}
+  ],
+  "986": [
+    {"alias": "盾菇古代种", "kind": "nickname", "priority": 85}
+  ],
+  "987": [
+    {"alias": "发姐", "kind": "nickname", "priority": 100}
+  ],
+  "988": [
+    {"alias": "火神蛾古代种", "kind": "nickname", "priority": 85}
+  ],
+  "989": [
+    {"alias": "磁怪古代种", "kind": "nickname", "priority": 85}
+  ],
+  "990": [
+    {"alias": "铁辙迹", "kind": "typo", "priority": 100},
+    {"alias": "顿甲未来种", "kind": "nickname", "priority": 85}
+  ],
+  "991": [
+    {"alias": "信使鸟未来种", "kind": "nickname", "priority": 85}
+  ],
+  "992": [
+    {"alias": "铁掌未来种", "kind": "nickname", "priority": 85}
+  ],
+  "993": [
+    {"alias": "三首恶龙未来种", "kind": "nickname", "priority": 85}
+  ],
+  "994": [
+    {"alias": "火蛾未来种", "kind": "nickname", "priority": 85}
+  ],
+  "995": [
+    {"alias": "老班未来种", "kind": "nickname", "priority": 85}
+  ],
+  "998": [
+    {"alias": "冰龙", "kind": "nickname", "priority": 85}
+  ],
+  "1000": [
+    {"alias": "大金人", "kind": "nickname", "priority": 90},
+    {"alias": "金币哥", "kind": "nickname", "priority": 85}
+  ],
+  "1001": [
+    {"alias": "草蜗牛", "kind": "nickname", "priority": 85}
+  ],
+  "1002": [
+    {"alias": "冰豹", "kind": "nickname", "priority": 90}
+  ],
+  "1003": [
+    {"alias": "地鹿", "kind": "nickname", "priority": 90}
+  ],
+  "1004": [
+    {"alias": "火鱼", "kind": "nickname", "priority": 90}
+  ],
+  "1005": [
+    {"alias": "血翼古代种", "kind": "nickname", "priority": 85}
+  ],
+  "1006": [
+    {"alias": "艾路未来种", "kind": "nickname", "priority": 85}
+  ],
+  "1007": [
+    {"alias": "红龙", "kind": "nickname", "priority": 95},
+    {"alias": "朱神", "kind": "nickname", "priority": 90}
+  ],
+  "1008": [
+    {"alias": "紫龙", "kind": "nickname", "priority": 95},
+    {"alias": "紫神", "kind": "nickname", "priority": 90}
+  ],
+  "1009": [
+    {"alias": "水君古代种", "kind": "nickname", "priority": 85}
+  ],
+  "1010": [
+    {"alias": "毕力吉翁未来种", "kind": "nickname", "priority": 85}
+  ],
+  "1014": [
+    {"alias": "三宝伴", "kind": "nickname", "priority": 80}
+  ],
+  "1015": [
+    {"alias": "三宝伴", "kind": "nickname", "priority": 80}
+  ],
+  "1016": [
+    {"alias": "三宝伴", "kind": "nickname", "priority": 80}
+  ],
+  "1017": [
+    {"alias": "椪椪", "kind": "nickname", "priority": 100},
+    {"alias": "面具鬼", "kind": "nickname", "priority": 85}
+  ],
+  "1018": [
+    {"alias": "铝钢桥", "kind": "nickname", "priority": 90}
+  ],
+  "1020": [
+    {"alias": "炎帝古代种", "kind": "nickname", "priority": 85}
+  ],
+  "1021": [
+    {"alias": "雷公古代种", "kind": "nickname", "priority": 85}
+  ],
+  "1022": [
+    {"alias": "代拉基翁未来种", "kind": "nickname", "priority": 85}
+  ],
+  "1023": [
+    {"alias": "勾帕路翁未来种", "kind": "nickname", "priority": 85}
+  ],
+  "1024": [
+    {"alias": "太晶龟", "kind": "nickname", "priority": 90}
+  ]
+}

@@ -391,6 +391,79 @@ def main(argv: list[str] | None = None) -> int:
         ).fetchone()[0]
         c.check("§8.11d form_flavor_texts 只挂地区形态", bad_form == 0, f"异常 {bad_form} 行")
 
+    # ---- 12. 俗名别名 / 检索标签 / 拼音表 ----
+    n_aliases = q("SELECT COUNT(*) FROM species_aliases").fetchone()[0]
+    c.check("§8.12a species_aliases ≥ 300 条", n_aliases >= 300, f"实际 {n_aliases}")
+    dangling_alias = q(
+        "SELECT COUNT(*) FROM species_aliases a LEFT JOIN species s ON s.id = a.species_id "
+        "WHERE s.id IS NULL"
+    ).fetchone()[0]
+    c.check("§8.12a species_aliases.species_id → species", dangling_alias == 0,
+            f"悬空 {dangling_alias} 行")
+    for sid, expect_alias in [(18, "比雕"), (131, "乘龙"), (384, "裂空座"), (778, "谜拟Q")]:
+        hit = q(
+            "SELECT 1 FROM species_aliases WHERE species_id = ? AND alias = ?",
+            (sid, expect_alias),
+        ).fetchone()
+        c.check(f"§8.12a #{sid} 含别名「{expect_alias}」", hit is not None)
+
+    dangling_tag = q(
+        "SELECT COUNT(*) FROM species_tags t LEFT JOIN species s ON s.id = t.species_id "
+        "WHERE s.id IS NULL"
+    ).fetchone()[0]
+    c.check("§8.12b species_tags.species_id → species", dangling_tag == 0,
+            f"悬空 {dangling_tag} 行")
+    tag_counts = dict(q("SELECT tag_id, COUNT(*) FROM species_tags GROUP BY tag_id").fetchall())
+    expected_exact_tags = {
+        "fossil": 25,
+        "paradox": 22,
+        "starter": 81,
+        "pseudo_legendary": 30,
+        "baby": 19,
+        "ultra_beast": 11,
+        "legendary": 71,
+        "mythical": 23,
+    }
+    for tag_id, expect_n in expected_exact_tags.items():
+        actual_n = tag_counts.get(tag_id, 0)
+        c.check(f"§8.12b species_tags.{tag_id} == {expect_n}",
+                actual_n == expect_n, f"实际 {actual_n}")
+    for tag_id in ("mega", "gmax", "regional"):
+        actual_n = tag_counts.get(tag_id, 0)
+        c.check(f"§8.12b species_tags.{tag_id} > 0", actual_n > 0, f"实际 {actual_n}")
+    ub_ids = {
+        r[0] for r in q(
+            "SELECT species_id FROM species_tags WHERE tag_id = 'ultra_beast'"
+        ).fetchall()
+    }
+    c.check("§8.12b 究极异兽含 #803/#804 且不含 #807/#808",
+            {803, 804} <= ub_ids and not ({807, 808} & ub_ids),
+            str(sorted(ub_ids)))
+
+    n_pinyin = q("SELECT COUNT(*) FROM species_pinyin").fetchone()[0]
+    c.check("§8.12c species_pinyin == 1025", n_pinyin == 1025, f"实际 {n_pinyin}")
+    empty_pinyin = q(
+        "SELECT COUNT(*) FROM species_pinyin WHERE trim(name_pinyin) = '' OR trim(name_initials) = ''"
+    ).fetchone()[0]
+    c.check("§8.12c species_pinyin 非空", empty_pinyin == 0, f"空行 {empty_pinyin}")
+    p18 = q("SELECT name_pinyin, name_initials, aliases_pinyin, aliases_initials "
+            "FROM species_pinyin WHERE species_id = 18").fetchone()
+    c.check("§8.12c #18 大比鸟 拼音含 dabiniao/dbn/bidiao/bd",
+            p18 is not None
+            and "dabiniao" in p18["name_pinyin"].split()
+            and "dbn" in p18["name_initials"].split()
+            and p18["aliases_pinyin"] is not None
+            and "bidiao" in p18["aliases_pinyin"].split()
+            and p18["aliases_initials"] is not None
+            and "bd" in p18["aliases_initials"].split(),
+            str(tuple(p18) if p18 else None))
+    p25 = q("SELECT name_pinyin, name_initials FROM species_pinyin WHERE species_id = 25").fetchone()
+    c.check("§8.12c #25 皮卡丘 拼音含 pikaqiu/pkq",
+            p25 is not None
+            and "pikaqiu" in p25["name_pinyin"].split()
+            and "pkq" in p25["name_initials"].split(),
+            str(tuple(p25) if p25 else None))
+
     conn.close()
 
     print()

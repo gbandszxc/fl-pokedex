@@ -49,6 +49,9 @@ GITHUB_API_LATEST = "https://api.github.com/repos/{repo}/commits/master"
 # ---------------------------------------------------------------------------
 
 TOOLS_DATA_BUILDER_DIR = Path(__file__).resolve().parent
+DATA_DIR = TOOLS_DATA_BUILDER_DIR / "data"
+ALIASES_JSON_PATH = DATA_DIR / "species_aliases.json"
+TAGS_JSON_PATH = DATA_DIR / "species_tags.json"
 REPO_ROOT = TOOLS_DATA_BUILDER_DIR.parent.parent
 CACHE_DIR = TOOLS_DATA_BUILDER_DIR / ".cache"
 CACHE_CSV_DIR = CACHE_DIR / "csv"
@@ -60,7 +63,7 @@ MANIFEST_PATH = ASSETS_DB_DIR / "manifest.json"
 ASSETS_FULL_DIR = REPO_ROOT / "assets" / "pokemon" / "full"
 ASSETS_THUMB_DIR = REPO_ROOT / "assets" / "pokemon" / "thumb"
 
-SCHEMA_VERSION = 2  # 新增 form_flavor_texts（地区形态专属说明）时 +1
+SCHEMA_VERSION = 3  # 新增 species_aliases / species_tags / species_pinyin 并修复究极异兽名单时 +1
 
 # ---------------------------------------------------------------------------
 # 数据契约常量（docs/data-contract.md §2/§4/§5）
@@ -145,8 +148,8 @@ EVO_ROOT_TRIGGER = "root"
 
 # 上游 pokemon_species.csv 无 is_ultra_beast 列时的兜底名单（全国图鉴编号）
 ULTRA_BEAST_DEX_IDS = {
-    793, 794, 795, 796, 797, 798, 799,  # 尼日耶鲁..恶食大王
-    805, 806, 807, 808,                 # 毒贝比..爆焰蚊
+    793, 794, 795, 796, 797, 798, 799,  # 虚吾伊德..恶食大王
+    803, 804, 805, 806,                 # 毒贝比 / 四颚针龙 / 垒磊石 / 砰头小丑
 }
 
 # 上游 CSV 无 is_battle_only 列时的兜底名单（battle-only 变体 identifier，

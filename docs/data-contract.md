@@ -16,7 +16,7 @@ manifest.json：
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "dataVersion": "pokeapi@<short-sha>",
   "pokemonCount": 1025,
   "formCount": 0,
@@ -173,6 +173,32 @@ CREATE TABLE species_dex_numbers(
   pokedex_id INTEGER NOT NULL, species_id INTEGER NOT NULL, dex_number INTEGER NOT NULL,
   PRIMARY KEY(pokedex_id, species_id));
 CREATE INDEX idx_sdn_species ON species_dex_numbers(species_id);
+
+-- 俗名 / 旧译 / 民间称呼 / 常见错别字（构建期静态词典导入）
+CREATE TABLE species_aliases(
+  id INTEGER PRIMARY KEY,
+  species_id INTEGER NOT NULL,
+  alias TEXT NOT NULL,
+  alias_norm TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK(kind IN ('legacy_cn','legacy_tw','legacy_hk','nickname','typo')),
+  priority INTEGER NOT NULL DEFAULT 100);
+CREATE INDEX idx_species_aliases_species ON species_aliases(species_id);
+CREATE INDEX idx_species_aliases_norm ON species_aliases(alias_norm);
+
+-- 检索标签（传说/幻之/究极异兽/悖谬/准传说/御三家/化石/幼年/超级进化/超极巨/地区形态）
+CREATE TABLE species_tags(
+  species_id INTEGER NOT NULL,
+  tag_id TEXT NOT NULL,
+  PRIMARY KEY(species_id, tag_id));
+CREATE INDEX idx_species_tags_tag ON species_tags(tag_id);
+
+-- 官译与别名拼音（构建期 pypinyin 预生成，运行时零依赖）
+CREATE TABLE species_pinyin(
+  species_id INTEGER PRIMARY KEY,
+  name_pinyin TEXT NOT NULL,
+  name_initials TEXT NOT NULL,
+  aliases_pinyin TEXT,
+  aliases_initials TEXT);
 ```
 
 ## 4. 学习集代表性版本组（每世代一个，写入 pokemon_form_moves.version_group）
@@ -228,5 +254,6 @@ identifier 后缀 → 官方中文：
 9. 外键完整性：form_types/form_stats/form_abilities/pokemon_form_moves/flavor_texts/form_flavor_texts 的 id 全部可解析到父表（form_flavor_texts.form_id 还须 is_regional=1）。
 10. pokedexes 含 region kanto..paldea；species_dex_numbers 覆盖全部地区图鉴成员。
 11. 归属前后守恒：flavor_texts ∪ form_flavor_texts 的行集合与归属前的 species 文本集合一一对应（不多不少）。
+12. 检索增强：`species_aliases` ≥ 300 条、外键无悬空且含典型旧译；`species_tags` 各标签计数准确（`fossil=25` / `paradox=22` / `starter=81` / `pseudo_legendary=30` / `baby=19` / `ultra_beast=11` 等）；`species_pinyin` 覆盖全部 1025 只且非空。
 
 输出结束时打印：各表行数、db 文件大小、图片数量与总体积。

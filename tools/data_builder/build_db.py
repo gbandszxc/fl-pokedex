@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # /// script
 # requires-python = ">=3.10"
-# dependencies = []
+# dependencies = ["pypinyin"]
 # ///
 """解析/清洗上游 CSV，构建 assets/database/pokedex.db 与 manifest.json。
 
@@ -16,8 +16,10 @@ import json
 import re
 import sqlite3
 import sys
+import unicodedata
 from collections import defaultdict
 from datetime import datetime, timezone
+from itertools import islice, product
 from pathlib import Path
 
 import config as cfg
@@ -152,6 +154,29 @@ CREATE TABLE species_dex_numbers(
   pokedex_id INTEGER NOT NULL, species_id INTEGER NOT NULL, dex_number INTEGER NOT NULL,
   PRIMARY KEY(pokedex_id, species_id));
 CREATE INDEX idx_sdn_species ON species_dex_numbers(species_id);
+
+CREATE TABLE species_aliases(
+  id INTEGER PRIMARY KEY,
+  species_id INTEGER NOT NULL,
+  alias TEXT NOT NULL,
+  alias_norm TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK(kind IN ('legacy_cn','legacy_tw','legacy_hk','nickname','typo')),
+  priority INTEGER NOT NULL DEFAULT 100);
+CREATE INDEX idx_species_aliases_species ON species_aliases(species_id);
+CREATE INDEX idx_species_aliases_norm ON species_aliases(alias_norm);
+
+CREATE TABLE species_tags(
+  species_id INTEGER NOT NULL,
+  tag_id TEXT NOT NULL,
+  PRIMARY KEY(species_id, tag_id));
+CREATE INDEX idx_species_tags_tag ON species_tags(tag_id);
+
+CREATE TABLE species_pinyin(
+  species_id INTEGER PRIMARY KEY,
+  name_pinyin TEXT NOT NULL,
+  name_initials TEXT NOT NULL,
+  aliases_pinyin TEXT,
+  aliases_initials TEXT);
 """
 
 TABLE_ORDER = [
@@ -159,6 +184,7 @@ TABLE_ORDER = [
     "form_types", "form_stats", "form_abilities", "pokemon_form_moves",
     "evolution_chains", "evolution_edges", "versions", "flavor_texts",
     "form_flavor_texts", "pokedexes", "species_dex_numbers",
+    "species_aliases", "species_tags", "species_pinyin",
 ]
 
 # ---------------------------------------------------------------------------
@@ -207,6 +233,70 @@ def clean_flavor(text: str) -> str:
     return re.sub(r" {2,}", " ", "".join(out)).strip()
 
 
+_NORM_STRIP_RE = re.compile(r"[\s\-_·・'’.:]+")
+
+
+def normalize_search_text(text: str) -> str:
+    """检索归一化：NFKC 全角转半角 + 小写 + 去空白与分隔符。"""
+    s = unicodedata.normalize("NFKC", text).lower()
+    return _NORM_STRIP_RE.sub("", s)
+
+
+def _char_syllables(ch: str) -> list[str]:
+    if "0" <= ch <= "9" or "a" <= ch <= "z":
+        return [ch]
+    if "\u4e00" <= ch <= "\u9fff":
+        from pypinyin import Style, pinyin
+
+        raw = pinyin(ch, style=Style.NORMAL, heteronym=True)
+        if raw and raw[0]:
+            dedup: list[str] = []
+            for item in raw[0]:
+                clean = item.lower()
+                if clean and clean not in dedup:
+                    dedup.append(clean)
+            return dedup[:2]
+    return []
+
+
+def pinyin_variants(text: str, limit: int = 8) -> tuple[list[str], list[str]]:
+    """生成拼音全拼与首字母变体（多音字笛卡尔展开上限 limit）。"""
+    norm = unicodedata.normalize("NFKC", text).lower()
+    per_char: list[list[str]] = []
+    for ch in norm:
+        sylls = _char_syllables(ch)
+        if sylls:
+            per_char.append(sylls)
+    if not per_char:
+        return ([], [])
+
+    full_list: list[str] = []
+    seen_full: set[str] = set()
+    for combo in islice(product(*per_char), limit):
+        joined = "".join(combo)
+        if joined and joined not in seen_full:
+            seen_full.add(joined)
+            full_list.append(joined)
+
+    initial_choices: list[list[str]] = []
+    for choices in per_char:
+        letters: list[str] = []
+        for s in choices:
+            if s and s[0] not in letters:
+                letters.append(s[0])
+        if letters:
+            initial_choices.append(letters)
+
+    init_list: list[str] = []
+    seen_init: set[str] = set()
+    for combo in islice(product(*initial_choices), limit):
+        joined = "".join(combo)
+        if joined and joined not in seen_init:
+            seen_init.add(joined)
+            init_list.append(joined)
+    return (full_list, init_list)
+
+
 # ---------------------------------------------------------------------------
 # 构建器
 # ---------------------------------------------------------------------------
@@ -250,6 +340,9 @@ class Builder:
         self.build_species(gens)
         self.build_forms()
         self.build_form_details()
+        self.build_aliases()
+        self.build_tags()
+        self.build_pinyin()
         self.build_moves_learnsets()
         self.build_evolution()
         self.build_versions_flavors()
@@ -766,6 +859,104 @@ class Builder:
         self.notes["duplicate_pokedex_names"] = {
             k: v for k, v in by_name.items() if len(v) > 1
         }
+
+    # -- 俗名别名 / 检索标签 / 拼音 --
+    def build_aliases(self) -> None:
+        raw = json.loads(cfg.ALIASES_JSON_PATH.read_text(encoding="utf-8"))
+        species_names = {r[0]: r[3] for r in self.rows["species"]}
+        seen: set[tuple[int, str]] = set()
+        alias_id = 1
+        for sid_str, items in sorted(raw.items(), key=lambda kv: int(kv[0])):
+            sid = int(sid_str)
+            assert sid in species_names, f"species_aliases 引用未知 species_id={sid}"
+            official_name = species_names[sid]
+            for entry in items:
+                alias = entry["alias"].strip()
+                kind = entry["kind"]
+                priority = int(entry.get("priority", 100))
+                assert alias, f"species {sid} 存在空别名"
+                assert alias != official_name, (
+                    f"species {sid} 别名 '{alias}' 与官译 name_zh_hans 完全相同"
+                )
+                alias_norm = normalize_search_text(alias)
+                assert alias_norm, f"species {sid} 别名 '{alias}' 归一化后为空"
+                key = (sid, alias_norm)
+                if key in seen:
+                    continue
+                seen.add(key)
+                self.rows["species_aliases"].append(
+                    (alias_id, sid, alias, alias_norm, kind, priority)
+                )
+                alias_id += 1
+
+    def build_tags(self) -> None:
+        tag_pairs: set[tuple[int, str]] = set()
+        species_ids = {r[0] for r in self.rows["species"]}
+
+        # species 表内置标志：legendary(11) / mythical(12) / ultra_beast(13) / baby(14)
+        for row in self.rows["species"]:
+            sid = row[0]
+            if row[11]:
+                tag_pairs.add((sid, "legendary"))
+            if row[12]:
+                tag_pairs.add((sid, "mythical"))
+            if row[13]:
+                tag_pairs.add((sid, "ultra_beast"))
+            if row[14]:
+                tag_pairs.add((sid, "baby"))
+
+        # forms 表内置标志：is_mega(6) / is_gmax(7) / is_regional(8)
+        for row in self.rows["forms"]:
+            sid = row[1]
+            if row[6]:
+                tag_pairs.add((sid, "mega"))
+            if row[7]:
+                tag_pairs.add((sid, "gmax"))
+            if row[8]:
+                tag_pairs.add((sid, "regional"))
+
+        # 外部策展标签（fossil / paradox / starter / pseudo_legendary）
+        curated = json.loads(cfg.TAGS_JSON_PATH.read_text(encoding="utf-8"))
+        for tag_id, sids in curated.items():
+            for sid in sids:
+                assert sid in species_ids, f"species_tags.{tag_id} 引用未知 species_id={sid}"
+                tag_pairs.add((int(sid), tag_id))
+
+        self.rows["species_tags"] = sorted(tag_pairs)
+
+    def build_pinyin(self) -> None:
+        aliases_by_species: dict[int, list[str]] = defaultdict(list)
+        for _, sid, alias, _, _, _ in self.rows["species_aliases"]:
+            aliases_by_species[sid].append(alias)
+
+        for row in self.rows["species"]:
+            sid = row[0]
+            name_zh = row[3]
+            name_py, name_inits = pinyin_variants(name_zh)
+            assert name_py and name_inits, f"species {sid} ({name_zh}) 拼音生成为空"
+
+            alias_py_all: list[str] = []
+            alias_init_all: list[str] = []
+            seen_py: set[str] = set()
+            seen_init: set[str] = set()
+            for alias in aliases_by_species.get(sid, []):
+                a_py, a_init = pinyin_variants(alias)
+                for p in a_py:
+                    if p not in seen_py:
+                        seen_py.add(p)
+                        alias_py_all.append(p)
+                for i in a_init:
+                    if i not in seen_init:
+                        seen_init.add(i)
+                        alias_init_all.append(i)
+
+            self.rows["species_pinyin"].append((
+                sid,
+                " ".join(name_py),
+                " ".join(name_inits),
+                " ".join(alias_py_all) if alias_py_all else None,
+                " ".join(alias_init_all) if alias_init_all else None,
+            ))
 
     # -- meta / 落盘 --
     def finalize_meta(self) -> None:
