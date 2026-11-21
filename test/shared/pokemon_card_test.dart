@@ -13,6 +13,7 @@ PokemonCard _card({
   bool isFavorite = false,
   ValueChanged<bool>? onFavoriteToggle,
   List<String> typeIds = const ['grass', 'poison'],
+  String? matchHint,
   VoidCallback? onTap,
 }) {
   return PokemonCard(
@@ -22,6 +23,7 @@ PokemonCard _card({
     nameEn: 'Bulbasaur',
     typeIds: typeIds,
     artworkAsset: null, // 测试环境无图片资产 → 占位圆形色块
+    matchHint: matchHint,
     isFavorite: isFavorite,
     onFavoriteToggle: onFavoriteToggle,
     onTap: onTap,
@@ -118,5 +120,22 @@ void main() {
 
     final material = firstDescendantMaterial(tester, PokemonCard);
     expect(material.color, AppColors.dark.surfaceContainer);
+  });
+
+  testWidgets('传入 matchHint 时替换英文名槽位且在紧凑高 200 下零溢出',
+      (tester) async {
+    await tester.pumpWidget(
+      wrapTheme(
+        child: SizedBox(
+          width: 120,
+          height: 200,
+          child: _card(matchHint: '形态：超级喷火龙Ｘ的超长测试文本'),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('形态：超级喷火龙Ｘ的超长测试文本'), findsOneWidget);
+    expect(find.text('Bulbasaur'), findsNothing);
   });
 }

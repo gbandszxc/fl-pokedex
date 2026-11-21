@@ -285,8 +285,25 @@ void main() {
         find.descendant(of: rail, matching: find.text('图鉴')),
       );
       await pumpFor(tester);
-      await pumpUntilFound(tester, find.text('搜索 名称 / 编号'));
+      await pumpUntilFound(tester, find.text('搜索 名称 / 俗名 / 拼音 / 编号'));
       assertNoException(tester, '返回图鉴');
+
+      // ---- 5b) 俗名搜索 + 详情页属性点击回跳筛选（真实库全链路）----
+      await tester.enterText(find.byType(TextField), '比雕');
+      await pumpFor(tester);
+      await pumpUntilFound(tester, find.text('大比鸟'));
+      expect(find.text('别名：比雕'), findsOneWidget);
+      assertNoException(tester, '搜索俗名「比雕」');
+
+      await tester.tap(find.text('大比鸟').first);
+      await pumpFor(tester);
+      await pumpUntilFound(tester, find.textContaining('Pidgeot · '));
+
+      await tester.tap(find.byKey(const ValueKey('detail_header_type_flying')));
+      await pumpFor(tester);
+      await pumpUntilFound(tester, find.text('搜索 名称 / 俗名 / 拼音 / 编号'));
+      expect(find.text('属性·飞行'), findsOneWidget);
+      assertNoException(tester, '详情点属性跳回图鉴筛选');
 
       // ---- 6) 终检：全程无未消费异常。----
       expect(tester.takeException(), isNull,

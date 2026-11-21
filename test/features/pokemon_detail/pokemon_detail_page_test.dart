@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fl_pokedex/app/theme/theme.dart';
 import 'package:fl_pokedex/core/di.dart';
+import 'package:fl_pokedex/domain/models/filters.dart';
+import 'package:fl_pokedex/domain/models/species_info.dart';
 import 'package:fl_pokedex/features/pokemon_detail/detail_section_rail.dart';
 import 'package:fl_pokedex/features/pokemon_detail/pokemon_detail_page.dart';
 import 'package:fl_pokedex/shared/widgets/widgets.dart';
@@ -25,7 +27,11 @@ void main() {
     favorites.dispose();
   });
 
-  Widget buildApp(Brightness brightness, {int speciesId = 1}) {
+  Widget buildApp(
+    Brightness brightness, {
+    int speciesId = 1,
+    ValueChanged<FilterState>? onApplyFilter,
+  }) {
     // 走 /pokemon/:speciesId 路由挂载：招式 / 进化分区从 GoRouterState
     // 解析 speciesId，纯 home: 挂载会落入其「无法识别」空态。
     return ProviderScope(
@@ -45,6 +51,7 @@ void main() {
               builder: (context, state) => PokemonDetailPage(
                 speciesId:
                     int.tryParse(state.pathParameters['speciesId'] ?? '') ?? 0,
+                onApplyFilter: onApplyFilter,
               ),
             ),
           ],
@@ -58,10 +65,15 @@ void main() {
     Brightness brightness = Brightness.light,
     Set<int> initialFavorites = const {},
     int speciesId = 1,
+    ValueChanged<FilterState>? onApplyFilter,
   }) async {
     favorites.seed(initialFavorites);
     await tester.pumpWidget(
-      buildApp(brightness, speciesId: speciesId),
+      buildApp(
+        brightness,
+        speciesId: speciesId,
+        onApplyFilter: onApplyFilter,
+      ),
     );
     await tester.pumpAndSettle();
   }
@@ -655,6 +667,33 @@ void main() {
 
       expect(find.text('加载失败'), findsOneWidget);
       expect(find.text('重试'), findsOneWidget);
+    });
+  });
+
+  group('详情点击联动筛选回调', () {
+    testWidgets('点击属性徽章 / 分类 / 检索标签触发对应 FilterState', (tester) async {
+      repo.speciesInfo[1] = const SpeciesInfo(
+        speciesId: 1,
+        nationalDex: 1,
+        generationId: 1,
+        genusZh: '种子宝可梦',
+        genusEn: 'Seed Pokémon',
+        tags: [SpecialTag.starter],
+      );
+      final applied = <FilterState>[];
+      await pumpPage(tester, onApplyFilter: applied.add);
+
+      await tester.tap(find.widgetWithText(TypeBadge, '草'));
+      await tester.pump();
+      expect(applied.last, const FilterState(typeIds: {'grass'}));
+
+      await tester.tap(find.byKey(const ValueKey('detail_header_genus')));
+      await tester.pump();
+      expect(applied.last, const FilterState(genus: '种子宝可梦'));
+
+      await tester.tap(find.widgetWithText(ConditionChip, '御三家'));
+      await tester.pump();
+      expect(applied.last, const FilterState(tags: {SpecialTag.starter}));
     });
   });
 }

@@ -10,6 +10,7 @@ import 'test_utils.dart';
 PokemonListTile _tile({
   bool isFavorite = false,
   ValueChanged<bool>? onFavoriteToggle,
+  String? matchHint,
   VoidCallback? onTap,
 }) {
   return PokemonListTile(
@@ -18,6 +19,7 @@ PokemonListTile _tile({
     nameEn: 'Charizard',
     typeIds: const ['fire', 'flying'],
     thumbAsset: null,
+    matchHint: matchHint,
     isFavorite: isFavorite,
     onFavoriteToggle: onFavoriteToggle,
     onTap: onTap,
@@ -80,5 +82,22 @@ void main() {
       wrapTheme(brightness: Brightness.dark, child: _tile()),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('传入 matchHint 时保持行高 64 并展示次行提示', (tester) async {
+    await tester.pumpWidget(
+      wrapTheme(
+        child: SizedBox(
+          width: 400,
+          child: _tile(matchHint: '别名：老喷'),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(PokemonListTile)).height, 64);
+    expect(find.text('喷火龙'), findsOneWidget);
+    expect(find.text('Charizard'), findsOneWidget);
+    expect(find.text('别名：老喷'), findsOneWidget);
   });
 }

@@ -22,6 +22,7 @@ class PokemonCard extends StatelessWidget {
     required this.nameEn,
     required this.typeIds,
     this.artworkAsset,
+    this.matchHint,
     this.isFavorite = false,
     this.onFavoriteToggle,
     this.onTap,
@@ -36,6 +37,9 @@ class PokemonCard extends StatelessWidget {
 
   /// 立绘 asset 路径；null（或加载失败）时显示占位圆形色块。
   final String? artworkAsset;
+
+  /// 搜索 / 跨形态筛选的轻量命中原因提示；非空时替换英文名槽位展示，不增加卡片高度。
+  final String? matchHint;
 
   final bool isFavorite;
 
@@ -52,6 +56,8 @@ class PokemonCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final dpr = MediaQuery.devicePixelRatioOf(context);
+    final hint = matchHint;
+    final showHint = hint != null && hint.isNotEmpty;
 
     return Material(
       color: scheme.surfaceContainer,
@@ -112,10 +118,15 @@ class PokemonCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    nameEn,
+                    showHint ? hint : nameEn,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: textTheme.bodySmall,
+                    style: showHint
+                        ? textTheme.bodySmall?.copyWith(
+                            color: scheme.secondary,
+                            fontWeight: FontWeight.w500,
+                          )
+                        : textTheme.bodySmall,
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Row(

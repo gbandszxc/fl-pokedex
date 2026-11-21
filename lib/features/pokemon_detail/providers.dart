@@ -43,6 +43,7 @@ final pokemonDetailProvider = FutureProvider.autoDispose
     genusEn: info.genusEn,
     generationId: info.generationId,
     forms: forms,
+    tags: info.tags,
   );
 });
 

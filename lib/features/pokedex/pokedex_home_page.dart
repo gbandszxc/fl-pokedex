@@ -279,13 +279,30 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
       _applyingExternal = false;
     });
 
-    return TextField(
-      controller: widget.controller,
-      focusNode: widget.focusNode,
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        hintText: '搜索 名称 / 编号',
-        prefixIcon: widget.showLeadingIcon ? const Icon(Icons.search) : null,
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: widget.controller,
+      builder: (context, value, _) => TextField(
+        controller: widget.controller,
+        focusNode: widget.focusNode,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: '搜索 名称 / 俗名 / 拼音 / 编号',
+          prefixIcon: widget.showLeadingIcon ? const Icon(Icons.search) : null,
+          suffixIcon: value.text.isEmpty
+              ? null
+              : IconButton(
+                  key: const ValueKey('clear_search_query'),
+                  tooltip: '清空搜索',
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () {
+                    _debounce?.cancel();
+                    _applyingExternal = true;
+                    widget.controller.clear();
+                    _applyingExternal = false;
+                    ref.read(filterProvider.notifier).updateQuery('');
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -322,6 +339,14 @@ class _FilterBar extends ConsumerWidget implements PreferredSizeWidget {
         : regionRefs.regionGroups
             .where((group) => group.isSelected(filter))
             .length;
+    final genus = filter.genus?.trim();
+    final hasGenus = genus != null && genus.isNotEmpty;
+    final singleTypeLabel = filter.typeIds.length == 1
+        ? '属性·${kTypeNamesZh[filter.typeIds.single] ?? filter.typeIds.single}'
+        : null;
+    final singleTagLabel = filter.tags.length == 1
+        ? '标签·${filter.tags.single.labelZh}'
+        : null;
 
     return SizedBox(
       height: height,
@@ -333,6 +358,16 @@ class _FilterBar extends ConsumerWidget implements PreferredSizeWidget {
               padding: EdgeInsets.only(left: pagePaddingFor(context)),
               child: Row(
                 children: [
+                  if (hasGenus) ...[
+                    VersionChip(
+                      key: const ValueKey('active_genus_chip'),
+                      label: '分类：$genus ×',
+                      selected: true,
+                      onTap: () =>
+                          ref.read(filterProvider.notifier).setGenus(null),
+                    ),
+                    const SizedBox(width: AppSpacing.s),
+                  ],
                   _FilterGroupChip(
                     label: '世代',
                     activeCount: filter.generations.length,
@@ -342,6 +377,7 @@ class _FilterBar extends ConsumerWidget implements PreferredSizeWidget {
                   _FilterGroupChip(
                     label: '属性',
                     activeCount: filter.typeIds.length,
+                    activeLabel: singleTypeLabel,
                     onTap: () => _openFilterSheet(context),
                   ),
                   const SizedBox(width: AppSpacing.s),
@@ -352,8 +388,9 @@ class _FilterBar extends ConsumerWidget implements PreferredSizeWidget {
                   ),
                   const SizedBox(width: AppSpacing.s),
                   _FilterGroupChip(
-                    label: '特殊',
+                    label: '标签',
                     activeCount: filter.tags.length,
+                    activeLabel: singleTagLabel,
                     onTap: () => _openFilterSheet(context),
                   ),
                   const SizedBox(width: AppSpacing.s),
@@ -404,23 +441,25 @@ class _FilterBar extends ConsumerWidget implements PreferredSizeWidget {
   }
 }
 
-/// 分组筛选 chip（行内）：激活时「标签·数量」并高亮。
+/// 分组筛选 chip（行内）：激活时「标签·数量」（或 [activeLabel]）并高亮。
 class _FilterGroupChip extends StatelessWidget {
   const _FilterGroupChip({
     required this.label,
     required this.activeCount,
+    this.activeLabel,
     required this.onTap,
   });
 
   final String label;
   final int activeCount;
+  final String? activeLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final active = activeCount > 0;
     return VersionChip(
-      label: active ? '$label·$activeCount' : label,
+      label: active ? (activeLabel ?? '$label·$activeCount') : label,
       selected: active,
       onTap: onTap,
     );
@@ -480,6 +519,13 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<FilterState>(filterProvider, (prev, next) {
+      if (prev != next &&
+          _scrollController.hasClients &&
+          _scrollController.offset > 0) {
+        _scrollController.jumpTo(0);
+      }
+    });
     final asyncList = ref.watch(pokemonListProvider);
     final viewMode = ref.watch(listViewModeProvider);
     final density = ref.watch(cardDensityProvider);
@@ -635,6 +681,7 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
         nameEn: summary.nameEn,
         typeIds: summary.typeIds,
         artworkAsset: summary.thumbAsset,
+        matchHint: summary.matchHint,
         isFavorite: isFavorite,
         onFavoriteToggle: (_) => unawaited(
           ref
@@ -650,6 +697,7 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
         nameEn: summary.nameEn,
         typeIds: summary.typeIds,
         thumbAsset: summary.thumbAsset,
+        matchHint: summary.matchHint,
         isFavorite: isFavorite,
         onFavoriteToggle: (_) => unawaited(
           ref
@@ -789,7 +837,19 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
   List<Widget> _sections(PokedexRefs refs, FilterState filter) {
     final notifier = ref.read(filterProvider.notifier);
     final textTheme = Theme.of(context).textTheme;
+    final genus = filter.genus?.trim();
     return [
+      if (genus != null && genus.isNotEmpty) ...[
+        _sectionTitle('图鉴分类'),
+        _chipWrap([
+          VersionChip(
+            key: const ValueKey('sheet_genus_chip'),
+            label: '$genus ×',
+            selected: true,
+            onTap: () => notifier.setGenus(null),
+          ),
+        ]),
+      ],
       _sectionTitle('世代'),
       _chipWrap([
         for (final generation in refs.generations)
@@ -827,11 +887,20 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
             onTap: () => notifier.togglePokedexGroup(group.ids),
           ),
       ]),
-      _sectionTitle('特殊'),
+      _sectionTitle('分类标签'),
       _chipWrap([
-        for (final tag in SpecialTag.values)
+        for (final tag in SpecialTag.values.where((t) => !t.isFormTag))
           VersionChip(
-            label: _specialTagLabel(tag),
+            label: tag.labelZh,
+            selected: filter.tags.contains(tag),
+            onTap: () => notifier.toggleTag(tag),
+          ),
+      ]),
+      _sectionTitle('特殊形态'),
+      _chipWrap([
+        for (final tag in SpecialTag.values.where((t) => t.isFormTag))
+          VersionChip(
+            label: tag.labelZh,
             selected: filter.tags.contains(tag),
             onTap: () => notifier.toggleTag(tag),
           ),
@@ -957,14 +1026,3 @@ String _generationLabel(int id) {
   }
   return '第$id世代';
 }
-
-const Map<SpecialTag, String> _specialTagLabels = {
-  SpecialTag.legendary: '传说',
-  SpecialTag.mythical: '幻之',
-  SpecialTag.ultraBeast: '究极异兽',
-  SpecialTag.mega: '超级进化',
-  SpecialTag.gmax: '超极巨',
-  SpecialTag.regional: '地区形态',
-};
-
-String _specialTagLabel(SpecialTag tag) => _specialTagLabels[tag] ?? tag.name;

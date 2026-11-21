@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../domain/models/filters.dart';
 import '../features/favorites/favorites_page.dart';
 import '../features/moves/move_detail_page.dart';
 import '../features/pokedex/pokedex_home_page.dart';
+import '../features/pokedex/providers.dart';
 import '../features/pokemon_detail/pokemon_detail_page.dart';
 import '../features/settings/settings_page.dart';
 import 'shell/adaptive_scaffold.dart';
@@ -20,7 +22,8 @@ import 'update_startup_check.dart';
 /// /move/:moveId         招式详情
 /// ```
 final routerProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
+  late final GoRouter router;
+  router = GoRouter(
     initialLocation: '/',
     routes: [
       StatefulShellRoute.indexedStack(
@@ -55,7 +58,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               int.tryParse(state.pathParameters['speciesId'] ?? '');
           final child = speciesId == null
               ? const PokemonDetailPage.notFound()
-              : PokemonDetailPage(speciesId: speciesId);
+              : PokemonDetailPage(
+                  speciesId: speciesId,
+                  onApplyFilter: (FilterState filter) {
+                    ref.read(filterProvider.notifier).replaceWith(filter);
+                    router.go('/');
+                  },
+                );
           // extra 携带切换方向时（滑动 / ←/→ 键切上一只下一只）播放
           // 方向性滑入：next 自右、prev 自左，旧页按自身进入方向滑出，
           // 合成翻页观感；列表点入 / deep link 无 extra，走平台默认过渡。
@@ -96,4 +105,5 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  return router;
 });

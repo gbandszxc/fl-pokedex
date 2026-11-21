@@ -163,6 +163,31 @@ void main() {
       notifier.updateQuery(before.query);
       expect(identical(container.read(filterProvider), before), isTrue);
     });
+
+    test('setGenus / replaceWith 与 clear 清除分类', () {
+      final container = makeContainer();
+      final notifier = container.read(filterProvider.notifier);
+
+      notifier.setGenus('  鸟宝可梦  ');
+      expect(container.read(filterProvider).genus, '鸟宝可梦');
+      expect(container.read(filterProvider).isEmpty, isFalse);
+
+      notifier.setGenus('   ');
+      expect(container.read(filterProvider).genus, isNull);
+      expect(container.read(filterProvider).isEmpty, isTrue);
+
+      const replacement = FilterState(
+        typeIds: {'flying'},
+        tags: {SpecialTag.fossil},
+        genus: '远古鸟宝可梦',
+      );
+      notifier.replaceWith(replacement);
+      expect(container.read(filterProvider), replacement);
+
+      notifier.clear();
+      expect(container.read(filterProvider).isEmpty, isTrue);
+      expect(container.read(filterProvider).genus, isNull);
+    });
   });
 
   group('listViewModeProvider', () {

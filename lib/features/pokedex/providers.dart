@@ -101,6 +101,24 @@ class FilterNotifier extends Notifier<FilterState> {
     state = state.copyWith(dexMin: min, dexMax: max);
   }
 
+  /// 图鉴分类（如「鸟宝可梦」）；传 null / 空白清除分类约束。
+  void setGenus(String? genus) {
+    final trimmed = genus?.trim();
+    final normalized = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+    if (state.genus == normalized) {
+      return;
+    }
+    state = state.copyWith(genus: normalized);
+  }
+
+  /// 整套替换筛选条件（详情页点击属性 / 分类 / 标签跳转时使用）。
+  void replaceWith(FilterState next) {
+    if (state == next) {
+      return;
+    }
+    state = next;
+  }
+
   /// 清空全部筛选（含搜索词）。
   void clear() => state = const FilterState();
 

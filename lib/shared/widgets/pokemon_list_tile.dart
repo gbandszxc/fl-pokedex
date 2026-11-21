@@ -15,6 +15,7 @@ class PokemonListTile extends StatelessWidget {
     required this.nameEn,
     required this.typeIds,
     this.thumbAsset,
+    this.matchHint,
     this.isFavorite = false,
     this.onFavoriteToggle,
     this.onTap,
@@ -30,6 +31,9 @@ class PokemonListTile extends StatelessWidget {
   /// 缩略图 asset 路径；null（或加载失败）时显示占位圆形色块。
   final String? thumbAsset;
 
+  /// 搜索 / 跨形态筛选的轻量命中原因提示。
+  final String? matchHint;
+
   final bool isFavorite;
 
   /// 传了才启用收藏按钮。
@@ -43,6 +47,30 @@ class PokemonListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final hint = matchHint;
+    final showHint = hint != null && hint.isNotEmpty;
+    final nameRow = Row(
+      children: [
+        Expanded(
+          child: Text(
+            nameZh,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Flexible(
+          child: Text(
+            nameEn,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
 
     return SizedBox(
       height: 64,
@@ -67,28 +95,24 @@ class PokemonListTile extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.s),
                 Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          nameZh,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Flexible(
-                        child: Text(
-                          nameEn,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.bodySmall,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: showHint
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            nameRow,
+                            Text(
+                              hint,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: scheme.secondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        )
+                      : nameRow,
                 ),
                 const SizedBox(width: AppSpacing.s),
                 Row(

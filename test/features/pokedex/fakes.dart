@@ -17,9 +17,9 @@ import 'package:fl_pokedex/domain/models/stat_block.dart';
 import 'package:fl_pokedex/domain/repositories/favorites_repository.dart';
 import 'package:fl_pokedex/domain/repositories/pokedex_repository.dart';
 
-/// 内存版 PokedexRepository：70 条合成数据，实现 §7 搜索语义的
-/// 简化版（编号正则 / 中文名与英文名包含 / 世代 / 属性 any-all /
-/// 编号区间 / 特殊标签；地区归属不建模，选中任一地区即空结果）。
+/// 内存版 PokedexRepository：70 条合成数据，实现 §7 搜索与筛选语义的
+/// 简化版（编号正则 / 中文名、英文名与别名包含 / 世代 / 属性 any-all /
+/// 编号区间 / 分类 genus / 检索标签；地区归属不建模，选中任一地区即空结果）。
 class FakePokedexRepository implements PokedexRepository {
   FakePokedexRepository({int count = 70}) {
     for (var dex = 1; dex <= count; dex++) {
@@ -28,6 +28,17 @@ class FakePokedexRepository implements PokedexRepository {
   }
 
   final List<PokemonSummary> _all = [];
+
+  /// 测试可注入的物种分类（speciesId -> genus）。
+  final Map<int, String> genusById = {1: '种子宝可梦', 25: '鼠宝可梦'};
+
+  /// 测试可注入的物种别名（speciesId -> alias）用于展示 matchHint。
+  final Map<int, List<String>> aliasesById = {
+    18: ['比雕'],
+  };
+
+  /// 测试可注入的额外检索标签（speciesId -> tags）。
+  final Map<int, Set<SpecialTag>> extraTagsById = {};
 
   /// 最近一次 queryPokemon / countPokemon 收到的 FilterState。
   FilterState? lastFilter;
@@ -66,58 +77,75 @@ class FakePokedexRepository implements PokedexRepository {
         : null;
     final lowerQuery = query.toLowerCase();
 
-    bool matches(PokemonSummary p) {
+    final filtered = <PokemonSummary>[];
+    for (final p in _all) {
+      String? hint;
       if (number != null) {
         if (p.nationalDex != number) {
-          return false;
+          continue;
         }
       } else if (query.isNotEmpty) {
         final inZh = p.nameZh.contains(query);
         final inEn = p.nameEn.toLowerCase().contains(lowerQuery);
         if (!inZh && !inEn) {
-          return false;
+          final aliases = aliasesById[p.speciesId] ?? const <String>[];
+          final hitAlias = aliases.where((a) => a.contains(query)).firstOrNull;
+          if (hitAlias == null) {
+            continue;
+          }
+          hint = '别名：$hitAlias';
         }
       }
       if (f.generations.isNotEmpty && !f.generations.contains(p.generationId)) {
-        return false;
+        continue;
       }
       if (f.typeIds.isNotEmpty) {
         final hit = f.typeMatchMode == TypeMatchMode.all
             ? f.typeIds.every(p.typeIds.contains)
             : f.typeIds.any(p.typeIds.contains);
         if (!hit) {
-          return false;
+          continue;
         }
       }
       if (f.dexMin != null && p.nationalDex < f.dexMin!) {
-        return false;
+        continue;
       }
       if (f.dexMax != null && p.nationalDex > f.dexMax!) {
-        return false;
+        continue;
+      }
+      final genus = f.genus?.trim();
+      if (genus != null && genus.isNotEmpty) {
+        if (genusById[p.speciesId] != genus) {
+          continue;
+        }
       }
       if (f.tags.isNotEmpty) {
+        var tagsOk = true;
+        final extraTags = extraTagsById[p.speciesId] ?? const <SpecialTag>{};
         for (final tag in f.tags) {
-          final hit = switch (tag) {
-            SpecialTag.legendary => p.isLegendary,
-            SpecialTag.mythical => p.isMythical,
-            SpecialTag.ultraBeast => p.isUltraBeast,
-            // mega / gmax / regional 不在 summary 上建模。
-            _ => false,
-          };
+          final hit = extraTags.contains(tag) ||
+              switch (tag) {
+                SpecialTag.legendary => p.isLegendary,
+                SpecialTag.mythical => p.isMythical,
+                SpecialTag.ultraBeast => p.isUltraBeast,
+                _ => false,
+              };
           if (!hit) {
-            return false;
+            tagsOk = false;
+            break;
           }
+        }
+        if (!tagsOk) {
+          continue;
         }
       }
       if (f.pokedexIds.isNotEmpty) {
         // 未建模地区归属：选中地区 → 无结果。
-        return false;
+        continue;
       }
-      return true;
+      filtered.add(hint == null ? p : p.copyWith(matchHint: hint));
     }
-
-    final filtered = _all.where(matches).toList()
-      ..sort((a, b) => a.nationalDex.compareTo(b.nationalDex));
+    filtered.sort((a, b) => a.nationalDex.compareTo(b.nationalDex));
     return filtered;
   }
 

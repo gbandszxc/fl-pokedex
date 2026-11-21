@@ -167,4 +167,49 @@ void main() {
 
     expect(favorites.recents, [1]);
   });
+
+  testWidgets('搜别名显示 matchHint；点搜索栏清空按钮立即复位', (tester) async {
+    final (container, _, _) = await _pumpHome(tester);
+
+    await tester.enterText(find.byType(TextField), '比雕');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('宝可梦018'), findsOneWidget);
+    expect(find.text('别名：比雕'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('clear_search_query')));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(container.read(filterProvider).query, isEmpty);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
+    );
+    expect(
+      container.read(pokemonListProvider).requireValue.total,
+      70,
+    );
+  });
+
+  testWidgets('激活分类过滤在筛选栏显示可关闭芯片', (tester) async {
+    final (container, _, _) = await _pumpHome(tester);
+
+    container.read(filterProvider.notifier).setGenus('种子宝可梦');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final chip = find.byKey(const ValueKey('active_genus_chip'));
+    expect(chip, findsOneWidget);
+    expect(find.text('分类：种子宝可梦 ×'), findsOneWidget);
+    expect(container.read(pokemonListProvider).requireValue.total, 1);
+
+    await tester.tap(chip);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(container.read(filterProvider).genus, isNull);
+    expect(find.byKey(const ValueKey('active_genus_chip')), findsNothing);
+    expect(container.read(pokemonListProvider).requireValue.total, 70);
+  });
 }

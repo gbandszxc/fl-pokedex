@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/theme.dart';
 import '../../core/di.dart';
 import '../../domain/models/ability_ref.dart';
+import '../../domain/models/filters.dart';
 import '../../domain/models/flavor_entry.dart';
 import '../../domain/models/form_summary.dart';
 import '../../shared/responsive/breakpoints.dart';
@@ -106,12 +107,14 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
     super.key,
     required this.speciesId,
     this.showBackButton = true,
+    this.onApplyFilter,
   });
 
   /// 路由参数不是合法整数时的「未找到」态。
   const PokemonDetailPage.notFound({super.key})
       : speciesId = null,
-        showBackButton = true;
+        showBackButton = true,
+        onApplyFilter = null;
 
   /// null 表示路由参数非法（渲染未找到空态）。
   final int? speciesId;
@@ -119,6 +122,9 @@ class PokemonDetailPage extends ConsumerStatefulWidget {
   /// 是否展示返回入口（AppBar 自动 leading）。路由全页用默认 true；
   /// 嵌入双栏详情面板时传 false（面板无路由栈，不提供返回）。
   final bool showBackButton;
+
+  /// 点击属性 / 分类 / 标签 / 世代时回调，由 app 层写入首页筛选并按需跳转。
+  final ValueChanged<FilterState>? onApplyFilter;
 
   @override
   ConsumerState<PokemonDetailPage> createState() => _PokemonDetailPageState();
@@ -318,6 +324,7 @@ class _PokemonDetailPageState extends ConsumerState<PokemonDetailPage> {
       data: (detail) => _DetailScaffold(
         detail: detail,
         showBackButton: widget.showBackButton,
+        onApplyFilter: widget.onApplyFilter,
       ),
     );
     // 双栏嵌入：键盘 / 拖拽切换一概不接（见 [_embeddedInPane]），
@@ -399,12 +406,15 @@ class _DetailScaffold extends ConsumerWidget {
   const _DetailScaffold({
     required this.detail,
     required this.showBackButton,
+    this.onApplyFilter,
   });
 
   final PokemonDetailData detail;
 
   /// false = 嵌入双栏详情面板：SliverAppBar 不自动补返回按钮。
   final bool showBackButton;
+
+  final ValueChanged<FilterState>? onApplyFilter;
 
   static const _tabLabels = ['图鉴说明', '种族值', '进化', '招式', '资料'];
 
@@ -426,6 +436,7 @@ class _DetailScaffold extends ConsumerWidget {
         detail: detail,
         selectedForm: selectedForm,
         artworkHeight: null,
+        onApplyFilter: onApplyFilter,
       );
       final formChips = _FormChips(detail: detail, selectedForm: selectedForm);
       // compact / medium：头部收进折叠式 SliverAppBar（滚动收起），
@@ -491,7 +502,11 @@ class _DetailScaffold extends ConsumerWidget {
                 ),
                 _tabPage(
                   pad,
-                  _InfoSection(detail: detail, selectedForm: selectedForm),
+                  _InfoSection(
+                    detail: detail,
+                    selectedForm: selectedForm,
+                    onApplyFilter: onApplyFilter,
+                  ),
                 ),
               ],
             ),
@@ -509,6 +524,7 @@ class _DetailScaffold extends ConsumerWidget {
         selectedForm: selectedForm,
         canPop: canPop,
         pad: pad,
+        onApplyFilter: onApplyFilter,
       ),
     );
   }
@@ -530,6 +546,7 @@ class _ExpandedDetailBody extends StatefulWidget {
     required this.selectedForm,
     required this.canPop,
     required this.pad,
+    this.onApplyFilter,
   });
 
   final PokemonDetailData detail;
@@ -541,6 +558,8 @@ class _ExpandedDetailBody extends StatefulWidget {
 
   /// 页面水平留白（expanded = 24）。
   final double pad;
+
+  final ValueChanged<FilterState>? onApplyFilter;
 
   @override
   State<_ExpandedDetailBody> createState() => _ExpandedDetailBodyState();
@@ -633,6 +652,7 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
                                 detail: detail,
                                 selectedForm: selectedForm,
                                 section: _section,
+                                onApplyFilter: widget.onApplyFilter,
                               )
                             : Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,6 +661,7 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
                                     detail: detail,
                                     selectedForm: selectedForm,
                                     artworkHeight: _kArtworkHeightExpanded,
+                                    onApplyFilter: widget.onApplyFilter,
                                   ),
                                   _FormChips(
                                     detail: detail,
@@ -681,6 +702,7 @@ class _ExpandedDetailBodyState extends State<_ExpandedDetailBody> {
                                       detail: detail,
                                       selectedForm: selectedForm,
                                       showTitle: true,
+                                      onApplyFilter: widget.onApplyFilter,
                                     ),
                                   ),
                                 ],
@@ -714,6 +736,7 @@ class _TwoColumnDetail extends StatelessWidget {
     required this.detail,
     required this.selectedForm,
     required this.section,
+    this.onApplyFilter,
   });
 
   final PokemonDetailData detail;
@@ -723,12 +746,18 @@ class _TwoColumnDetail extends StatelessWidget {
   /// 页面状态提供的挂载点：给分区包锚点 key。
   final Widget Function(int index, Widget child) section;
 
+  final ValueChanged<FilterState>? onApplyFilter;
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _HeaderHorizontal(detail: detail, selectedForm: selectedForm),
+        _HeaderHorizontal(
+          detail: detail,
+          selectedForm: selectedForm,
+          onApplyFilter: onApplyFilter,
+        ),
         const SizedBox(height: AppSpacing.l),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -754,6 +783,7 @@ class _TwoColumnDetail extends StatelessWidget {
                       detail: detail,
                       selectedForm: selectedForm,
                       showTitle: true,
+                      onApplyFilter: onApplyFilter,
                     ),
                   ),
                 ],
@@ -791,11 +821,14 @@ class _HeaderHorizontal extends StatelessWidget {
   const _HeaderHorizontal({
     required this.detail,
     required this.selectedForm,
+    this.onApplyFilter,
   });
 
   final PokemonDetailData detail;
 
   final FormSummary selectedForm;
+
+  final ValueChanged<FilterState>? onApplyFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -840,12 +873,17 @@ class _HeaderHorizontal extends StatelessWidget {
                 style: textTheme.bodySmall,
               ),
               const SizedBox(height: AppSpacing.s),
-              _TypeBadgesRow(selectedForm: selectedForm),
-              if (detail.genusZh != null || detail.genusEn != null) ...[
+              _TypeBadgesRow(
+                selectedForm: selectedForm,
+                onApplyFilter: onApplyFilter,
+              ),
+              if (detail.genusZh != null ||
+                  detail.genusEn != null ||
+                  detail.tags.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.xs),
-                Text(
-                  (detail.genusZh ?? detail.genusEn)!,
-                  style: textTheme.bodySmall,
+                _GenusAndTags(
+                  detail: detail,
+                  onApplyFilter: onApplyFilter,
                 ),
               ],
               _FormChips(detail: detail, selectedForm: selectedForm),
@@ -861,9 +899,13 @@ class _HeaderHorizontal extends StatelessWidget {
 /// 的 alignment 容器会据此撑满整行（P1-b 全宽色带根因）；Flex 对非弹性
 /// 子项宽度无界，徽章收缩为内容宽。属性最多 2 枚，无溢出。
 class _TypeBadgesRow extends StatelessWidget {
-  const _TypeBadgesRow({required this.selectedForm});
+  const _TypeBadgesRow({
+    required this.selectedForm,
+    this.onApplyFilter,
+  });
 
   final FormSummary selectedForm;
+  final ValueChanged<FilterState>? onApplyFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -873,9 +915,117 @@ class _TypeBadgesRow extends StatelessWidget {
         for (final typeId in selectedForm.typeIds) ...[
           if (typeId != selectedForm.typeIds.first)
             const SizedBox(width: AppSpacing.s),
-          TypeBadge(type: typeId),
+          _buildBadge(typeId),
         ],
       ],
+    );
+  }
+
+  Widget _buildBadge(String typeId) {
+    final badge = TypeBadge(
+      key: ValueKey('detail_header_type_$typeId'),
+      type: typeId,
+      onTap: onApplyFilter == null
+          ? null
+          : () => onApplyFilter!(FilterState(typeIds: {typeId})),
+    );
+    if (onApplyFilter == null) {
+      return badge;
+    }
+    final typeName = kTypeNamesZh[typeId] ?? typeId;
+    return Tooltip(
+      message: '筛选$typeName属性',
+      child: badge,
+    );
+  }
+}
+
+/// 头部「分类 + 检索标签」行：分类可点击跳入同分类筛选，标签以 pill 展示。
+class _GenusAndTags extends StatelessWidget {
+  const _GenusAndTags({
+    required this.detail,
+    this.onApplyFilter,
+  });
+
+  final PokemonDetailData detail;
+  final ValueChanged<FilterState>? onApplyFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final genus = detail.genusZh ?? detail.genusEn;
+    final textTheme = Theme.of(context).textTheme;
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (genus != null)
+          _FilterLinkText(
+            linkKey: const ValueKey('detail_header_genus'),
+            label: genus,
+            style: textTheme.bodySmall,
+            tooltip: '查看同分类宝可梦',
+            onTap: onApplyFilter == null
+                ? null
+                : () => onApplyFilter!(FilterState(genus: genus)),
+          ),
+        for (final tag in detail.tags)
+          ConditionChip(
+            label: tag.detailLabelZh,
+            tooltip: onApplyFilter == null ? null : '筛选${tag.detailLabelZh}',
+            onTap: onApplyFilter == null
+                ? null
+                : () => onApplyFilter!(FilterState(tags: {tag})),
+          ),
+      ],
+    );
+  }
+}
+
+/// 可点击筛选文本链接（保持与普通 Text 相同的文字节点与基线传递）。
+class _FilterLinkText extends StatelessWidget {
+  const _FilterLinkText({
+    this.linkKey,
+    required this.label,
+    required this.style,
+    required this.tooltip,
+    this.onTap,
+  });
+
+  final Key? linkKey;
+  final String label;
+  final TextStyle? style;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (onTap == null) {
+      return Text(label, style: style);
+    }
+    final secondary = Theme.of(context).colorScheme.secondary;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        key: linkKey,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.input),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: style?.copyWith(
+                color: secondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 3),
+            Icon(Icons.filter_list, size: 13, color: secondary),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -907,12 +1057,13 @@ class _FavoriteAction extends ConsumerWidget {
   }
 }
 
-/// 头部：立绘 + 编号 + 中文名 + 英日文名 + 属性徽章 + 分类。
+/// 头部：立绘 + 编号 + 中文名 + 英日文名 + 属性徽章 + 分类与标签。
 class _Header extends StatelessWidget {
   const _Header({
     required this.detail,
     required this.selectedForm,
     required this.artworkHeight,
+    this.onApplyFilter,
   });
 
   final PokemonDetailData detail;
@@ -921,6 +1072,8 @@ class _Header extends StatelessWidget {
   /// 立绘容器固定高；null 表示在父级弹性空间内自适应填满
   /// （compact/medium 折叠头部场景）。
   final double? artworkHeight;
+
+  final ValueChanged<FilterState>? onApplyFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -962,13 +1115,17 @@ class _Header extends StatelessWidget {
           style: textTheme.bodySmall,
         ),
         const SizedBox(height: AppSpacing.s),
-        _TypeBadgesRow(selectedForm: selectedForm),
-        if (detail.genusZh != null || detail.genusEn != null) ...[
+        _TypeBadgesRow(
+          selectedForm: selectedForm,
+          onApplyFilter: onApplyFilter,
+        ),
+        if (detail.genusZh != null ||
+            detail.genusEn != null ||
+            detail.tags.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.xs),
-          // 分类 caption：简中优先，缺简中回退英文。
-          Text(
-            (detail.genusZh ?? detail.genusEn)!,
-            style: textTheme.bodySmall,
+          _GenusAndTags(
+            detail: detail,
+            onApplyFilter: onApplyFilter,
           ),
         ],
       ],
@@ -1388,21 +1545,25 @@ class _StatsSection extends ConsumerWidget {
   }
 }
 
-/// 资料分区：身高 / 体重 / 世代 / 分类 / 特性。
+/// 资料分区：身高 / 体重 / 世代 / 分类 / 标签 / 特性。
 class _InfoSection extends ConsumerWidget {
   const _InfoSection({
     required this.detail,
     required this.selectedForm,
     this.showTitle = false,
+    this.onApplyFilter,
   });
 
   final PokemonDetailData detail;
   final FormSummary selectedForm;
   final bool showTitle;
+  final ValueChanged<FilterState>? onApplyFilter;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final formDetailAsync = ref.watch(formDetailProvider(selectedForm));
+    final textTheme = Theme.of(context).textTheme;
+    final genus = detail.genusZh ?? detail.genusEn;
     final content = formDetailAsync.when(
       loading: () => const Skeleton(
         child: Column(
@@ -1430,11 +1591,52 @@ class _InfoSection extends ConsumerWidget {
             label: '体重',
             value: _measureLabel(formDetail.weightKg, 'kg'),
           ),
-          _InfoRow(label: '世代', value: _generationLabel(detail.generationId)),
-          if (detail.genusZh != null || detail.genusEn != null)
+          _InfoRow(
+            label: '世代',
+            child: _FilterLinkText(
+              linkKey: const ValueKey('detail_info_generation'),
+              label: _generationLabel(detail.generationId),
+              style: textTheme.bodyMedium,
+              tooltip: '筛选${_generationLabel(detail.generationId)}宝可梦',
+              onTap: onApplyFilter == null
+                  ? null
+                  : () => onApplyFilter!(
+                        FilterState(generations: {detail.generationId}),
+                      ),
+            ),
+          ),
+          if (genus != null)
             _InfoRow(
               label: '分类',
-              value: (detail.genusZh ?? detail.genusEn)!,
+              child: _FilterLinkText(
+                linkKey: const ValueKey('detail_info_genus'),
+                label: genus,
+                style: textTheme.bodyMedium,
+                tooltip: '查看同分类宝可梦',
+                onTap: onApplyFilter == null
+                    ? null
+                    : () => onApplyFilter!(FilterState(genus: genus)),
+              ),
+            ),
+          if (detail.tags.isNotEmpty)
+            _InfoRow(
+              label: '标签',
+              child: Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  for (final tag in detail.tags)
+                    ConditionChip(
+                      label: tag.detailLabelZh,
+                      tooltip: onApplyFilter == null
+                          ? null
+                          : '筛选${tag.detailLabelZh}',
+                      onTap: onApplyFilter == null
+                          ? null
+                          : () => onApplyFilter!(FilterState(tags: {tag})),
+                    ),
+                ],
+              ),
             ),
           _InfoRow(
             label: '特性',

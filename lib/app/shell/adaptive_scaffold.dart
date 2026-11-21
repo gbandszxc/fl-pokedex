@@ -138,6 +138,9 @@ class _PokedexTwoPane extends ConsumerWidget {
                         child: PokemonDetailPage(
                           speciesId: selectedSpeciesId,
                           showBackButton: false,
+                          onApplyFilter: (filter) => ref
+                              .read(filterProvider.notifier)
+                              .replaceWith(filter),
                         ),
                       ),
               ),

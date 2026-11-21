@@ -326,7 +326,7 @@ void main() {
     expect(_location(container), '/'); // 未发生路由 push
     expect(favorites.recents, [1]); // 点选仍记录最近浏览
     // 列表面板仍在原位（没有整页详情覆盖窗口）。
-    expect(find.text('搜索 名称 / 编号'), findsOneWidget);
+    expect(find.text('搜索 名称 / 俗名 / 拼音 / 编号'), findsOneWidget);
     expect(find.byType(BackButton), findsNothing); // 面板嵌入无返回按钮
   });
 
@@ -522,5 +522,44 @@ void main() {
     expect(field.focusNode!.hasFocus, isFalse);
     expect(container.read(filterProvider).query, isEmpty);
     expect(favorites.recents, isEmpty);
+  });
+
+  testWidgets('双栏点击详情页属性/分类：原地更新左列表筛选，不退出双栏', (tester) async {
+    final (container, _) =
+        await _pumpApp(tester, size: const Size(1200, 900));
+
+    await tester.tap(find.text('妙蛙种子').first);
+    await _pumpDetailReady(tester);
+
+    await tester.tap(find.byKey(const ValueKey('detail_header_type_grass')));
+    await _pumpDetailReady(tester);
+
+    expect(_location(container), '/');
+    expect(container.read(filterProvider), const FilterState(typeIds: {'grass'}));
+    expect(container.read(paneSelectionProvider), 1);
+
+    await tester.tap(find.byKey(const ValueKey('detail_header_genus')));
+    await _pumpDetailReady(tester);
+
+    expect(_location(container), '/');
+    expect(
+      container.read(filterProvider),
+      const FilterState(genus: '种子宝可梦'),
+    );
+    expect(find.byKey(const ValueKey('active_genus_chip')), findsOneWidget);
+  });
+
+  testWidgets('单栏点击详情页属性：携带过滤条件跳回首页 /', (tester) async {
+    final (container, _) = await _pumpApp(tester, size: const Size(800, 600));
+
+    await tester.tap(find.text('妙蛙种子').first);
+    await _pumpDetailReady(tester);
+    expect(_location(container), '/pokemon/1');
+
+    await tester.tap(find.byKey(const ValueKey('detail_header_type_grass')));
+    await _pumpDetailReady(tester);
+
+    expect(_location(container), '/');
+    expect(container.read(filterProvider), const FilterState(typeIds: {'grass'}));
   });
 }

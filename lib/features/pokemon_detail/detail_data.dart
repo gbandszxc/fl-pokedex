@@ -1,4 +1,5 @@
 import 'package:fl_pokedex/domain/models/ability_ref.dart';
+import 'package:fl_pokedex/domain/models/filters.dart';
 import 'package:fl_pokedex/domain/models/flavor_entry.dart';
 import 'package:fl_pokedex/domain/models/form_summary.dart';
 import 'package:fl_pokedex/domain/models/stat_block.dart';
@@ -21,6 +22,7 @@ class PokemonDetailData {
     required this.forms,
     this.genusZh,
     this.genusEn,
+    this.tags = const <SpecialTag>[],
   });
 
   final int speciesId;
@@ -45,6 +47,9 @@ class PokemonDetailData {
 
   /// 全部形态（form_order 排序，含 typeIds / 立绘路径 / 身高体重）。
   final List<FormSummary> forms;
+
+  /// 物种检索标签（如传说 / 化石宝可梦 / 御三家）。
+  final List<SpecialTag> tags;
 }
 
 /// 形态级详情数据（按形态惰性取回）。
