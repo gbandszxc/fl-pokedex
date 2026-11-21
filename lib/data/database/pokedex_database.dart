@@ -96,16 +96,22 @@ class PokedexDatabase extends _$PokedexDatabase {
 
 /// 进化边原始行（DAO 查询结果；由 PokedexRepositoryImpl 组装成树）。
 ///
-/// 同时携带 to 端 species 的展示信息（编号/简中名/默认形态缩略图）：
-/// 链上每个 species 至少作为一条边的 to 端出现，因此信息完整。
+/// 同时携带 to 端形态的展示信息（编号/简中名/形态名/属性/缩略图）：
+/// 链上每个可进化形态至少作为一条边的 to 端出现，因此信息完整。
 class EvolutionEdgeData {
   const EvolutionEdgeData({
     required this.chainId,
     required this.fromSpeciesId,
     required this.toSpeciesId,
+    this.fromFormId,
+    required this.toFormId,
     required this.trigger,
     required this.toNationalDex,
     required this.toNameZh,
+    required this.toFormNameZh,
+    this.toIsDefaultForm = true,
+    this.toIsRegional = false,
+    this.toTypeIds = const <String>[],
     required this.toThumbAsset,
     this.minLevel,
     this.item,
@@ -113,6 +119,7 @@ class EvolutionEdgeData {
     this.knownMove,
     this.knownMoveType,
     this.location,
+    this.region,
     this.timeOfDay,
     this.gender,
     this.minHappiness,
@@ -129,9 +136,15 @@ class EvolutionEdgeData {
   final int chainId;
   final int? fromSpeciesId;
   final int toSpeciesId;
+  final int? fromFormId;
+  final int toFormId;
   final String trigger;
   final int toNationalDex;
   final String toNameZh;
+  final String toFormNameZh;
+  final bool toIsDefaultForm;
+  final bool toIsRegional;
+  final List<String> toTypeIds;
   final String? toThumbAsset;
   final int? minLevel;
   final String? item;
@@ -139,6 +152,7 @@ class EvolutionEdgeData {
   final String? knownMove;
   final String? knownMoveType;
   final String? location;
+  final String? region;
   final String? timeOfDay;
   final String? gender;
   final int? minHappiness;
@@ -151,12 +165,15 @@ class EvolutionEdgeData {
   final bool needsRain;
   final bool turnUpsideDown;
 
-  bool get isRootRow => trigger == 'root' && fromSpeciesId == null;
+  bool get isRootRow =>
+      trigger == 'root' && fromSpeciesId == null && fromFormId == null;
 
   EvolutionEdge toDomain() => EvolutionEdge(
         chainId: chainId,
         fromSpeciesId: fromSpeciesId,
         toSpeciesId: toSpeciesId,
+        fromFormId: fromFormId,
+        toFormId: toFormId,
         trigger: trigger,
         minLevel: minLevel,
         item: item,
@@ -164,6 +181,7 @@ class EvolutionEdgeData {
         knownMove: knownMove,
         knownMoveType: knownMoveType,
         location: location,
+        region: region,
         timeOfDay: timeOfDay,
         gender: gender,
         minHappiness: minHappiness,
@@ -1003,28 +1021,40 @@ class EvolutionDao extends DatabaseAccessor<PokedexDatabase>
     return row?.data['cid'] as int?;
   }
 
-  /// 一条链的全部进化边，附带 to 端 species 展示信息，按 to_species_id 排序。
+  /// 一条链的全部进化边，附带 to 端形态展示信息（形态名、属性、缩略图/立绘）。
   Future<List<EvolutionEdgeData>> getChainEdges(int chainId) async {
     final rows = await customSelect(
-      'SELECT e.chain_id, e.from_species_id, e.to_species_id, e.trigger, '
+      'SELECT e.chain_id, e.from_species_id, e.to_species_id, '
+      '       e.from_form_id, e.to_form_id, e.trigger, '
       '       e.min_level, e.item, e.held_item, e.known_move, '
-      '       e.known_move_type, e.location, e.time_of_day, e.gender, '
-      '       e.min_happiness, e.min_affection, e.min_beauty, '
+      '       e.known_move_type, e.location, e.region, e.time_of_day, '
+      '       e.gender, e.min_happiness, e.min_affection, e.min_beauty, '
       '       e.relative_physical_stats, e.party_species, e.party_type, '
       '       e.trade_species, e.needs_overworld_rain, e.turn_upside_down, '
       '       ts.national_dex AS to_national_dex, '
       '       ts.name_zh_hans AS to_name_zh, '
-      '       dft.thumb_asset AS to_thumb_asset '
+      '       tf.form_name_zh AS to_form_name_zh, '
+      '       tf.is_default AS to_is_default, '
+      '       tf.is_regional AS to_is_regional, '
+      '       COALESCE(tf.thumb_asset, tf.artwork_asset) AS to_thumb_asset, '
+      "       (SELECT GROUP_CONCAT(x.identifier, ',') FROM ("
+      '          SELECT t.identifier FROM form_types ft '
+      '          JOIN types t ON t.id = ft.type_id '
+      '          WHERE ft.form_id = e.to_form_id ORDER BY ft.slot ASC) AS x'
+      '       ) AS to_type_ids_csv '
       'FROM evolution_edges e '
       'JOIN species ts ON ts.id = e.to_species_id '
-      'LEFT JOIN forms dft ON dft.species_id = ts.id AND dft.is_default = 1 '
+      'JOIN forms tf ON tf.id = e.to_form_id '
       'WHERE e.chain_id = ? '
-      'ORDER BY e.to_species_id ASC',
+      'ORDER BY tf.is_default DESC, e.to_species_id ASC, tf.form_order ASC, '
+      '         e.to_form_id ASC',
       variables: [Variable.withInt(chainId)],
       readsFrom: {
         attachedDatabase.evolutionEdges,
         attachedDatabase.species,
         attachedDatabase.forms,
+        attachedDatabase.formTypes,
+        attachedDatabase.types,
       },
     ).get();
     return rows
@@ -1033,9 +1063,15 @@ class EvolutionDao extends DatabaseAccessor<PokedexDatabase>
             chainId: row.data['chain_id'] as int,
             fromSpeciesId: row.data['from_species_id'] as int?,
             toSpeciesId: row.data['to_species_id'] as int,
+            fromFormId: row.data['from_form_id'] as int?,
+            toFormId: row.data['to_form_id'] as int,
             trigger: row.data['trigger'] as String,
             toNationalDex: row.data['to_national_dex'] as int,
             toNameZh: row.data['to_name_zh'] as String,
+            toFormNameZh: row.data['to_form_name_zh'] as String,
+            toIsDefaultForm: (row.data['to_is_default'] as int) != 0,
+            toIsRegional: (row.data['to_is_regional'] as int) != 0,
+            toTypeIds: _typeIdsFromCsv(row.data['to_type_ids_csv'] as String?),
             toThumbAsset: row.data['to_thumb_asset'] as String?,
             minLevel: row.data['min_level'] as int?,
             item: row.data['item'] as String?,
@@ -1043,6 +1079,7 @@ class EvolutionDao extends DatabaseAccessor<PokedexDatabase>
             knownMove: row.data['known_move'] as String?,
             knownMoveType: row.data['known_move_type'] as String?,
             location: row.data['location'] as String?,
+            region: row.data['region'] as String?,
             timeOfDay: row.data['time_of_day'] as String?,
             gender: row.data['gender'] as String?,
             minHappiness: row.data['min_happiness'] as int?,

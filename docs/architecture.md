@@ -77,14 +77,16 @@ AbilityRef { int id; String nameZh; String nameEn; bool isHidden; }
 FlavorEntry { int versionId; String versionIdentifier; String versionNameZh; String versionNameEn;
   int generationId; String language; String text; }   // language ∈ zh_hans/zh_hant/en/ja
 // evolution.dart
-EvolutionEdge { int chainId; int? fromSpeciesId; int toSpeciesId; String trigger; int? minLevel;
-  String? item; String? heldItem; String? knownMove; String? knownMoveType; String? location;
-  String? timeOfDay; String? gender; int? minHappiness; int? minAffection; int? minBeauty;
-  String? relativePhysicalStats; String? partySpecies; String? partyType; String? tradeSpecies;
+EvolutionEdge { int chainId; int? fromSpeciesId; int toSpeciesId; int? fromFormId; int? toFormId;
+  String trigger; int? minLevel; String? item; String? heldItem; String? knownMove;
+  String? knownMoveType; String? location; String? region; String? timeOfDay; String? gender;
+  int? minHappiness; int? minAffection; int? minBeauty; String? relativePhysicalStats;
+  String? partySpecies; String? partyType; String? tradeSpecies;
   bool needsRain; bool turnUpsideDown; }
-EvolutionNode { int speciesId; int nationalDex; String nameZh; String? thumbAsset;
-  List<EvolutionEdge> children; }
-EvolutionTree { EvolutionNode root; }
+EvolutionNode { int speciesId; int? formId; int nationalDex; String nameZh; String? formNameZh;
+  bool isDefaultForm; List<String> typeIds; String? thumbAsset; List<EvolutionEdge> children; }
+EvolutionTree { EvolutionNode root; Map<int, EvolutionNode> nodesBySpeciesId;
+  List<EvolutionNode> roots; Map<int, EvolutionNode> nodesByFormId; }
 // move_entry.dart
 MoveEntry { int moveId; String nameZh; String nameEn; String typeId; String damageClass;
   int? power; int? pp; int? accuracy; int? level; String method; String versionGroup; }

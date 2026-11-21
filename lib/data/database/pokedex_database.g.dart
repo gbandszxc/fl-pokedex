@@ -5301,6 +5301,18 @@ class $EvolutionEdgesTable extends EvolutionEdges
   late final GeneratedColumn<int> toSpeciesId = GeneratedColumn<int>(
       'to_species_id', aliasedName, false,
       type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _fromFormIdMeta =
+      const VerificationMeta('fromFormId');
+  @override
+  late final GeneratedColumn<int> fromFormId = GeneratedColumn<int>(
+      'from_form_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _toFormIdMeta =
+      const VerificationMeta('toFormId');
+  @override
+  late final GeneratedColumn<int> toFormId = GeneratedColumn<int>(
+      'to_form_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
   static const VerificationMeta _triggerMeta =
       const VerificationMeta('trigger');
   @override
@@ -5341,6 +5353,11 @@ class $EvolutionEdgesTable extends EvolutionEdges
   @override
   late final GeneratedColumn<String> location = GeneratedColumn<String>(
       'location', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _regionMeta = const VerificationMeta('region');
+  @override
+  late final GeneratedColumn<String> region = GeneratedColumn<String>(
+      'region', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _timeOfDayMeta =
       const VerificationMeta('timeOfDay');
@@ -5418,6 +5435,8 @@ class $EvolutionEdgesTable extends EvolutionEdges
         chainId,
         fromSpeciesId,
         toSpeciesId,
+        fromFormId,
+        toFormId,
         trigger,
         minLevel,
         item,
@@ -5425,6 +5444,7 @@ class $EvolutionEdgesTable extends EvolutionEdges
         knownMove,
         knownMoveType,
         location,
+        region,
         timeOfDay,
         gender,
         minHappiness,
@@ -5467,6 +5487,18 @@ class $EvolutionEdgesTable extends EvolutionEdges
     } else if (isInserting) {
       context.missing(_toSpeciesIdMeta);
     }
+    if (data.containsKey('from_form_id')) {
+      context.handle(
+          _fromFormIdMeta,
+          fromFormId.isAcceptableOrUnknown(
+              data['from_form_id']!, _fromFormIdMeta));
+    }
+    if (data.containsKey('to_form_id')) {
+      context.handle(_toFormIdMeta,
+          toFormId.isAcceptableOrUnknown(data['to_form_id']!, _toFormIdMeta));
+    } else if (isInserting) {
+      context.missing(_toFormIdMeta);
+    }
     if (data.containsKey('trigger')) {
       context.handle(_triggerMeta,
           trigger.isAcceptableOrUnknown(data['trigger']!, _triggerMeta));
@@ -5498,6 +5530,10 @@ class $EvolutionEdgesTable extends EvolutionEdges
     if (data.containsKey('location')) {
       context.handle(_locationMeta,
           location.isAcceptableOrUnknown(data['location']!, _locationMeta));
+    }
+    if (data.containsKey('region')) {
+      context.handle(_regionMeta,
+          region.isAcceptableOrUnknown(data['region']!, _regionMeta));
     }
     if (data.containsKey('time_of_day')) {
       context.handle(
@@ -5567,7 +5603,7 @@ class $EvolutionEdgesTable extends EvolutionEdges
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {chainId, toSpeciesId};
+  Set<GeneratedColumn> get $primaryKey => {chainId, toFormId};
   @override
   EvolutionEdgesRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -5578,6 +5614,10 @@ class $EvolutionEdgesTable extends EvolutionEdges
           .read(DriftSqlType.int, data['${effectivePrefix}from_species_id']),
       toSpeciesId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}to_species_id'])!,
+      fromFormId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}from_form_id']),
+      toFormId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}to_form_id'])!,
       trigger: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}trigger'])!,
       minLevel: attachedDatabase.typeMapping
@@ -5592,6 +5632,8 @@ class $EvolutionEdgesTable extends EvolutionEdges
           .read(DriftSqlType.string, data['${effectivePrefix}known_move_type']),
       location: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}location']),
+      region: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}region']),
       timeOfDay: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}time_of_day']),
       gender: attachedDatabase.typeMapping
@@ -5629,6 +5671,8 @@ class EvolutionEdgesRow extends DataClass
   final int chainId;
   final int? fromSpeciesId;
   final int toSpeciesId;
+  final int? fromFormId;
+  final int toFormId;
   final String trigger;
   final int? minLevel;
   final String? item;
@@ -5636,6 +5680,7 @@ class EvolutionEdgesRow extends DataClass
   final String? knownMove;
   final String? knownMoveType;
   final String? location;
+  final String? region;
   final String? timeOfDay;
   final String? gender;
   final int? minHappiness;
@@ -5651,6 +5696,8 @@ class EvolutionEdgesRow extends DataClass
       {required this.chainId,
       this.fromSpeciesId,
       required this.toSpeciesId,
+      this.fromFormId,
+      required this.toFormId,
       required this.trigger,
       this.minLevel,
       this.item,
@@ -5658,6 +5705,7 @@ class EvolutionEdgesRow extends DataClass
       this.knownMove,
       this.knownMoveType,
       this.location,
+      this.region,
       this.timeOfDay,
       this.gender,
       this.minHappiness,
@@ -5677,6 +5725,10 @@ class EvolutionEdgesRow extends DataClass
       map['from_species_id'] = Variable<int>(fromSpeciesId);
     }
     map['to_species_id'] = Variable<int>(toSpeciesId);
+    if (!nullToAbsent || fromFormId != null) {
+      map['from_form_id'] = Variable<int>(fromFormId);
+    }
+    map['to_form_id'] = Variable<int>(toFormId);
     map['trigger'] = Variable<String>(trigger);
     if (!nullToAbsent || minLevel != null) {
       map['min_level'] = Variable<int>(minLevel);
@@ -5695,6 +5747,9 @@ class EvolutionEdgesRow extends DataClass
     }
     if (!nullToAbsent || location != null) {
       map['location'] = Variable<String>(location);
+    }
+    if (!nullToAbsent || region != null) {
+      map['region'] = Variable<String>(region);
     }
     if (!nullToAbsent || timeOfDay != null) {
       map['time_of_day'] = Variable<String>(timeOfDay);
@@ -5735,6 +5790,10 @@ class EvolutionEdgesRow extends DataClass
           ? const Value.absent()
           : Value(fromSpeciesId),
       toSpeciesId: Value(toSpeciesId),
+      fromFormId: fromFormId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fromFormId),
+      toFormId: Value(toFormId),
       trigger: Value(trigger),
       minLevel: minLevel == null && nullToAbsent
           ? const Value.absent()
@@ -5752,6 +5811,8 @@ class EvolutionEdgesRow extends DataClass
       location: location == null && nullToAbsent
           ? const Value.absent()
           : Value(location),
+      region:
+          region == null && nullToAbsent ? const Value.absent() : Value(region),
       timeOfDay: timeOfDay == null && nullToAbsent
           ? const Value.absent()
           : Value(timeOfDay),
@@ -5790,6 +5851,8 @@ class EvolutionEdgesRow extends DataClass
       chainId: serializer.fromJson<int>(json['chainId']),
       fromSpeciesId: serializer.fromJson<int?>(json['fromSpeciesId']),
       toSpeciesId: serializer.fromJson<int>(json['toSpeciesId']),
+      fromFormId: serializer.fromJson<int?>(json['fromFormId']),
+      toFormId: serializer.fromJson<int>(json['toFormId']),
       trigger: serializer.fromJson<String>(json['trigger']),
       minLevel: serializer.fromJson<int?>(json['minLevel']),
       item: serializer.fromJson<String?>(json['item']),
@@ -5797,6 +5860,7 @@ class EvolutionEdgesRow extends DataClass
       knownMove: serializer.fromJson<String?>(json['knownMove']),
       knownMoveType: serializer.fromJson<String?>(json['knownMoveType']),
       location: serializer.fromJson<String?>(json['location']),
+      region: serializer.fromJson<String?>(json['region']),
       timeOfDay: serializer.fromJson<String?>(json['timeOfDay']),
       gender: serializer.fromJson<String?>(json['gender']),
       minHappiness: serializer.fromJson<int?>(json['minHappiness']),
@@ -5818,6 +5882,8 @@ class EvolutionEdgesRow extends DataClass
       'chainId': serializer.toJson<int>(chainId),
       'fromSpeciesId': serializer.toJson<int?>(fromSpeciesId),
       'toSpeciesId': serializer.toJson<int>(toSpeciesId),
+      'fromFormId': serializer.toJson<int?>(fromFormId),
+      'toFormId': serializer.toJson<int>(toFormId),
       'trigger': serializer.toJson<String>(trigger),
       'minLevel': serializer.toJson<int?>(minLevel),
       'item': serializer.toJson<String?>(item),
@@ -5825,6 +5891,7 @@ class EvolutionEdgesRow extends DataClass
       'knownMove': serializer.toJson<String?>(knownMove),
       'knownMoveType': serializer.toJson<String?>(knownMoveType),
       'location': serializer.toJson<String?>(location),
+      'region': serializer.toJson<String?>(region),
       'timeOfDay': serializer.toJson<String?>(timeOfDay),
       'gender': serializer.toJson<String?>(gender),
       'minHappiness': serializer.toJson<int?>(minHappiness),
@@ -5844,6 +5911,8 @@ class EvolutionEdgesRow extends DataClass
           {int? chainId,
           Value<int?> fromSpeciesId = const Value.absent(),
           int? toSpeciesId,
+          Value<int?> fromFormId = const Value.absent(),
+          int? toFormId,
           String? trigger,
           Value<int?> minLevel = const Value.absent(),
           Value<String?> item = const Value.absent(),
@@ -5851,6 +5920,7 @@ class EvolutionEdgesRow extends DataClass
           Value<String?> knownMove = const Value.absent(),
           Value<String?> knownMoveType = const Value.absent(),
           Value<String?> location = const Value.absent(),
+          Value<String?> region = const Value.absent(),
           Value<String?> timeOfDay = const Value.absent(),
           Value<String?> gender = const Value.absent(),
           Value<int?> minHappiness = const Value.absent(),
@@ -5867,6 +5937,8 @@ class EvolutionEdgesRow extends DataClass
         fromSpeciesId:
             fromSpeciesId.present ? fromSpeciesId.value : this.fromSpeciesId,
         toSpeciesId: toSpeciesId ?? this.toSpeciesId,
+        fromFormId: fromFormId.present ? fromFormId.value : this.fromFormId,
+        toFormId: toFormId ?? this.toFormId,
         trigger: trigger ?? this.trigger,
         minLevel: minLevel.present ? minLevel.value : this.minLevel,
         item: item.present ? item.value : this.item,
@@ -5875,6 +5947,7 @@ class EvolutionEdgesRow extends DataClass
         knownMoveType:
             knownMoveType.present ? knownMoveType.value : this.knownMoveType,
         location: location.present ? location.value : this.location,
+        region: region.present ? region.value : this.region,
         timeOfDay: timeOfDay.present ? timeOfDay.value : this.timeOfDay,
         gender: gender.present ? gender.value : this.gender,
         minHappiness:
@@ -5901,6 +5974,9 @@ class EvolutionEdgesRow extends DataClass
           : this.fromSpeciesId,
       toSpeciesId:
           data.toSpeciesId.present ? data.toSpeciesId.value : this.toSpeciesId,
+      fromFormId:
+          data.fromFormId.present ? data.fromFormId.value : this.fromFormId,
+      toFormId: data.toFormId.present ? data.toFormId.value : this.toFormId,
       trigger: data.trigger.present ? data.trigger.value : this.trigger,
       minLevel: data.minLevel.present ? data.minLevel.value : this.minLevel,
       item: data.item.present ? data.item.value : this.item,
@@ -5910,6 +5986,7 @@ class EvolutionEdgesRow extends DataClass
           ? data.knownMoveType.value
           : this.knownMoveType,
       location: data.location.present ? data.location.value : this.location,
+      region: data.region.present ? data.region.value : this.region,
       timeOfDay: data.timeOfDay.present ? data.timeOfDay.value : this.timeOfDay,
       gender: data.gender.present ? data.gender.value : this.gender,
       minHappiness: data.minHappiness.present
@@ -5944,6 +6021,8 @@ class EvolutionEdgesRow extends DataClass
           ..write('chainId: $chainId, ')
           ..write('fromSpeciesId: $fromSpeciesId, ')
           ..write('toSpeciesId: $toSpeciesId, ')
+          ..write('fromFormId: $fromFormId, ')
+          ..write('toFormId: $toFormId, ')
           ..write('trigger: $trigger, ')
           ..write('minLevel: $minLevel, ')
           ..write('item: $item, ')
@@ -5951,6 +6030,7 @@ class EvolutionEdgesRow extends DataClass
           ..write('knownMove: $knownMove, ')
           ..write('knownMoveType: $knownMoveType, ')
           ..write('location: $location, ')
+          ..write('region: $region, ')
           ..write('timeOfDay: $timeOfDay, ')
           ..write('gender: $gender, ')
           ..write('minHappiness: $minHappiness, ')
@@ -5971,6 +6051,8 @@ class EvolutionEdgesRow extends DataClass
         chainId,
         fromSpeciesId,
         toSpeciesId,
+        fromFormId,
+        toFormId,
         trigger,
         minLevel,
         item,
@@ -5978,6 +6060,7 @@ class EvolutionEdgesRow extends DataClass
         knownMove,
         knownMoveType,
         location,
+        region,
         timeOfDay,
         gender,
         minHappiness,
@@ -5997,6 +6080,8 @@ class EvolutionEdgesRow extends DataClass
           other.chainId == this.chainId &&
           other.fromSpeciesId == this.fromSpeciesId &&
           other.toSpeciesId == this.toSpeciesId &&
+          other.fromFormId == this.fromFormId &&
+          other.toFormId == this.toFormId &&
           other.trigger == this.trigger &&
           other.minLevel == this.minLevel &&
           other.item == this.item &&
@@ -6004,6 +6089,7 @@ class EvolutionEdgesRow extends DataClass
           other.knownMove == this.knownMove &&
           other.knownMoveType == this.knownMoveType &&
           other.location == this.location &&
+          other.region == this.region &&
           other.timeOfDay == this.timeOfDay &&
           other.gender == this.gender &&
           other.minHappiness == this.minHappiness &&
@@ -6021,6 +6107,8 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
   final Value<int> chainId;
   final Value<int?> fromSpeciesId;
   final Value<int> toSpeciesId;
+  final Value<int?> fromFormId;
+  final Value<int> toFormId;
   final Value<String> trigger;
   final Value<int?> minLevel;
   final Value<String?> item;
@@ -6028,6 +6116,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
   final Value<String?> knownMove;
   final Value<String?> knownMoveType;
   final Value<String?> location;
+  final Value<String?> region;
   final Value<String?> timeOfDay;
   final Value<String?> gender;
   final Value<int?> minHappiness;
@@ -6044,6 +6133,8 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     this.chainId = const Value.absent(),
     this.fromSpeciesId = const Value.absent(),
     this.toSpeciesId = const Value.absent(),
+    this.fromFormId = const Value.absent(),
+    this.toFormId = const Value.absent(),
     this.trigger = const Value.absent(),
     this.minLevel = const Value.absent(),
     this.item = const Value.absent(),
@@ -6051,6 +6142,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     this.knownMove = const Value.absent(),
     this.knownMoveType = const Value.absent(),
     this.location = const Value.absent(),
+    this.region = const Value.absent(),
     this.timeOfDay = const Value.absent(),
     this.gender = const Value.absent(),
     this.minHappiness = const Value.absent(),
@@ -6068,6 +6160,8 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     required int chainId,
     this.fromSpeciesId = const Value.absent(),
     required int toSpeciesId,
+    this.fromFormId = const Value.absent(),
+    required int toFormId,
     required String trigger,
     this.minLevel = const Value.absent(),
     this.item = const Value.absent(),
@@ -6075,6 +6169,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     this.knownMove = const Value.absent(),
     this.knownMoveType = const Value.absent(),
     this.location = const Value.absent(),
+    this.region = const Value.absent(),
     this.timeOfDay = const Value.absent(),
     this.gender = const Value.absent(),
     this.minHappiness = const Value.absent(),
@@ -6089,6 +6184,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     this.rowid = const Value.absent(),
   })  : chainId = Value(chainId),
         toSpeciesId = Value(toSpeciesId),
+        toFormId = Value(toFormId),
         trigger = Value(trigger),
         needsOverworldRain = Value(needsOverworldRain),
         turnUpsideDown = Value(turnUpsideDown);
@@ -6096,6 +6192,8 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     Expression<int>? chainId,
     Expression<int>? fromSpeciesId,
     Expression<int>? toSpeciesId,
+    Expression<int>? fromFormId,
+    Expression<int>? toFormId,
     Expression<String>? trigger,
     Expression<int>? minLevel,
     Expression<String>? item,
@@ -6103,6 +6201,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     Expression<String>? knownMove,
     Expression<String>? knownMoveType,
     Expression<String>? location,
+    Expression<String>? region,
     Expression<String>? timeOfDay,
     Expression<String>? gender,
     Expression<int>? minHappiness,
@@ -6120,6 +6219,8 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
       if (chainId != null) 'chain_id': chainId,
       if (fromSpeciesId != null) 'from_species_id': fromSpeciesId,
       if (toSpeciesId != null) 'to_species_id': toSpeciesId,
+      if (fromFormId != null) 'from_form_id': fromFormId,
+      if (toFormId != null) 'to_form_id': toFormId,
       if (trigger != null) 'trigger': trigger,
       if (minLevel != null) 'min_level': minLevel,
       if (item != null) 'item': item,
@@ -6127,6 +6228,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
       if (knownMove != null) 'known_move': knownMove,
       if (knownMoveType != null) 'known_move_type': knownMoveType,
       if (location != null) 'location': location,
+      if (region != null) 'region': region,
       if (timeOfDay != null) 'time_of_day': timeOfDay,
       if (gender != null) 'gender': gender,
       if (minHappiness != null) 'min_happiness': minHappiness,
@@ -6148,6 +6250,8 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
       {Value<int>? chainId,
       Value<int?>? fromSpeciesId,
       Value<int>? toSpeciesId,
+      Value<int?>? fromFormId,
+      Value<int>? toFormId,
       Value<String>? trigger,
       Value<int?>? minLevel,
       Value<String?>? item,
@@ -6155,6 +6259,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
       Value<String?>? knownMove,
       Value<String?>? knownMoveType,
       Value<String?>? location,
+      Value<String?>? region,
       Value<String?>? timeOfDay,
       Value<String?>? gender,
       Value<int?>? minHappiness,
@@ -6171,6 +6276,8 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
       chainId: chainId ?? this.chainId,
       fromSpeciesId: fromSpeciesId ?? this.fromSpeciesId,
       toSpeciesId: toSpeciesId ?? this.toSpeciesId,
+      fromFormId: fromFormId ?? this.fromFormId,
+      toFormId: toFormId ?? this.toFormId,
       trigger: trigger ?? this.trigger,
       minLevel: minLevel ?? this.minLevel,
       item: item ?? this.item,
@@ -6178,6 +6285,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
       knownMove: knownMove ?? this.knownMove,
       knownMoveType: knownMoveType ?? this.knownMoveType,
       location: location ?? this.location,
+      region: region ?? this.region,
       timeOfDay: timeOfDay ?? this.timeOfDay,
       gender: gender ?? this.gender,
       minHappiness: minHappiness ?? this.minHappiness,
@@ -6206,6 +6314,12 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     if (toSpeciesId.present) {
       map['to_species_id'] = Variable<int>(toSpeciesId.value);
     }
+    if (fromFormId.present) {
+      map['from_form_id'] = Variable<int>(fromFormId.value);
+    }
+    if (toFormId.present) {
+      map['to_form_id'] = Variable<int>(toFormId.value);
+    }
     if (trigger.present) {
       map['trigger'] = Variable<String>(trigger.value);
     }
@@ -6226,6 +6340,9 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
     }
     if (location.present) {
       map['location'] = Variable<String>(location.value);
+    }
+    if (region.present) {
+      map['region'] = Variable<String>(region.value);
     }
     if (timeOfDay.present) {
       map['time_of_day'] = Variable<String>(timeOfDay.value);
@@ -6273,6 +6390,8 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
           ..write('chainId: $chainId, ')
           ..write('fromSpeciesId: $fromSpeciesId, ')
           ..write('toSpeciesId: $toSpeciesId, ')
+          ..write('fromFormId: $fromFormId, ')
+          ..write('toFormId: $toFormId, ')
           ..write('trigger: $trigger, ')
           ..write('minLevel: $minLevel, ')
           ..write('item: $item, ')
@@ -6280,6 +6399,7 @@ class EvolutionEdgesCompanion extends UpdateCompanion<EvolutionEdgesRow> {
           ..write('knownMove: $knownMove, ')
           ..write('knownMoveType: $knownMoveType, ')
           ..write('location: $location, ')
+          ..write('region: $region, ')
           ..write('timeOfDay: $timeOfDay, ')
           ..write('gender: $gender, ')
           ..write('minHappiness: $minHappiness, ')
@@ -11272,6 +11392,8 @@ typedef $$EvolutionEdgesTableCreateCompanionBuilder = EvolutionEdgesCompanion
   required int chainId,
   Value<int?> fromSpeciesId,
   required int toSpeciesId,
+  Value<int?> fromFormId,
+  required int toFormId,
   required String trigger,
   Value<int?> minLevel,
   Value<String?> item,
@@ -11279,6 +11401,7 @@ typedef $$EvolutionEdgesTableCreateCompanionBuilder = EvolutionEdgesCompanion
   Value<String?> knownMove,
   Value<String?> knownMoveType,
   Value<String?> location,
+  Value<String?> region,
   Value<String?> timeOfDay,
   Value<String?> gender,
   Value<int?> minHappiness,
@@ -11297,6 +11420,8 @@ typedef $$EvolutionEdgesTableUpdateCompanionBuilder = EvolutionEdgesCompanion
   Value<int> chainId,
   Value<int?> fromSpeciesId,
   Value<int> toSpeciesId,
+  Value<int?> fromFormId,
+  Value<int> toFormId,
   Value<String> trigger,
   Value<int?> minLevel,
   Value<String?> item,
@@ -11304,6 +11429,7 @@ typedef $$EvolutionEdgesTableUpdateCompanionBuilder = EvolutionEdgesCompanion
   Value<String?> knownMove,
   Value<String?> knownMoveType,
   Value<String?> location,
+  Value<String?> region,
   Value<String?> timeOfDay,
   Value<String?> gender,
   Value<int?> minHappiness,
@@ -11336,6 +11462,12 @@ class $$EvolutionEdgesTableFilterComposer
   ColumnFilters<int> get toSpeciesId => $composableBuilder(
       column: $table.toSpeciesId, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<int> get fromFormId => $composableBuilder(
+      column: $table.fromFormId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get toFormId => $composableBuilder(
+      column: $table.toFormId, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<String> get trigger => $composableBuilder(
       column: $table.trigger, builder: (column) => ColumnFilters(column));
 
@@ -11356,6 +11488,9 @@ class $$EvolutionEdgesTableFilterComposer
 
   ColumnFilters<String> get location => $composableBuilder(
       column: $table.location, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get region => $composableBuilder(
+      column: $table.region, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get timeOfDay => $composableBuilder(
       column: $table.timeOfDay, builder: (column) => ColumnFilters(column));
@@ -11413,6 +11548,12 @@ class $$EvolutionEdgesTableOrderingComposer
   ColumnOrderings<int> get toSpeciesId => $composableBuilder(
       column: $table.toSpeciesId, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get fromFormId => $composableBuilder(
+      column: $table.fromFormId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get toFormId => $composableBuilder(
+      column: $table.toFormId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get trigger => $composableBuilder(
       column: $table.trigger, builder: (column) => ColumnOrderings(column));
 
@@ -11434,6 +11575,9 @@ class $$EvolutionEdgesTableOrderingComposer
 
   ColumnOrderings<String> get location => $composableBuilder(
       column: $table.location, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get region => $composableBuilder(
+      column: $table.region, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get timeOfDay => $composableBuilder(
       column: $table.timeOfDay, builder: (column) => ColumnOrderings(column));
@@ -11494,6 +11638,12 @@ class $$EvolutionEdgesTableAnnotationComposer
   GeneratedColumn<int> get toSpeciesId => $composableBuilder(
       column: $table.toSpeciesId, builder: (column) => column);
 
+  GeneratedColumn<int> get fromFormId => $composableBuilder(
+      column: $table.fromFormId, builder: (column) => column);
+
+  GeneratedColumn<int> get toFormId =>
+      $composableBuilder(column: $table.toFormId, builder: (column) => column);
+
   GeneratedColumn<String> get trigger =>
       $composableBuilder(column: $table.trigger, builder: (column) => column);
 
@@ -11514,6 +11664,9 @@ class $$EvolutionEdgesTableAnnotationComposer
 
   GeneratedColumn<String> get location =>
       $composableBuilder(column: $table.location, builder: (column) => column);
+
+  GeneratedColumn<String> get region =>
+      $composableBuilder(column: $table.region, builder: (column) => column);
 
   GeneratedColumn<String> get timeOfDay =>
       $composableBuilder(column: $table.timeOfDay, builder: (column) => column);
@@ -11579,6 +11732,8 @@ class $$EvolutionEdgesTableTableManager extends RootTableManager<
             Value<int> chainId = const Value.absent(),
             Value<int?> fromSpeciesId = const Value.absent(),
             Value<int> toSpeciesId = const Value.absent(),
+            Value<int?> fromFormId = const Value.absent(),
+            Value<int> toFormId = const Value.absent(),
             Value<String> trigger = const Value.absent(),
             Value<int?> minLevel = const Value.absent(),
             Value<String?> item = const Value.absent(),
@@ -11586,6 +11741,7 @@ class $$EvolutionEdgesTableTableManager extends RootTableManager<
             Value<String?> knownMove = const Value.absent(),
             Value<String?> knownMoveType = const Value.absent(),
             Value<String?> location = const Value.absent(),
+            Value<String?> region = const Value.absent(),
             Value<String?> timeOfDay = const Value.absent(),
             Value<String?> gender = const Value.absent(),
             Value<int?> minHappiness = const Value.absent(),
@@ -11603,6 +11759,8 @@ class $$EvolutionEdgesTableTableManager extends RootTableManager<
             chainId: chainId,
             fromSpeciesId: fromSpeciesId,
             toSpeciesId: toSpeciesId,
+            fromFormId: fromFormId,
+            toFormId: toFormId,
             trigger: trigger,
             minLevel: minLevel,
             item: item,
@@ -11610,6 +11768,7 @@ class $$EvolutionEdgesTableTableManager extends RootTableManager<
             knownMove: knownMove,
             knownMoveType: knownMoveType,
             location: location,
+            region: region,
             timeOfDay: timeOfDay,
             gender: gender,
             minHappiness: minHappiness,
@@ -11627,6 +11786,8 @@ class $$EvolutionEdgesTableTableManager extends RootTableManager<
             required int chainId,
             Value<int?> fromSpeciesId = const Value.absent(),
             required int toSpeciesId,
+            Value<int?> fromFormId = const Value.absent(),
+            required int toFormId,
             required String trigger,
             Value<int?> minLevel = const Value.absent(),
             Value<String?> item = const Value.absent(),
@@ -11634,6 +11795,7 @@ class $$EvolutionEdgesTableTableManager extends RootTableManager<
             Value<String?> knownMove = const Value.absent(),
             Value<String?> knownMoveType = const Value.absent(),
             Value<String?> location = const Value.absent(),
+            Value<String?> region = const Value.absent(),
             Value<String?> timeOfDay = const Value.absent(),
             Value<String?> gender = const Value.absent(),
             Value<int?> minHappiness = const Value.absent(),
@@ -11651,6 +11813,8 @@ class $$EvolutionEdgesTableTableManager extends RootTableManager<
             chainId: chainId,
             fromSpeciesId: fromSpeciesId,
             toSpeciesId: toSpeciesId,
+            fromFormId: fromFormId,
+            toFormId: toFormId,
             trigger: trigger,
             minLevel: minLevel,
             item: item,
@@ -11658,6 +11822,7 @@ class $$EvolutionEdgesTableTableManager extends RootTableManager<
             knownMove: knownMove,
             knownMoveType: knownMoveType,
             location: location,
+            region: region,
             timeOfDay: timeOfDay,
             gender: gender,
             minHappiness: minHappiness,

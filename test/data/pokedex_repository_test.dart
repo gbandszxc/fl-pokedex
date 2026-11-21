@@ -202,6 +202,79 @@ void main() {
       final tree = await repo.getEvolutionTree(99999);
       expect(tree, isNull);
     });
+
+    test('形态级进化树：魔墙人偶(#122/#439/#866) 仅伽勒尔形态进化到踏冰人偶', () async {
+      final tree = await repo.getEvolutionTree(122);
+      expect(tree, isNotNull);
+      expect(tree!.roots.map((r) => r.resolvedFormId).toList(), [439]);
+
+      final mimeJr = tree.nodesByFormId[439]!;
+      expect(mimeJr.children, hasLength(2));
+      final toDefault =
+          mimeJr.children.singleWhere((e) => e.resolvedToFormId == 122);
+      final toGalar =
+          mimeJr.children.singleWhere((e) => e.resolvedToFormId == 10168);
+      expect(toDefault.region, isNull);
+      expect(toDefault.knownMove, 'mimic');
+      expect(toGalar.region, 'galar');
+      expect(toGalar.knownMove, 'mimic');
+
+      final defaultMime = tree.nodesByFormId[122]!;
+      expect(defaultMime.formNameZh, isNull);
+      expect(defaultMime.typeIds, ['psychic', 'fairy']);
+      expect(defaultMime.children, isEmpty);
+
+      final galarMime = tree.nodesByFormId[10168]!;
+      expect(galarMime.formNameZh, '伽勒尔的样子');
+      expect(galarMime.typeIds, ['ice', 'psychic']);
+      expect(galarMime.thumbAsset, 'assets/pokemon/full/10168.webp');
+      expect(galarMime.children, hasLength(1));
+      expect(galarMime.children.single.resolvedToFormId, 866);
+      expect(galarMime.children.single.minLevel, 42);
+    });
+
+    test('多根并行与仅特殊形态进化：呆呆兽 / 喵喵 / 大葱鸭 / 武道熊师', () async {
+      final slowpoke = await repo.getEvolutionTree(79);
+      expect(slowpoke!.roots.map((r) => r.resolvedFormId).toList(), [79, 10164]);
+      expect(
+        slowpoke.nodesByFormId[79]!.children.map((e) => e.resolvedToFormId),
+        containsAll([80, 199]),
+      );
+      expect(
+        slowpoke.nodesByFormId[10164]!.children.map((e) => e.resolvedToFormId),
+        containsAll([10165, 10172]),
+      );
+
+      final meowth = await repo.getEvolutionTree(52);
+      expect(
+        meowth!.roots.map((r) => r.resolvedFormId).toList(),
+        [52, 10107, 10161],
+      );
+      expect(meowth.nodesByFormId[52]!.children.single.resolvedToFormId, 53);
+      expect(
+        meowth.nodesByFormId[10107]!.children.single.resolvedToFormId,
+        10108,
+      );
+      expect(
+        meowth.nodesByFormId[10161]!.children.single.resolvedToFormId,
+        863,
+      );
+
+      final farfetchd = await repo.getEvolutionTree(83);
+      expect(
+        farfetchd!.roots.map((r) => r.resolvedFormId).toList(),
+        [10166],
+      );
+      expect(farfetchd.nodesByFormId.containsKey(83), isFalse);
+      expect(
+        farfetchd.nodesByFormId[10166]!.children.single.resolvedToFormId,
+        865,
+      );
+
+      final urshifu = await repo.getEvolutionTree(891);
+      expect(urshifu!.nodesByFormId[892]!.formNameZh, '一击流');
+      expect(urshifu.nodesByFormId[10191]!.formNameZh, '连击流');
+    });
   });
 
   group('学习集', () {
@@ -586,7 +659,7 @@ void main() {
   test('getManifest 解析成功且 pokemonCount=1025', () async {
     final manifest = await repo.getManifest();
     expect(manifest, isA<DataManifest>());
-    expect(manifest.schemaVersion, 3);
+    expect(manifest.schemaVersion, 4);
     expect(manifest.pokemonCount, 1025);
     expect(manifest.learnsetVersionGroups, contains('sword-shield'));
     expect(manifest.upstreamRevision, contains('pokeapi'));

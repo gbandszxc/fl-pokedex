@@ -65,56 +65,101 @@ class PokedexRepositoryImpl implements PokedexRepository {
   Future<List<FlavorEntry>> getFormFlavorTexts(int formId) =>
       _pokedexDao.getFormFlavorTexts(formId);
 
+  /// 非地区形态多态分支进化中，默认形态自身在进化链中的官方形态副标题
+  /// （forms.is_default=1 时 forms.form_name_zh 为种名，不带形态后缀，
+  /// 当同链存在非地区兄弟形态时按此表补出，如「一击流 / 连击流」）。
+  static const Map<int, String> _kDefaultEvolutionFormNameZh = {
+    413: '草木蓑衣',
+    678: '雄性的样子',
+    710: '普通尺寸',
+    711: '普通尺寸',
+    745: '白昼的样子',
+    849: '高调的样子',
+    892: '一击流',
+    902: '雄性的样子',
+    916: '雄性的样子',
+    925: '四只家庭',
+    982: '两节形态',
+  };
+
   @override
   Future<EvolutionTree?> getEvolutionTree(int speciesId) async {
     final chainId = await _evolutionDao.getEvolutionChainId(speciesId);
     if (chainId == null) return null;
 
-    // 该链全部边 + 各边 to 端 species 的展示信息（每只 species 至少作为
-    // 一条边的 to 端出现，含根自指行，因此展示信息完整）。
+    // 该链全部边 + 各边 to 端形态的展示信息（含各根节点自指行）。
     final edges = await _evolutionDao.getChainEdges(chainId);
     if (edges.isEmpty) return null;
 
-    final rootEdge = edges.firstWhere(
-      (edge) => edge.isRootRow || edge.fromSpeciesId == edge.toSpeciesId,
-    );
-
-    // 节点注册表：每个 species 一个节点，children = 该节点的直接出边；
-    // 中段物种（如蛹）由此获得编号/简中名/缩略图，UI 逐层查表重建层级。
-    final outEdges = <int, List<EvolutionEdgeData>>{};
-    for (final edge in edges) {
-      final from = edge.fromSpeciesId;
-      if (from == null || edge.isRootRow || from == edge.toSpeciesId) continue;
-      outEdges.putIfAbsent(from, () => []).add(edge);
+    final rootEdges = [
+      for (final edge in edges)
+        if (edge.isRootRow) edge,
+    ];
+    if (rootEdges.isEmpty) {
+      rootEdges.add(edges.first);
     }
-    final memberIds = <int>{
-      rootEdge.toSpeciesId,
-      for (final edge in edges) edge.toSpeciesId,
+
+    // 形态级节点注册表：按 form_id 建边与索引，支持地区形态分叉及多根并行链。
+    final outEdgesByForm = <int, List<EvolutionEdgeData>>{};
+    for (final edge in edges) {
+      final fromForm = edge.fromFormId ?? edge.fromSpeciesId;
+      if (fromForm == null || edge.isRootRow || fromForm == edge.toFormId) {
+        continue;
+      }
+      outEdgesByForm.putIfAbsent(fromForm, () => []).add(edge);
+    }
+
+    final displayByForm = {
+      for (final edge in edges) edge.toFormId: edge,
     };
-    final displayBySpecies = {
-      for (final edge in edges) edge.toSpeciesId: edge,
+    final speciesWithNonRegionalAltForm = <int>{
+      for (final edge in edges)
+        if (!edge.toIsDefaultForm && !edge.toIsRegional) edge.toSpeciesId,
     };
-    EvolutionNode nodeOf(int speciesId) {
-      final data = displayBySpecies[speciesId]!;
+
+    EvolutionNode nodeOf(int formId) {
+      final data = displayByForm[formId]!;
+      final formLabel = !data.toIsDefaultForm
+          ? data.toFormNameZh
+          : (speciesWithNonRegionalAltForm.contains(data.toSpeciesId)
+              ? _kDefaultEvolutionFormNameZh[data.toSpeciesId]
+              : null);
       return EvolutionNode(
-        speciesId: speciesId,
+        speciesId: data.toSpeciesId,
+        formId: formId,
         nationalDex: data.toNationalDex,
         nameZh: data.toNameZh,
+        formNameZh: formLabel,
+        isDefaultForm: data.toIsDefaultForm,
+        typeIds: data.toTypeIds,
         thumbAsset: data.toThumbAsset,
         children: [
-          for (final edge in outEdges[speciesId] ?? const <EvolutionEdgeData>[])
+          for (final edge
+              in outEdgesByForm[formId] ?? const <EvolutionEdgeData>[])
             edge.toDomain(),
         ],
       );
     }
 
-    final nodesBySpeciesId = {
-      for (final id in memberIds) id: nodeOf(id),
+    final nodesByFormId = {
+      for (final formId in displayByForm.keys) formId: nodeOf(formId),
     };
+    final nodesBySpeciesId = <int, EvolutionNode>{};
+    for (final node in nodesByFormId.values) {
+      final prev = nodesBySpeciesId[node.speciesId];
+      if (prev == null || (node.isDefaultForm && !prev.isDefaultForm)) {
+        nodesBySpeciesId[node.speciesId] = node;
+      }
+    }
+    final roots = [
+      for (final rootEdge in rootEdges) nodesByFormId[rootEdge.toFormId]!,
+    ];
 
     return EvolutionTree(
-      root: nodesBySpeciesId[rootEdge.toSpeciesId]!,
+      root: roots.first,
       nodesBySpeciesId: nodesBySpeciesId,
+      roots: roots,
+      nodesByFormId: nodesByFormId,
     );
   }
 

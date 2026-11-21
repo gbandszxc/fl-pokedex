@@ -318,11 +318,11 @@ class EvolutionChains extends Table {
   IntColumn get rootSpeciesId => integer().named('root_species_id')();
 }
 
-/// evolution_edges(chain_id, from_species_id?, to_species_id, trigger, 条件列…,
-///                 needs_overworld_rain, turn_upside_down,
-///                 PRIMARY KEY(chain_id, to_species_id))
+/// evolution_edges(chain_id, from_species_id?, to_species_id, from_form_id?,
+///                 to_form_id, trigger, 条件列…, needs_overworld_rain,
+///                 turn_upside_down, PRIMARY KEY(chain_id, to_form_id))
 ///
-/// 根节点行：from_species_id 为 NULL（trigger = 'root'，to = 链根 species）。
+/// 根节点行：from_species_id 与 from_form_id 为 NULL（trigger = 'root'）。
 @DataClassName('EvolutionEdgesRow')
 class EvolutionEdges extends Table {
   @override
@@ -334,6 +334,10 @@ class EvolutionEdges extends Table {
       integer().nullable().named('from_species_id')();
 
   IntColumn get toSpeciesId => integer().named('to_species_id')();
+
+  IntColumn get fromFormId => integer().nullable().named('from_form_id')();
+
+  IntColumn get toFormId => integer().named('to_form_id')();
 
   TextColumn get trigger => text().named('trigger')();
 
@@ -349,6 +353,8 @@ class EvolutionEdges extends Table {
       text().nullable().named('known_move_type')();
 
   TextColumn get location => text().nullable().named('location')();
+
+  TextColumn get region => text().nullable().named('region')();
 
   TextColumn get timeOfDay => text().nullable().named('time_of_day')();
 
@@ -376,7 +382,7 @@ class EvolutionEdges extends Table {
   BoolColumn get turnUpsideDown => boolean().named('turn_upside_down')();
 
   @override
-  Set<Column> get primaryKey => {chainId, toSpeciesId};
+  Set<Column> get primaryKey => {chainId, toFormId};
 }
 
 /// versions(id, identifier, generation_id, version_group,

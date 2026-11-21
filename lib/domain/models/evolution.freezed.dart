@@ -19,6 +19,8 @@ mixin _$EvolutionEdge {
   int get chainId => throw _privateConstructorUsedError;
   int? get fromSpeciesId => throw _privateConstructorUsedError;
   int get toSpeciesId => throw _privateConstructorUsedError;
+  int? get fromFormId => throw _privateConstructorUsedError;
+  int? get toFormId => throw _privateConstructorUsedError;
   String get trigger => throw _privateConstructorUsedError;
   int? get minLevel => throw _privateConstructorUsedError;
   String? get item => throw _privateConstructorUsedError;
@@ -26,6 +28,7 @@ mixin _$EvolutionEdge {
   String? get knownMove => throw _privateConstructorUsedError;
   String? get knownMoveType => throw _privateConstructorUsedError;
   String? get location => throw _privateConstructorUsedError;
+  String? get region => throw _privateConstructorUsedError;
   String? get timeOfDay => throw _privateConstructorUsedError;
   String? get gender => throw _privateConstructorUsedError;
   int? get minHappiness => throw _privateConstructorUsedError;
@@ -55,6 +58,8 @@ abstract class $EvolutionEdgeCopyWith<$Res> {
       {int chainId,
       int? fromSpeciesId,
       int toSpeciesId,
+      int? fromFormId,
+      int? toFormId,
       String trigger,
       int? minLevel,
       String? item,
@@ -62,6 +67,7 @@ abstract class $EvolutionEdgeCopyWith<$Res> {
       String? knownMove,
       String? knownMoveType,
       String? location,
+      String? region,
       String? timeOfDay,
       String? gender,
       int? minHappiness,
@@ -93,6 +99,8 @@ class _$EvolutionEdgeCopyWithImpl<$Res, $Val extends EvolutionEdge>
     Object? chainId = null,
     Object? fromSpeciesId = freezed,
     Object? toSpeciesId = null,
+    Object? fromFormId = freezed,
+    Object? toFormId = freezed,
     Object? trigger = null,
     Object? minLevel = freezed,
     Object? item = freezed,
@@ -100,6 +108,7 @@ class _$EvolutionEdgeCopyWithImpl<$Res, $Val extends EvolutionEdge>
     Object? knownMove = freezed,
     Object? knownMoveType = freezed,
     Object? location = freezed,
+    Object? region = freezed,
     Object? timeOfDay = freezed,
     Object? gender = freezed,
     Object? minHappiness = freezed,
@@ -125,6 +134,14 @@ class _$EvolutionEdgeCopyWithImpl<$Res, $Val extends EvolutionEdge>
           ? _value.toSpeciesId
           : toSpeciesId // ignore: cast_nullable_to_non_nullable
               as int,
+      fromFormId: freezed == fromFormId
+          ? _value.fromFormId
+          : fromFormId // ignore: cast_nullable_to_non_nullable
+              as int?,
+      toFormId: freezed == toFormId
+          ? _value.toFormId
+          : toFormId // ignore: cast_nullable_to_non_nullable
+              as int?,
       trigger: null == trigger
           ? _value.trigger
           : trigger // ignore: cast_nullable_to_non_nullable
@@ -152,6 +169,10 @@ class _$EvolutionEdgeCopyWithImpl<$Res, $Val extends EvolutionEdge>
       location: freezed == location
           ? _value.location
           : location // ignore: cast_nullable_to_non_nullable
+              as String?,
+      region: freezed == region
+          ? _value.region
+          : region // ignore: cast_nullable_to_non_nullable
               as String?,
       timeOfDay: freezed == timeOfDay
           ? _value.timeOfDay
@@ -213,6 +234,8 @@ abstract class _$$EvolutionEdgeImplCopyWith<$Res>
       {int chainId,
       int? fromSpeciesId,
       int toSpeciesId,
+      int? fromFormId,
+      int? toFormId,
       String trigger,
       int? minLevel,
       String? item,
@@ -220,6 +243,7 @@ abstract class _$$EvolutionEdgeImplCopyWith<$Res>
       String? knownMove,
       String? knownMoveType,
       String? location,
+      String? region,
       String? timeOfDay,
       String? gender,
       int? minHappiness,
@@ -249,6 +273,8 @@ class __$$EvolutionEdgeImplCopyWithImpl<$Res>
     Object? chainId = null,
     Object? fromSpeciesId = freezed,
     Object? toSpeciesId = null,
+    Object? fromFormId = freezed,
+    Object? toFormId = freezed,
     Object? trigger = null,
     Object? minLevel = freezed,
     Object? item = freezed,
@@ -256,6 +282,7 @@ class __$$EvolutionEdgeImplCopyWithImpl<$Res>
     Object? knownMove = freezed,
     Object? knownMoveType = freezed,
     Object? location = freezed,
+    Object? region = freezed,
     Object? timeOfDay = freezed,
     Object? gender = freezed,
     Object? minHappiness = freezed,
@@ -281,6 +308,14 @@ class __$$EvolutionEdgeImplCopyWithImpl<$Res>
           ? _value.toSpeciesId
           : toSpeciesId // ignore: cast_nullable_to_non_nullable
               as int,
+      fromFormId: freezed == fromFormId
+          ? _value.fromFormId
+          : fromFormId // ignore: cast_nullable_to_non_nullable
+              as int?,
+      toFormId: freezed == toFormId
+          ? _value.toFormId
+          : toFormId // ignore: cast_nullable_to_non_nullable
+              as int?,
       trigger: null == trigger
           ? _value.trigger
           : trigger // ignore: cast_nullable_to_non_nullable
@@ -308,6 +343,10 @@ class __$$EvolutionEdgeImplCopyWithImpl<$Res>
       location: freezed == location
           ? _value.location
           : location // ignore: cast_nullable_to_non_nullable
+              as String?,
+      region: freezed == region
+          ? _value.region
+          : region // ignore: cast_nullable_to_non_nullable
               as String?,
       timeOfDay: freezed == timeOfDay
           ? _value.timeOfDay
@@ -359,11 +398,13 @@ class __$$EvolutionEdgeImplCopyWithImpl<$Res>
 
 /// @nodoc
 
-class _$EvolutionEdgeImpl implements _EvolutionEdge {
+class _$EvolutionEdgeImpl extends _EvolutionEdge {
   const _$EvolutionEdgeImpl(
       {required this.chainId,
       this.fromSpeciesId,
       required this.toSpeciesId,
+      this.fromFormId,
+      this.toFormId,
       required this.trigger,
       this.minLevel,
       this.item,
@@ -371,6 +412,7 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
       this.knownMove,
       this.knownMoveType,
       this.location,
+      this.region,
       this.timeOfDay,
       this.gender,
       this.minHappiness,
@@ -381,7 +423,8 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
       this.partyType,
       this.tradeSpecies,
       required this.needsRain,
-      required this.turnUpsideDown});
+      required this.turnUpsideDown})
+      : super._();
 
   @override
   final int chainId;
@@ -389,6 +432,10 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
   final int? fromSpeciesId;
   @override
   final int toSpeciesId;
+  @override
+  final int? fromFormId;
+  @override
+  final int? toFormId;
   @override
   final String trigger;
   @override
@@ -403,6 +450,8 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
   final String? knownMoveType;
   @override
   final String? location;
+  @override
+  final String? region;
   @override
   final String? timeOfDay;
   @override
@@ -428,7 +477,7 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
 
   @override
   String toString() {
-    return 'EvolutionEdge(chainId: $chainId, fromSpeciesId: $fromSpeciesId, toSpeciesId: $toSpeciesId, trigger: $trigger, minLevel: $minLevel, item: $item, heldItem: $heldItem, knownMove: $knownMove, knownMoveType: $knownMoveType, location: $location, timeOfDay: $timeOfDay, gender: $gender, minHappiness: $minHappiness, minAffection: $minAffection, minBeauty: $minBeauty, relativePhysicalStats: $relativePhysicalStats, partySpecies: $partySpecies, partyType: $partyType, tradeSpecies: $tradeSpecies, needsRain: $needsRain, turnUpsideDown: $turnUpsideDown)';
+    return 'EvolutionEdge(chainId: $chainId, fromSpeciesId: $fromSpeciesId, toSpeciesId: $toSpeciesId, fromFormId: $fromFormId, toFormId: $toFormId, trigger: $trigger, minLevel: $minLevel, item: $item, heldItem: $heldItem, knownMove: $knownMove, knownMoveType: $knownMoveType, location: $location, region: $region, timeOfDay: $timeOfDay, gender: $gender, minHappiness: $minHappiness, minAffection: $minAffection, minBeauty: $minBeauty, relativePhysicalStats: $relativePhysicalStats, partySpecies: $partySpecies, partyType: $partyType, tradeSpecies: $tradeSpecies, needsRain: $needsRain, turnUpsideDown: $turnUpsideDown)';
   }
 
   @override
@@ -441,6 +490,10 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
                 other.fromSpeciesId == fromSpeciesId) &&
             (identical(other.toSpeciesId, toSpeciesId) ||
                 other.toSpeciesId == toSpeciesId) &&
+            (identical(other.fromFormId, fromFormId) ||
+                other.fromFormId == fromFormId) &&
+            (identical(other.toFormId, toFormId) ||
+                other.toFormId == toFormId) &&
             (identical(other.trigger, trigger) || other.trigger == trigger) &&
             (identical(other.minLevel, minLevel) ||
                 other.minLevel == minLevel) &&
@@ -453,6 +506,7 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
                 other.knownMoveType == knownMoveType) &&
             (identical(other.location, location) ||
                 other.location == location) &&
+            (identical(other.region, region) || other.region == region) &&
             (identical(other.timeOfDay, timeOfDay) ||
                 other.timeOfDay == timeOfDay) &&
             (identical(other.gender, gender) || other.gender == gender) &&
@@ -482,6 +536,8 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
         chainId,
         fromSpeciesId,
         toSpeciesId,
+        fromFormId,
+        toFormId,
         trigger,
         minLevel,
         item,
@@ -489,6 +545,7 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
         knownMove,
         knownMoveType,
         location,
+        region,
         timeOfDay,
         gender,
         minHappiness,
@@ -511,11 +568,13 @@ class _$EvolutionEdgeImpl implements _EvolutionEdge {
       __$$EvolutionEdgeImplCopyWithImpl<_$EvolutionEdgeImpl>(this, _$identity);
 }
 
-abstract class _EvolutionEdge implements EvolutionEdge {
+abstract class _EvolutionEdge extends EvolutionEdge {
   const factory _EvolutionEdge(
       {required final int chainId,
       final int? fromSpeciesId,
       required final int toSpeciesId,
+      final int? fromFormId,
+      final int? toFormId,
       required final String trigger,
       final int? minLevel,
       final String? item,
@@ -523,6 +582,7 @@ abstract class _EvolutionEdge implements EvolutionEdge {
       final String? knownMove,
       final String? knownMoveType,
       final String? location,
+      final String? region,
       final String? timeOfDay,
       final String? gender,
       final int? minHappiness,
@@ -534,6 +594,7 @@ abstract class _EvolutionEdge implements EvolutionEdge {
       final String? tradeSpecies,
       required final bool needsRain,
       required final bool turnUpsideDown}) = _$EvolutionEdgeImpl;
+  const _EvolutionEdge._() : super._();
 
   @override
   int get chainId;
@@ -541,6 +602,10 @@ abstract class _EvolutionEdge implements EvolutionEdge {
   int? get fromSpeciesId;
   @override
   int get toSpeciesId;
+  @override
+  int? get fromFormId;
+  @override
+  int? get toFormId;
   @override
   String get trigger;
   @override
@@ -555,6 +620,8 @@ abstract class _EvolutionEdge implements EvolutionEdge {
   String? get knownMoveType;
   @override
   String? get location;
+  @override
+  String? get region;
   @override
   String? get timeOfDay;
   @override
@@ -589,8 +656,12 @@ abstract class _EvolutionEdge implements EvolutionEdge {
 /// @nodoc
 mixin _$EvolutionNode {
   int get speciesId => throw _privateConstructorUsedError;
+  int? get formId => throw _privateConstructorUsedError;
   int get nationalDex => throw _privateConstructorUsedError;
   String get nameZh => throw _privateConstructorUsedError;
+  String? get formNameZh => throw _privateConstructorUsedError;
+  bool get isDefaultForm => throw _privateConstructorUsedError;
+  List<String> get typeIds => throw _privateConstructorUsedError;
   String? get thumbAsset => throw _privateConstructorUsedError;
   List<EvolutionEdge> get children => throw _privateConstructorUsedError;
 
@@ -609,8 +680,12 @@ abstract class $EvolutionNodeCopyWith<$Res> {
   @useResult
   $Res call(
       {int speciesId,
+      int? formId,
       int nationalDex,
       String nameZh,
+      String? formNameZh,
+      bool isDefaultForm,
+      List<String> typeIds,
       String? thumbAsset,
       List<EvolutionEdge> children});
 }
@@ -631,8 +706,12 @@ class _$EvolutionNodeCopyWithImpl<$Res, $Val extends EvolutionNode>
   @override
   $Res call({
     Object? speciesId = null,
+    Object? formId = freezed,
     Object? nationalDex = null,
     Object? nameZh = null,
+    Object? formNameZh = freezed,
+    Object? isDefaultForm = null,
+    Object? typeIds = null,
     Object? thumbAsset = freezed,
     Object? children = null,
   }) {
@@ -641,6 +720,10 @@ class _$EvolutionNodeCopyWithImpl<$Res, $Val extends EvolutionNode>
           ? _value.speciesId
           : speciesId // ignore: cast_nullable_to_non_nullable
               as int,
+      formId: freezed == formId
+          ? _value.formId
+          : formId // ignore: cast_nullable_to_non_nullable
+              as int?,
       nationalDex: null == nationalDex
           ? _value.nationalDex
           : nationalDex // ignore: cast_nullable_to_non_nullable
@@ -649,6 +732,18 @@ class _$EvolutionNodeCopyWithImpl<$Res, $Val extends EvolutionNode>
           ? _value.nameZh
           : nameZh // ignore: cast_nullable_to_non_nullable
               as String,
+      formNameZh: freezed == formNameZh
+          ? _value.formNameZh
+          : formNameZh // ignore: cast_nullable_to_non_nullable
+              as String?,
+      isDefaultForm: null == isDefaultForm
+          ? _value.isDefaultForm
+          : isDefaultForm // ignore: cast_nullable_to_non_nullable
+              as bool,
+      typeIds: null == typeIds
+          ? _value.typeIds
+          : typeIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
       thumbAsset: freezed == thumbAsset
           ? _value.thumbAsset
           : thumbAsset // ignore: cast_nullable_to_non_nullable
@@ -671,8 +766,12 @@ abstract class _$$EvolutionNodeImplCopyWith<$Res>
   @useResult
   $Res call(
       {int speciesId,
+      int? formId,
       int nationalDex,
       String nameZh,
+      String? formNameZh,
+      bool isDefaultForm,
+      List<String> typeIds,
       String? thumbAsset,
       List<EvolutionEdge> children});
 }
@@ -691,8 +790,12 @@ class __$$EvolutionNodeImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? speciesId = null,
+    Object? formId = freezed,
     Object? nationalDex = null,
     Object? nameZh = null,
+    Object? formNameZh = freezed,
+    Object? isDefaultForm = null,
+    Object? typeIds = null,
     Object? thumbAsset = freezed,
     Object? children = null,
   }) {
@@ -701,6 +804,10 @@ class __$$EvolutionNodeImplCopyWithImpl<$Res>
           ? _value.speciesId
           : speciesId // ignore: cast_nullable_to_non_nullable
               as int,
+      formId: freezed == formId
+          ? _value.formId
+          : formId // ignore: cast_nullable_to_non_nullable
+              as int?,
       nationalDex: null == nationalDex
           ? _value.nationalDex
           : nationalDex // ignore: cast_nullable_to_non_nullable
@@ -709,6 +816,18 @@ class __$$EvolutionNodeImplCopyWithImpl<$Res>
           ? _value.nameZh
           : nameZh // ignore: cast_nullable_to_non_nullable
               as String,
+      formNameZh: freezed == formNameZh
+          ? _value.formNameZh
+          : formNameZh // ignore: cast_nullable_to_non_nullable
+              as String?,
+      isDefaultForm: null == isDefaultForm
+          ? _value.isDefaultForm
+          : isDefaultForm // ignore: cast_nullable_to_non_nullable
+              as bool,
+      typeIds: null == typeIds
+          ? _value._typeIds
+          : typeIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
       thumbAsset: freezed == thumbAsset
           ? _value.thumbAsset
           : thumbAsset // ignore: cast_nullable_to_non_nullable
@@ -723,21 +842,43 @@ class __$$EvolutionNodeImplCopyWithImpl<$Res>
 
 /// @nodoc
 
-class _$EvolutionNodeImpl implements _EvolutionNode {
+class _$EvolutionNodeImpl extends _EvolutionNode {
   const _$EvolutionNodeImpl(
       {required this.speciesId,
+      this.formId,
       required this.nationalDex,
       required this.nameZh,
+      this.formNameZh,
+      this.isDefaultForm = true,
+      final List<String> typeIds = const <String>[],
       this.thumbAsset,
       required final List<EvolutionEdge> children})
-      : _children = children;
+      : _typeIds = typeIds,
+        _children = children,
+        super._();
 
   @override
   final int speciesId;
   @override
+  final int? formId;
+  @override
   final int nationalDex;
   @override
   final String nameZh;
+  @override
+  final String? formNameZh;
+  @override
+  @JsonKey()
+  final bool isDefaultForm;
+  final List<String> _typeIds;
+  @override
+  @JsonKey()
+  List<String> get typeIds {
+    if (_typeIds is EqualUnmodifiableListView) return _typeIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_typeIds);
+  }
+
   @override
   final String? thumbAsset;
   final List<EvolutionEdge> _children;
@@ -750,7 +891,7 @@ class _$EvolutionNodeImpl implements _EvolutionNode {
 
   @override
   String toString() {
-    return 'EvolutionNode(speciesId: $speciesId, nationalDex: $nationalDex, nameZh: $nameZh, thumbAsset: $thumbAsset, children: $children)';
+    return 'EvolutionNode(speciesId: $speciesId, formId: $formId, nationalDex: $nationalDex, nameZh: $nameZh, formNameZh: $formNameZh, isDefaultForm: $isDefaultForm, typeIds: $typeIds, thumbAsset: $thumbAsset, children: $children)';
   }
 
   @override
@@ -760,17 +901,32 @@ class _$EvolutionNodeImpl implements _EvolutionNode {
             other is _$EvolutionNodeImpl &&
             (identical(other.speciesId, speciesId) ||
                 other.speciesId == speciesId) &&
+            (identical(other.formId, formId) || other.formId == formId) &&
             (identical(other.nationalDex, nationalDex) ||
                 other.nationalDex == nationalDex) &&
             (identical(other.nameZh, nameZh) || other.nameZh == nameZh) &&
+            (identical(other.formNameZh, formNameZh) ||
+                other.formNameZh == formNameZh) &&
+            (identical(other.isDefaultForm, isDefaultForm) ||
+                other.isDefaultForm == isDefaultForm) &&
+            const DeepCollectionEquality().equals(other._typeIds, _typeIds) &&
             (identical(other.thumbAsset, thumbAsset) ||
                 other.thumbAsset == thumbAsset) &&
             const DeepCollectionEquality().equals(other._children, _children));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, speciesId, nationalDex, nameZh,
-      thumbAsset, const DeepCollectionEquality().hash(_children));
+  int get hashCode => Object.hash(
+      runtimeType,
+      speciesId,
+      formId,
+      nationalDex,
+      nameZh,
+      formNameZh,
+      isDefaultForm,
+      const DeepCollectionEquality().hash(_typeIds),
+      thumbAsset,
+      const DeepCollectionEquality().hash(_children));
 
   /// Create a copy of EvolutionNode
   /// with the given fields replaced by the non-null parameter values.
@@ -781,20 +937,33 @@ class _$EvolutionNodeImpl implements _EvolutionNode {
       __$$EvolutionNodeImplCopyWithImpl<_$EvolutionNodeImpl>(this, _$identity);
 }
 
-abstract class _EvolutionNode implements EvolutionNode {
+abstract class _EvolutionNode extends EvolutionNode {
   const factory _EvolutionNode(
       {required final int speciesId,
+      final int? formId,
       required final int nationalDex,
       required final String nameZh,
+      final String? formNameZh,
+      final bool isDefaultForm,
+      final List<String> typeIds,
       final String? thumbAsset,
       required final List<EvolutionEdge> children}) = _$EvolutionNodeImpl;
+  const _EvolutionNode._() : super._();
 
   @override
   int get speciesId;
   @override
+  int? get formId;
+  @override
   int get nationalDex;
   @override
   String get nameZh;
+  @override
+  String? get formNameZh;
+  @override
+  bool get isDefaultForm;
+  @override
+  List<String> get typeIds;
   @override
   String? get thumbAsset;
   @override
@@ -814,8 +983,14 @@ mixin _$EvolutionTree {
 
   /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
   /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
-  /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
   Map<int, EvolutionNode> get nodesBySpeciesId =>
+      throw _privateConstructorUsedError;
+
+  /// 并行进化线全部根节点（单根链为 [root]；呆呆兽/喵喵等多形态并行线含多个根）。
+  List<EvolutionNode> get roots => throw _privateConstructorUsedError;
+
+  /// 形态级节点注册表（键 = formId）。
+  Map<int, EvolutionNode> get nodesByFormId =>
       throw _privateConstructorUsedError;
 
   /// Create a copy of EvolutionTree
@@ -831,7 +1006,11 @@ abstract class $EvolutionTreeCopyWith<$Res> {
           EvolutionTree value, $Res Function(EvolutionTree) then) =
       _$EvolutionTreeCopyWithImpl<$Res, EvolutionTree>;
   @useResult
-  $Res call({EvolutionNode root, Map<int, EvolutionNode> nodesBySpeciesId});
+  $Res call(
+      {EvolutionNode root,
+      Map<int, EvolutionNode> nodesBySpeciesId,
+      List<EvolutionNode> roots,
+      Map<int, EvolutionNode> nodesByFormId});
 
   $EvolutionNodeCopyWith<$Res> get root;
 }
@@ -853,6 +1032,8 @@ class _$EvolutionTreeCopyWithImpl<$Res, $Val extends EvolutionTree>
   $Res call({
     Object? root = null,
     Object? nodesBySpeciesId = null,
+    Object? roots = null,
+    Object? nodesByFormId = null,
   }) {
     return _then(_value.copyWith(
       root: null == root
@@ -862,6 +1043,14 @@ class _$EvolutionTreeCopyWithImpl<$Res, $Val extends EvolutionTree>
       nodesBySpeciesId: null == nodesBySpeciesId
           ? _value.nodesBySpeciesId
           : nodesBySpeciesId // ignore: cast_nullable_to_non_nullable
+              as Map<int, EvolutionNode>,
+      roots: null == roots
+          ? _value.roots
+          : roots // ignore: cast_nullable_to_non_nullable
+              as List<EvolutionNode>,
+      nodesByFormId: null == nodesByFormId
+          ? _value.nodesByFormId
+          : nodesByFormId // ignore: cast_nullable_to_non_nullable
               as Map<int, EvolutionNode>,
     ) as $Val);
   }
@@ -885,7 +1074,11 @@ abstract class _$$EvolutionTreeImplCopyWith<$Res>
       __$$EvolutionTreeImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({EvolutionNode root, Map<int, EvolutionNode> nodesBySpeciesId});
+  $Res call(
+      {EvolutionNode root,
+      Map<int, EvolutionNode> nodesBySpeciesId,
+      List<EvolutionNode> roots,
+      Map<int, EvolutionNode> nodesByFormId});
 
   @override
   $EvolutionNodeCopyWith<$Res> get root;
@@ -906,6 +1099,8 @@ class __$$EvolutionTreeImplCopyWithImpl<$Res>
   $Res call({
     Object? root = null,
     Object? nodesBySpeciesId = null,
+    Object? roots = null,
+    Object? nodesByFormId = null,
   }) {
     return _then(_$EvolutionTreeImpl(
       root: null == root
@@ -916,29 +1111,41 @@ class __$$EvolutionTreeImplCopyWithImpl<$Res>
           ? _value._nodesBySpeciesId
           : nodesBySpeciesId // ignore: cast_nullable_to_non_nullable
               as Map<int, EvolutionNode>,
+      roots: null == roots
+          ? _value._roots
+          : roots // ignore: cast_nullable_to_non_nullable
+              as List<EvolutionNode>,
+      nodesByFormId: null == nodesByFormId
+          ? _value._nodesByFormId
+          : nodesByFormId // ignore: cast_nullable_to_non_nullable
+              as Map<int, EvolutionNode>,
     ));
   }
 }
 
 /// @nodoc
 
-class _$EvolutionTreeImpl implements _EvolutionTree {
+class _$EvolutionTreeImpl extends _EvolutionTree {
   const _$EvolutionTreeImpl(
       {required this.root,
-      required final Map<int, EvolutionNode> nodesBySpeciesId})
-      : _nodesBySpeciesId = nodesBySpeciesId;
+      required final Map<int, EvolutionNode> nodesBySpeciesId,
+      final List<EvolutionNode> roots = const <EvolutionNode>[],
+      final Map<int, EvolutionNode> nodesByFormId =
+          const <int, EvolutionNode>{}})
+      : _nodesBySpeciesId = nodesBySpeciesId,
+        _roots = roots,
+        _nodesByFormId = nodesByFormId,
+        super._();
 
   @override
   final EvolutionNode root;
 
   /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
   /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
-  /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
   final Map<int, EvolutionNode> _nodesBySpeciesId;
 
   /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
   /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
-  /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
   @override
   Map<int, EvolutionNode> get nodesBySpeciesId {
     if (_nodesBySpeciesId is EqualUnmodifiableMapView) return _nodesBySpeciesId;
@@ -946,9 +1153,33 @@ class _$EvolutionTreeImpl implements _EvolutionTree {
     return EqualUnmodifiableMapView(_nodesBySpeciesId);
   }
 
+  /// 并行进化线全部根节点（单根链为 [root]；呆呆兽/喵喵等多形态并行线含多个根）。
+  final List<EvolutionNode> _roots;
+
+  /// 并行进化线全部根节点（单根链为 [root]；呆呆兽/喵喵等多形态并行线含多个根）。
+  @override
+  @JsonKey()
+  List<EvolutionNode> get roots {
+    if (_roots is EqualUnmodifiableListView) return _roots;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_roots);
+  }
+
+  /// 形态级节点注册表（键 = formId）。
+  final Map<int, EvolutionNode> _nodesByFormId;
+
+  /// 形态级节点注册表（键 = formId）。
+  @override
+  @JsonKey()
+  Map<int, EvolutionNode> get nodesByFormId {
+    if (_nodesByFormId is EqualUnmodifiableMapView) return _nodesByFormId;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_nodesByFormId);
+  }
+
   @override
   String toString() {
-    return 'EvolutionTree(root: $root, nodesBySpeciesId: $nodesBySpeciesId)';
+    return 'EvolutionTree(root: $root, nodesBySpeciesId: $nodesBySpeciesId, roots: $roots, nodesByFormId: $nodesByFormId)';
   }
 
   @override
@@ -958,12 +1189,19 @@ class _$EvolutionTreeImpl implements _EvolutionTree {
             other is _$EvolutionTreeImpl &&
             (identical(other.root, root) || other.root == root) &&
             const DeepCollectionEquality()
-                .equals(other._nodesBySpeciesId, _nodesBySpeciesId));
+                .equals(other._nodesBySpeciesId, _nodesBySpeciesId) &&
+            const DeepCollectionEquality().equals(other._roots, _roots) &&
+            const DeepCollectionEquality()
+                .equals(other._nodesByFormId, _nodesByFormId));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, root,
-      const DeepCollectionEquality().hash(_nodesBySpeciesId));
+  int get hashCode => Object.hash(
+      runtimeType,
+      root,
+      const DeepCollectionEquality().hash(_nodesBySpeciesId),
+      const DeepCollectionEquality().hash(_roots),
+      const DeepCollectionEquality().hash(_nodesByFormId));
 
   /// Create a copy of EvolutionTree
   /// with the given fields replaced by the non-null parameter values.
@@ -974,20 +1212,29 @@ class _$EvolutionTreeImpl implements _EvolutionTree {
       __$$EvolutionTreeImplCopyWithImpl<_$EvolutionTreeImpl>(this, _$identity);
 }
 
-abstract class _EvolutionTree implements EvolutionTree {
+abstract class _EvolutionTree extends EvolutionTree {
   const factory _EvolutionTree(
-          {required final EvolutionNode root,
-          required final Map<int, EvolutionNode> nodesBySpeciesId}) =
-      _$EvolutionTreeImpl;
+      {required final EvolutionNode root,
+      required final Map<int, EvolutionNode> nodesBySpeciesId,
+      final List<EvolutionNode> roots,
+      final Map<int, EvolutionNode> nodesByFormId}) = _$EvolutionTreeImpl;
+  const _EvolutionTree._() : super._();
 
   @override
   EvolutionNode get root;
 
   /// 全部成员节点注册表（键 = speciesId，含根与各中段/末段物种，
   /// 每个节点带编号/简中名/缩略图；children 为该节点直接出边）。
-  /// UI 从 [root] 出发按 children 逐层查此表即可重建完整层级。
   @override
   Map<int, EvolutionNode> get nodesBySpeciesId;
+
+  /// 并行进化线全部根节点（单根链为 [root]；呆呆兽/喵喵等多形态并行线含多个根）。
+  @override
+  List<EvolutionNode> get roots;
+
+  /// 形态级节点注册表（键 = formId）。
+  @override
+  Map<int, EvolutionNode> get nodesByFormId;
 
   /// Create a copy of EvolutionTree
   /// with the given fields replaced by the non-null parameter values.
