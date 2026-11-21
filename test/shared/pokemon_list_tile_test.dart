@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fl_pokedex/app/theme/app_colors.dart';
+import 'package:fl_pokedex/shared/widgets/match_hint_line.dart';
 import 'package:fl_pokedex/shared/widgets/pokemon_list_tile.dart';
 
 import 'test_utils.dart';
@@ -98,6 +99,15 @@ void main() {
     expect(tester.getSize(find.byType(PokemonListTile)).height, 64);
     expect(find.text('喷火龙'), findsOneWidget);
     expect(find.text('Charizard'), findsOneWidget);
-    expect(find.text('别名：老喷'), findsOneWidget);
+    final hintLine = find.byType(MatchHintLine);
+    expect(hintLine, findsOneWidget);
+    expect(
+      find.descendant(of: hintLine, matching: find.text('别名')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: hintLine, matching: find.text('老喷')),
+      findsOneWidget,
+    );
   });
 }

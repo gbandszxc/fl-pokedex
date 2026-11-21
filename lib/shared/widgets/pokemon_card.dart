@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fl_pokedex/app/theme/tokens.dart';
 import 'package:fl_pokedex/shared/widgets/favorite_button.dart';
+import 'package:fl_pokedex/shared/widgets/match_hint_line.dart';
 import 'package:fl_pokedex/shared/widgets/type_badge.dart';
 
 /// 编号显示格式：`#001`（三位补零，DESIGN.md §4 tabular 数字）。
@@ -70,7 +71,12 @@ class PokemonCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.s),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.s,
+                AppSpacing.s,
+                AppSpacing.s,
+                AppSpacing.xs,
+              ),
               child: SizedBox(
                 height: artworkSize,
                 child: Stack(
@@ -116,19 +122,16 @@ class PokemonCard extends StatelessWidget {
                     style: textTheme.bodyMedium
                         ?.copyWith(fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    showHint ? hint : nameEn,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: showHint
-                        ? textTheme.bodySmall?.copyWith(
-                            color: scheme.secondary,
-                            fontWeight: FontWeight.w500,
-                          )
-                        : textTheme.bodySmall,
-                  ),
                   const SizedBox(height: AppSpacing.xs),
+                  showHint
+                      ? MatchHintLine(hint: hint)
+                      : Text(
+                          nameEn,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodySmall,
+                        ),
+                  const SizedBox(height: AppSpacing.s),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

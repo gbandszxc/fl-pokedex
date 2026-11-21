@@ -463,7 +463,7 @@ class _DetailScaffold extends ConsumerWidget {
                       pad,
                       kToolbarHeight,
                       pad,
-                      AppSpacing.s,
+                      AppSpacing.m,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -880,7 +880,7 @@ class _HeaderHorizontal extends StatelessWidget {
               if (detail.genusZh != null ||
                   detail.genusEn != null ||
                   detail.tags.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: AppSpacing.s),
                 _GenusAndTags(
                   detail: detail,
                   onApplyFilter: onApplyFilter,
@@ -940,7 +940,7 @@ class _TypeBadgesRow extends StatelessWidget {
   }
 }
 
-/// 头部「分类 + 检索标签」行：分类可点击跳入同分类筛选，标签以 pill 展示。
+/// 头部「分类 + 检索标签」行：同高 24px 胶囊对齐排版，统一接可点联动筛选。
 class _GenusAndTags extends StatelessWidget {
   const _GenusAndTags({
     required this.detail,
@@ -953,26 +953,27 @@ class _GenusAndTags extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final genus = detail.genusZh ?? detail.genusEn;
-    final textTheme = Theme.of(context).textTheme;
     return Wrap(
-      spacing: AppSpacing.xs,
+      spacing: AppSpacing.s,
       runSpacing: AppSpacing.xs,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         if (genus != null)
-          _FilterLinkText(
-            linkKey: const ValueKey('detail_header_genus'),
+          _DetailMetaChip(
+            chipKey: const ValueKey('detail_header_genus'),
             label: genus,
-            style: textTheme.bodySmall,
+            tone: _DetailMetaChipTone.neutral,
             tooltip: '查看同分类宝可梦',
             onTap: onApplyFilter == null
                 ? null
                 : () => onApplyFilter!(FilterState(genus: genus)),
           ),
         for (final tag in detail.tags)
-          ConditionChip(
+          _DetailMetaChip(
+            chipKey: ValueKey('detail_header_tag_${tag.name}'),
             label: tag.detailLabelZh,
-            tooltip: onApplyFilter == null ? null : '筛选${tag.detailLabelZh}',
+            tone: _DetailMetaChipTone.accent,
+            tooltip: '筛选${tag.detailLabelZh}',
             onTap: onApplyFilter == null
                 ? null
                 : () => onApplyFilter!(FilterState(tags: {tag})),
@@ -982,51 +983,100 @@ class _GenusAndTags extends StatelessWidget {
   }
 }
 
-/// 可点击筛选文本链接（保持与普通 Text 相同的文字节点与基线传递）。
-class _FilterLinkText extends StatelessWidget {
-  const _FilterLinkText({
-    this.linkKey,
+enum _DetailMetaChipTone {
+  /// 中性元信息胶囊（分类 / 世代）：surfaceContainer 底 + outlineVariant 描边。
+  neutral,
+
+  /// 品牌弱底标签胶囊（化石宝可梦 / 超级进化等）：primaryContainer 底 + onPrimaryContainer 字。
+  accent,
+}
+
+/// 详情页元信息联动胶囊：等高 24px 胶囊体，左起内边距与 TypeBadge / VersionChip 对齐。
+class _DetailMetaChip extends StatelessWidget {
+  const _DetailMetaChip({
+    this.chipKey,
     required this.label,
-    required this.style,
+    required this.tone,
     required this.tooltip,
     this.onTap,
   });
 
-  final Key? linkKey;
+  final Key? chipKey;
   final String label;
-  final TextStyle? style;
+  final _DetailMetaChipTone tone;
   final String tooltip;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    if (onTap == null) {
-      return Text(label, style: style);
-    }
-    final secondary = Theme.of(context).colorScheme.secondary;
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        key: linkKey,
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.input),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: style?.copyWith(
-                color: secondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: 3),
-            Icon(Icons.filter_list, size: 13, color: secondary),
-          ],
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final interactive = onTap != null;
+    final isNeutral = tone == _DetailMetaChipTone.neutral;
+    final bg = isNeutral ? scheme.surfaceContainer : scheme.primaryContainer;
+    final fg =
+        isNeutral ? scheme.onSurfaceVariant : scheme.onPrimaryContainer;
+    final shape = isNeutral
+        ? StadiumBorder(side: BorderSide(color: scheme.outlineVariant))
+        : const StadiumBorder();
+    final padding = (interactive && isNeutral)
+        ? const EdgeInsets.fromLTRB(
+            AppSpacing.m,
+            AppSpacing.xs,
+            AppSpacing.s,
+            AppSpacing.xs,
+          )
+        : const EdgeInsets.symmetric(
+            horizontal: AppSpacing.m,
+            vertical: AppSpacing.xs,
+          );
+
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          style: (textTheme.labelSmall ?? const TextStyle()).copyWith(
+            color: fg,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-      ),
+        if (interactive && isNeutral) ...[
+          const SizedBox(width: AppSpacing.xs / 2),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 14,
+            color: scheme.outline,
+          ),
+        ],
+      ],
     );
+
+    final Widget chip = interactive
+        ? Material(
+            color: bg,
+            shape: shape,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: chipKey,
+              onTap: onTap,
+              customBorder: const StadiumBorder(),
+              child: Padding(padding: padding, child: content),
+            ),
+          )
+        : Container(
+            key: chipKey,
+            padding: padding,
+            decoration: ShapeDecoration(color: bg, shape: shape),
+            child: content,
+          );
+
+    if (!interactive) {
+      return chip;
+    }
+    return Tooltip(message: tooltip, child: chip);
   }
 }
 
@@ -1122,7 +1172,7 @@ class _Header extends StatelessWidget {
         if (detail.genusZh != null ||
             detail.genusEn != null ||
             detail.tags.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.s),
           _GenusAndTags(
             detail: detail,
             onApplyFilter: onApplyFilter,
@@ -1562,7 +1612,6 @@ class _InfoSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final formDetailAsync = ref.watch(formDetailProvider(selectedForm));
-    final textTheme = Theme.of(context).textTheme;
     final genus = detail.genusZh ?? detail.genusEn;
     final content = formDetailAsync.when(
       loading: () => const Skeleton(
@@ -1593,44 +1642,52 @@ class _InfoSection extends ConsumerWidget {
           ),
           _InfoRow(
             label: '世代',
-            child: _FilterLinkText(
-              linkKey: const ValueKey('detail_info_generation'),
-              label: _generationLabel(detail.generationId),
-              style: textTheme.bodyMedium,
-              tooltip: '筛选${_generationLabel(detail.generationId)}宝可梦',
-              onTap: onApplyFilter == null
-                  ? null
-                  : () => onApplyFilter!(
-                        FilterState(generations: {detail.generationId}),
-                      ),
+            child: Wrap(
+              children: [
+                _DetailMetaChip(
+                  chipKey: const ValueKey('detail_info_generation'),
+                  label: _generationLabel(detail.generationId),
+                  tone: _DetailMetaChipTone.neutral,
+                  tooltip: '筛选${_generationLabel(detail.generationId)}宝可梦',
+                  onTap: onApplyFilter == null
+                      ? null
+                      : () => onApplyFilter!(
+                            FilterState(generations: {detail.generationId}),
+                          ),
+                ),
+              ],
             ),
           ),
           if (genus != null)
             _InfoRow(
               label: '分类',
-              child: _FilterLinkText(
-                linkKey: const ValueKey('detail_info_genus'),
-                label: genus,
-                style: textTheme.bodyMedium,
-                tooltip: '查看同分类宝可梦',
-                onTap: onApplyFilter == null
-                    ? null
-                    : () => onApplyFilter!(FilterState(genus: genus)),
+              child: Wrap(
+                children: [
+                  _DetailMetaChip(
+                    chipKey: const ValueKey('detail_info_genus'),
+                    label: genus,
+                    tone: _DetailMetaChipTone.neutral,
+                    tooltip: '查看同分类宝可梦',
+                    onTap: onApplyFilter == null
+                        ? null
+                        : () => onApplyFilter!(FilterState(genus: genus)),
+                  ),
+                ],
               ),
             ),
           if (detail.tags.isNotEmpty)
             _InfoRow(
               label: '标签',
               child: Wrap(
-                spacing: AppSpacing.xs,
+                spacing: AppSpacing.s,
                 runSpacing: AppSpacing.xs,
                 children: [
                   for (final tag in detail.tags)
-                    ConditionChip(
+                    _DetailMetaChip(
+                      chipKey: ValueKey('detail_info_tag_${tag.name}'),
                       label: tag.detailLabelZh,
-                      tooltip: onApplyFilter == null
-                          ? null
-                          : '筛选${tag.detailLabelZh}',
+                      tone: _DetailMetaChipTone.accent,
+                      tooltip: '筛选${tag.detailLabelZh}',
                       onTap: onApplyFilter == null
                           ? null
                           : () => onApplyFilter!(FilterState(tags: {tag})),

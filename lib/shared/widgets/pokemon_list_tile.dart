@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fl_pokedex/app/theme/tokens.dart';
 import 'package:fl_pokedex/shared/widgets/favorite_button.dart';
+import 'package:fl_pokedex/shared/widgets/match_hint_line.dart';
 import 'package:fl_pokedex/shared/widgets/pokemon_card.dart';
 import 'package:fl_pokedex/shared/widgets/type_badge.dart';
 
@@ -47,7 +48,6 @@ class PokemonListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
     final hint = matchHint;
     final showHint = hint != null && hint.isNotEmpty;
     final nameRow = Row(
@@ -101,15 +101,8 @@ class PokemonListTile extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             nameRow,
-                            Text(
-                              hint,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: textTheme.bodySmall?.copyWith(
-                                color: scheme.secondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            MatchHintLine(hint: hint),
                           ],
                         )
                       : nameRow,

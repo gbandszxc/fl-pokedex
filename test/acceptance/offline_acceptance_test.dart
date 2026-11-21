@@ -292,7 +292,16 @@ void main() {
       await tester.enterText(find.byType(TextField), '比雕');
       await pumpFor(tester);
       await pumpUntilFound(tester, find.text('大比鸟'));
-      expect(find.text('别名：比雕'), findsOneWidget);
+      final hintLine = find.byType(MatchHintLine);
+      expect(hintLine, findsOneWidget);
+      expect(
+        find.descendant(of: hintLine, matching: find.text('别名')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: hintLine, matching: find.text('比雕')),
+        findsOneWidget,
+      );
       assertNoException(tester, '搜索俗名「比雕」');
 
       await tester.tap(find.text('大比鸟').first);

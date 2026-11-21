@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fl_pokedex/app/theme/app_colors.dart';
+import 'package:fl_pokedex/shared/widgets/match_hint_line.dart';
 import 'package:fl_pokedex/shared/widgets/pokemon_card.dart';
 
 import 'test_utils.dart';
@@ -135,7 +136,45 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.text('形态：超级喷火龙Ｘ的超长测试文本'), findsOneWidget);
+    final hintLine = find.byType(MatchHintLine);
+    expect(hintLine, findsOneWidget);
+    expect(
+      find.descendant(of: hintLine, matching: find.text('形态')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: hintLine,
+        matching: find.text('超级喷火龙Ｘ的超长测试文本'),
+      ),
+      findsOneWidget,
+    );
+    final pill = tester.widget<Container>(
+      find.descendant(
+        of: hintLine,
+        matching: find.byWidgetPredicate(
+          (w) => w is Container && w.decoration is ShapeDecoration,
+        ),
+      ),
+    );
+    final deco = pill.decoration! as ShapeDecoration;
+    expect(deco.color, AppColors.light.primaryContainer);
     expect(find.text('Bulbasaur'), findsNothing);
+  });
+
+  testWidgets('matchHint 不含冒号时退化为单行文本', (tester) async {
+    await tester.pumpWidget(
+      wrapTheme(
+        child: SizedBox(
+          width: 160,
+          height: 200,
+          child: _card(matchHint: '无前缀说明'),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(MatchHintLine), findsOneWidget);
+    expect(find.text('无前缀说明'), findsOneWidget);
   });
 }

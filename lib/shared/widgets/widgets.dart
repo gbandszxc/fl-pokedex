@@ -6,6 +6,7 @@ export 'adaptive_scaffold_util.dart';
 export 'condition_chip.dart';
 export 'empty_state.dart';
 export 'favorite_button.dart';
+export 'match_hint_line.dart';
 export 'pokemon_card.dart';
 export 'pokemon_list_tile.dart';
 export 'section_title.dart';

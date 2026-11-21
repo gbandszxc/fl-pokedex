@@ -691,9 +691,38 @@ void main() {
       await tester.pump();
       expect(applied.last, const FilterState(genus: '种子宝可梦'));
 
-      await tester.tap(find.widgetWithText(ConditionChip, '御三家'));
+      await tester.tap(find.byKey(const ValueKey('detail_header_tag_starter')));
       await tester.pump();
       expect(applied.last, const FilterState(tags: {SpecialTag.starter}));
+    });
+
+    testWidgets('紧凑 360x640 下头部分类与标签胶囊等高、水平中心对齐且零溢出',
+        (tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(360, 640);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      repo.speciesInfo[1] = const SpeciesInfo(
+        speciesId: 1,
+        nationalDex: 1,
+        generationId: 1,
+        genusZh: '种子宝可梦',
+        genusEn: 'Seed Pokémon',
+        tags: [SpecialTag.starter],
+      );
+      await pumpPage(tester, onApplyFilter: (_) {});
+
+      expect(tester.takeException(), isNull);
+      final genusRect =
+          tester.getRect(find.byKey(const ValueKey('detail_header_genus')));
+      final tagRect = tester
+          .getRect(find.byKey(const ValueKey('detail_header_tag_starter')));
+      expect((genusRect.height - tagRect.height).abs(), lessThanOrEqualTo(0.5));
+      expect(
+        (genusRect.center.dy - tagRect.center.dy).abs(),
+        lessThanOrEqualTo(0.5),
+      );
     });
   });
 }

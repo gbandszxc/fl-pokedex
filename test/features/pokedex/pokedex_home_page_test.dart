@@ -176,7 +176,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('宝可梦018'), findsOneWidget);
-    expect(find.text('别名：比雕'), findsOneWidget);
+    final hintLine = find.byType(MatchHintLine);
+    expect(hintLine, findsOneWidget);
+    expect(
+      find.descendant(of: hintLine, matching: find.text('别名')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: hintLine, matching: find.text('比雕')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('clear_search_query')));
     await tester.pump(const Duration(milliseconds: 100));
