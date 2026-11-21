@@ -24,6 +24,7 @@ mixin _$FilterState {
   int? get dexMin => throw _privateConstructorUsedError;
   int? get dexMax => throw _privateConstructorUsedError;
   Set<SpecialTag> get tags => throw _privateConstructorUsedError;
+  String? get genus => throw _privateConstructorUsedError;
 
   /// Create a copy of FilterState
   /// with the given fields replaced by the non-null parameter values.
@@ -46,7 +47,8 @@ abstract class $FilterStateCopyWith<$Res> {
       Set<int> pokedexIds,
       int? dexMin,
       int? dexMax,
-      Set<SpecialTag> tags});
+      Set<SpecialTag> tags,
+      String? genus});
 }
 
 /// @nodoc
@@ -72,6 +74,7 @@ class _$FilterStateCopyWithImpl<$Res, $Val extends FilterState>
     Object? dexMin = freezed,
     Object? dexMax = freezed,
     Object? tags = null,
+    Object? genus = freezed,
   }) {
     return _then(_value.copyWith(
       query: null == query
@@ -106,6 +109,10 @@ class _$FilterStateCopyWithImpl<$Res, $Val extends FilterState>
           ? _value.tags
           : tags // ignore: cast_nullable_to_non_nullable
               as Set<SpecialTag>,
+      genus: freezed == genus
+          ? _value.genus
+          : genus // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -126,7 +133,8 @@ abstract class _$$FilterStateImplCopyWith<$Res>
       Set<int> pokedexIds,
       int? dexMin,
       int? dexMax,
-      Set<SpecialTag> tags});
+      Set<SpecialTag> tags,
+      String? genus});
 }
 
 /// @nodoc
@@ -150,6 +158,7 @@ class __$$FilterStateImplCopyWithImpl<$Res>
     Object? dexMin = freezed,
     Object? dexMax = freezed,
     Object? tags = null,
+    Object? genus = freezed,
   }) {
     return _then(_$FilterStateImpl(
       query: null == query
@@ -184,6 +193,10 @@ class __$$FilterStateImplCopyWithImpl<$Res>
           ? _value._tags
           : tags // ignore: cast_nullable_to_non_nullable
               as Set<SpecialTag>,
+      genus: freezed == genus
+          ? _value.genus
+          : genus // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -199,7 +212,8 @@ class _$FilterStateImpl extends _FilterState {
       final Set<int> pokedexIds = const <int>{},
       this.dexMin,
       this.dexMax,
-      final Set<SpecialTag> tags = const <SpecialTag>{}})
+      final Set<SpecialTag> tags = const <SpecialTag>{},
+      this.genus})
       : _generations = generations,
         _typeIds = typeIds,
         _pokedexIds = pokedexIds,
@@ -253,8 +267,11 @@ class _$FilterStateImpl extends _FilterState {
   }
 
   @override
+  final String? genus;
+
+  @override
   String toString() {
-    return 'FilterState(query: $query, generations: $generations, typeIds: $typeIds, typeMatchMode: $typeMatchMode, pokedexIds: $pokedexIds, dexMin: $dexMin, dexMax: $dexMax, tags: $tags)';
+    return 'FilterState(query: $query, generations: $generations, typeIds: $typeIds, typeMatchMode: $typeMatchMode, pokedexIds: $pokedexIds, dexMin: $dexMin, dexMax: $dexMax, tags: $tags, genus: $genus)';
   }
 
   @override
@@ -272,7 +289,8 @@ class _$FilterStateImpl extends _FilterState {
                 .equals(other._pokedexIds, _pokedexIds) &&
             (identical(other.dexMin, dexMin) || other.dexMin == dexMin) &&
             (identical(other.dexMax, dexMax) || other.dexMax == dexMax) &&
-            const DeepCollectionEquality().equals(other._tags, _tags));
+            const DeepCollectionEquality().equals(other._tags, _tags) &&
+            (identical(other.genus, genus) || other.genus == genus));
   }
 
   @override
@@ -285,7 +303,8 @@ class _$FilterStateImpl extends _FilterState {
       const DeepCollectionEquality().hash(_pokedexIds),
       dexMin,
       dexMax,
-      const DeepCollectionEquality().hash(_tags));
+      const DeepCollectionEquality().hash(_tags),
+      genus);
 
   /// Create a copy of FilterState
   /// with the given fields replaced by the non-null parameter values.
@@ -305,7 +324,8 @@ abstract class _FilterState extends FilterState {
       final Set<int> pokedexIds,
       final int? dexMin,
       final int? dexMax,
-      final Set<SpecialTag> tags}) = _$FilterStateImpl;
+      final Set<SpecialTag> tags,
+      final String? genus}) = _$FilterStateImpl;
   const _FilterState._() : super._();
 
   @override
@@ -324,6 +344,8 @@ abstract class _FilterState extends FilterState {
   int? get dexMax;
   @override
   Set<SpecialTag> get tags;
+  @override
+  String? get genus;
 
   /// Create a copy of FilterState
   /// with the given fields replaced by the non-null parameter values.

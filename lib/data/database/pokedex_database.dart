@@ -14,6 +14,7 @@ import '../../domain/models/pokemon_summary.dart';
 import '../../domain/models/refs.dart';
 import '../../domain/models/species_info.dart';
 import '../../domain/models/stat_block.dart';
+import '../search/pokedex_search_index.dart';
 import 'tables.dart';
 
 part 'pokedex_database.g.dart';
@@ -45,6 +46,9 @@ part 'pokedex_database.g.dart';
     FormFlavorTexts,
     Pokedexes,
     SpeciesDexNumbers,
+    SpeciesAliases,
+    SpeciesTags,
+    SpeciesPinyin,
   ],
   daos: [PokedexDao, MoveDao, EvolutionDao, MetaDao],
 )
@@ -180,34 +184,189 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     with _$PokedexDaoMixin {
   PokedexDao(super.attachedDatabase);
 
-  /// 列表页查询（architecture.md §7 WHERE 语义），单条 SQL 聚合：
-  /// species 基本列 + 默认形态 thumb + 默认形态属性（有序 CSV）。
+  Future<PokedexSearchIndex>? _searchIndexFuture;
+
+  Future<PokedexSearchIndex> _getSearchIndex() =>
+      _searchIndexFuture ??= _buildSearchIndex();
+
+  Future<PokedexSearchIndex> _buildSearchIndex() async {
+    final speciesRows = await customSelect(
+      'SELECT id, national_dex, name_zh_hans, name_zh_hant, name_en, name_ja, '
+      '       name_ja_hrkt, name_roomaji, genus_zh_hans, genus_en '
+      'FROM species ORDER BY id ASC',
+      readsFrom: {attachedDatabase.species},
+    ).get();
+
+    final aliasRows = await customSelect(
+      'SELECT species_id, alias, alias_norm, priority '
+      'FROM species_aliases ORDER BY species_id ASC, priority DESC, id ASC',
+      readsFrom: {attachedDatabase.speciesAliases},
+    ).get();
+    final aliasesBySpecies = <int, List<SearchAliasEntry>>{};
+    for (final row in aliasRows) {
+      final sid = row.data['species_id'] as int;
+      aliasesBySpecies.putIfAbsent(sid, () => <SearchAliasEntry>[]).add(
+            SearchAliasEntry(
+              alias: row.data['alias'] as String,
+              aliasNorm: row.data['alias_norm'] as String,
+              priority: row.data['priority'] as int,
+            ),
+          );
+    }
+
+    final pinyinRows = await customSelect(
+      'SELECT species_id, name_pinyin, name_initials, aliases_pinyin, '
+      '       aliases_initials '
+      'FROM species_pinyin',
+      readsFrom: {attachedDatabase.speciesPinyin},
+    ).get();
+    final pinyinBySpecies = <int, QueryRow>{
+      for (final row in pinyinRows) row.data['species_id'] as int: row,
+    };
+
+    final formRows = await customSelect(
+      'SELECT species_id, form_name_zh, form_name_en '
+      'FROM forms WHERE is_default = 0 ORDER BY species_id ASC, form_order ASC',
+      readsFrom: {attachedDatabase.forms},
+    ).get();
+    final altFormsBySpecies = <int, List<SearchFormEntry>>{};
+    for (final row in formRows) {
+      final sid = row.data['species_id'] as int;
+      altFormsBySpecies.putIfAbsent(sid, () => <SearchFormEntry>[]).add(
+            SearchFormEntry(
+              formNameZh: row.data['form_name_zh'] as String,
+              formNameEn: row.data['form_name_en'] as String,
+            ),
+          );
+    }
+
+    final tagRows = await customSelect(
+      'SELECT species_id, tag_id FROM species_tags',
+      readsFrom: {attachedDatabase.speciesTags},
+    ).get();
+    final tagsBySpecies = <int, List<SpecialTag>>{};
+    for (final row in tagRows) {
+      final tag = SpecialTagMeta.fromDbId(row.data['tag_id'] as String);
+      if (tag == null) continue;
+      final sid = row.data['species_id'] as int;
+      tagsBySpecies.putIfAbsent(sid, () => <SpecialTag>[]).add(tag);
+    }
+
+    List<String> splitSpace(String? raw) => (raw == null || raw.isEmpty)
+        ? const <String>[]
+        : raw.split(' ').where((e) => e.isNotEmpty).toList(growable: false);
+
+    final entries = <SearchSpeciesEntry>[];
+    for (final row in speciesRows) {
+      final sid = row.data['id'] as int;
+      final pyRow = pinyinBySpecies[sid];
+      entries.add(
+        SearchSpeciesEntry(
+          speciesId: sid,
+          nationalDex: row.data['national_dex'] as int,
+          nameZhHans: row.data['name_zh_hans'] as String,
+          nameZhHant: row.data['name_zh_hant'] as String,
+          nameEn: row.data['name_en'] as String,
+          nameJa: row.data['name_ja'] as String,
+          nameJaHrkt: row.data['name_ja_hrkt'] as String,
+          nameRoomaji: row.data['name_roomaji'] as String?,
+          genusZh: row.data['genus_zh_hans'] as String?,
+          genusEn: row.data['genus_en'] as String?,
+          namePinyin: splitSpace(pyRow?.data['name_pinyin'] as String?),
+          nameInitials: splitSpace(pyRow?.data['name_initials'] as String?),
+          aliasesPinyin: splitSpace(pyRow?.data['aliases_pinyin'] as String?),
+          aliasesInitials:
+              splitSpace(pyRow?.data['aliases_initials'] as String?),
+          aliases: aliasesBySpecies[sid] ?? const <SearchAliasEntry>[],
+          altForms: altFormsBySpecies[sid] ?? const <SearchFormEntry>[],
+          tags: tagsBySpecies[sid] ?? const <SpecialTag>[],
+        ),
+      );
+    }
+    return PokedexSearchIndex.build(entries);
+  }
+
+  /// 列表页查询：
+  /// - 无搜索词：SQL 单查询聚合，按 national_dex ASC 排序并分页；
+  /// - 有搜索词：纯 Dart 倒排索引相关性检索，再与结构化筛选交集、分页并附加命中提示。
   Future<List<PokemonSummary>> queryPokemon(
     FilterState f, {
     required int limit,
     required int offset,
   }) async {
-    final (whereSql, whereVariables) = _buildWhere(f);
-    final variables = [
-      ...whereVariables,
-      Variable.withInt(limit),
-      Variable.withInt(offset),
+    final q = f.query.trim();
+    if (q.isEmpty) {
+      final (whereSql, whereVariables) = _buildStructuredWhere(f);
+      final variables = [
+        ...whereVariables,
+        Variable.withInt(limit),
+        Variable.withInt(offset),
+      ];
+      final rows = await customSelect(
+        '$_summarySelectShape '
+        'FROM species s '
+        'JOIN forms df ON df.species_id = s.id AND df.is_default = 1 '
+        '$whereSql '
+        'ORDER BY s.national_dex ASC LIMIT ? OFFSET ?',
+        variables: variables,
+        readsFrom: {
+          attachedDatabase.species,
+          attachedDatabase.forms,
+          attachedDatabase.formTypes,
+          attachedDatabase.types,
+          attachedDatabase.speciesDexNumbers,
+          attachedDatabase.speciesTags,
+        },
+      ).get();
+      final items = rows.map(_mapPokemonSummary).toList(growable: false);
+      return _attachAltFormTypeHints(items, f);
+    }
+
+    final hits = (await _getSearchIndex()).search(q);
+    if (hits.isEmpty) return const <PokemonSummary>[];
+
+    final List<SearchHit> filteredHits;
+    if (!_hasStructuredFilter(f)) {
+      filteredHits = hits;
+    } else {
+      final (whereSql, whereVariables) = _buildStructuredWhere(
+        f,
+        restrictSpeciesIds: [for (final h in hits) h.speciesId],
+      );
+      final idRows = await customSelect(
+        'SELECT s.id AS species_id FROM species s $whereSql',
+        variables: whereVariables,
+        readsFrom: {
+          attachedDatabase.species,
+          attachedDatabase.forms,
+          attachedDatabase.formTypes,
+          attachedDatabase.types,
+          attachedDatabase.speciesDexNumbers,
+          attachedDatabase.speciesTags,
+        },
+      ).get();
+      final matchedIds = {
+        for (final row in idRows) row.data['species_id'] as int,
+      };
+      filteredHits = [
+        for (final h in hits)
+          if (matchedIds.contains(h.speciesId)) h,
+      ];
+    }
+
+    if (offset >= filteredHits.length || limit <= 0) {
+      return const <PokemonSummary>[];
+    }
+    final end = (offset + limit).clamp(offset, filteredHits.length);
+    final pageHits = filteredHits.sublist(offset, end);
+    final pageIds = [for (final h in pageHits) h.speciesId];
+    final hintById = {for (final h in pageHits) h.speciesId: h.matchHint};
+
+    final summaries = await getPokemonSummaries(pageIds);
+    final withHints = [
+      for (final s in summaries) s.copyWith(matchHint: hintById[s.speciesId]),
     ];
-    final rows = await customSelect(
-      '$_summarySelectShape '
-      'FROM species s '
-      'JOIN forms df ON df.species_id = s.id AND df.is_default = 1 '
-      '$whereSql '
-      'ORDER BY s.national_dex ASC LIMIT ? OFFSET ?',
-      variables: variables,
-      readsFrom: {
-        attachedDatabase.species,
-        attachedDatabase.forms,
-        attachedDatabase.formTypes,
-        attachedDatabase.types,
-      },
-    ).get();
-    return rows.map(_mapPokemonSummary).toList(growable: false);
+    return _attachAltFormTypeHints(withHints, f);
   }
 
   /// 按一批 speciesId 取列表摘要（收藏/最近浏览）：单条 SQL IN 查询，
@@ -238,7 +397,7 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     ];
   }
 
-  /// species 基础信息（编号/世代/分类）。
+  /// species 基础信息（编号/世代/分类/检索标签）。
   Future<SpeciesInfo> getSpeciesInfo(int speciesId) async {
     final row = await (select(attachedDatabase.species)
           ..where((tbl) => tbl.id.equals(speciesId)))
@@ -246,12 +405,25 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     if (row == null) {
       throw StateError('species 表不存在 id=$speciesId');
     }
+    final tagRows = await customSelect(
+      'SELECT tag_id FROM species_tags WHERE species_id = ?',
+      variables: [Variable.withInt(speciesId)],
+      readsFrom: {attachedDatabase.speciesTags},
+    ).get();
+    final tags = <SpecialTag>[
+      for (final tagRow in tagRows)
+        if (SpecialTagMeta.fromDbId(tagRow.data['tag_id'] as String)
+            case final tag?)
+          tag,
+    ]..sort((a, b) => a.index.compareTo(b.index));
+
     return SpeciesInfo(
       speciesId: row.id,
       nationalDex: row.nationalDex,
       generationId: row.generationId,
       genusZh: row.genusZhHans,
       genusEn: row.genusEn,
+      tags: tags,
     );
   }
 
@@ -264,13 +436,36 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     return [for (final row in rows) row.data['id'] as int];
   }
 
-  /// 与 [queryPokemon] 相同 WHERE 的总数（分页用）。
+  /// 与 [queryPokemon] 相同条件的总数（分页用）。
   Future<int> countPokemon(FilterState f) async {
-    final (whereSql, variables) = _buildWhere(f);
+    final q = f.query.trim();
+    if (q.isEmpty) {
+      final (whereSql, variables) = _buildStructuredWhere(f);
+      final row = await customSelect(
+        'SELECT COUNT(*) AS c FROM species s $whereSql',
+        variables: variables,
+        readsFrom: {
+          attachedDatabase.species,
+          attachedDatabase.forms,
+          attachedDatabase.formTypes,
+          attachedDatabase.types,
+          attachedDatabase.speciesDexNumbers,
+          attachedDatabase.speciesTags,
+        },
+      ).getSingle();
+      return row.data['c'] as int;
+    }
+
+    final hits = (await _getSearchIndex()).search(q);
+    if (hits.isEmpty) return 0;
+    if (!_hasStructuredFilter(f)) return hits.length;
+
+    final (whereSql, variables) = _buildStructuredWhere(
+      f,
+      restrictSpeciesIds: [for (final h in hits) h.speciesId],
+    );
     final row = await customSelect(
-      'SELECT COUNT(*) AS c FROM species s '
-      'JOIN forms df ON df.species_id = s.id AND df.is_default = 1 '
-      '$whereSql',
+      'SELECT COUNT(*) AS c FROM species s $whereSql',
       variables: variables,
       readsFrom: {
         attachedDatabase.species,
@@ -278,6 +473,7 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
         attachedDatabase.formTypes,
         attachedDatabase.types,
         attachedDatabase.speciesDexNumbers,
+        attachedDatabase.speciesTags,
       },
     ).getSingle();
     return row.data['c'] as int;
@@ -505,45 +701,27 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
 
   // ---- 内部 ----
 
-  /// architecture.md §7 的 WHERE 组合（编号正则→整值等值；六语名称 LIKE；
-  /// 世代 IN；属性 any/all 走默认形态 form_types；地区 EXISTS；编号范围；
-  /// 特殊分类标志位）。
-  (String, List<Variable>) _buildWhere(FilterState f) {
+  bool _hasStructuredFilter(FilterState f) =>
+      f.generations.isNotEmpty ||
+      f.typeIds.isNotEmpty ||
+      f.pokedexIds.isNotEmpty ||
+      f.dexMin != null ||
+      f.dexMax != null ||
+      f.tags.isNotEmpty ||
+      (f.genus != null && f.genus!.trim().isNotEmpty);
+
+  /// 结构化筛选 WHERE 组合（世代 IN、属性匹配任意形态 any/all、
+  /// 地区 EXISTS、编号范围、species_tags、图鉴分类 genus）。
+  (String, List<Variable>) _buildStructuredWhere(
+    FilterState f, {
+    List<int>? restrictSpeciesIds,
+  }) {
     final conditions = <String>[];
     final variables = <Variable>[];
 
-    final q = f.query.trim();
-    if (q.isNotEmpty) {
-      final likeTerms = <String>[
-        's.name_zh_hans LIKE ?',
-        's.name_zh_hant LIKE ?',
-        'LOWER(s.name_en) LIKE ?',
-        's.name_ja LIKE ?',
-        's.name_ja_hrkt LIKE ?',
-        's.name_roomaji LIKE ?',
-      ];
-      final likeVariables = <Variable>[
-        Variable.withString('%$q%'),
-        Variable.withString('%$q%'),
-        Variable.withString('%${q.toLowerCase()}%'),
-        Variable.withString('%$q%'),
-        Variable.withString('%$q%'),
-        Variable.withString('%$q%'),
-      ];
-      final dexMatch = RegExp(r'^#?(\d{1,4})$').firstMatch(q);
-      if (dexMatch != null) {
-        // 去前导零：'001' / '#001' → 1
-        final n = int.parse(dexMatch.group(1)!);
-        conditions.add(
-          '(s.national_dex = ? OR (${likeTerms.join(' OR ')}))',
-        );
-        variables
-          ..add(Variable.withInt(n))
-          ..addAll(likeVariables);
-      } else {
-        conditions.add('(${likeTerms.join(' OR ')})');
-        variables.addAll(likeVariables);
-      }
+    if (restrictSpeciesIds != null) {
+      // speciesId 均为整数，直接拼接字面量 IN 避免命中 SQLite 参数个数上限。
+      conditions.add('s.id IN (${restrictSpeciesIds.join(', ')})');
     }
 
     if (f.generations.isNotEmpty) {
@@ -558,16 +736,19 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
       switch (f.typeMatchMode) {
         case TypeMatchMode.any:
           conditions.add(
-            'EXISTS (SELECT 1 FROM form_types ft '
+            'EXISTS (SELECT 1 FROM forms fm '
+            'JOIN form_types ft ON ft.form_id = fm.id '
             'JOIN types t ON t.id = ft.type_id '
-            'WHERE ft.form_id = df.id AND t.identifier IN ($placeholders))',
+            'WHERE fm.species_id = s.id AND t.identifier IN ($placeholders))',
           );
           variables.addAll(f.typeIds.map(Variable.withString));
         case TypeMatchMode.all:
           conditions.add(
-            '(SELECT COUNT(DISTINCT ft.type_id) FROM form_types ft '
+            'EXISTS (SELECT 1 FROM forms fm '
+            'WHERE fm.species_id = s.id AND ('
+            'SELECT COUNT(DISTINCT ft.type_id) FROM form_types ft '
             'JOIN types t ON t.id = ft.type_id '
-            'WHERE ft.form_id = df.id AND t.identifier IN ($placeholders)) = ?',
+            'WHERE ft.form_id = fm.id AND t.identifier IN ($placeholders)) = ?)',
           );
           variables
             ..addAll(f.typeIds.map(Variable.withString))
@@ -594,35 +775,94 @@ class PokedexDao extends DatabaseAccessor<PokedexDatabase>
     }
 
     for (final tag in f.tags) {
-      switch (tag) {
-        case SpecialTag.legendary:
-          conditions.add('s.is_legendary = 1');
-        case SpecialTag.mythical:
-          conditions.add('s.is_mythical = 1');
-        case SpecialTag.ultraBeast:
-          conditions.add('s.is_ultra_beast = 1');
-        case SpecialTag.mega:
-          conditions.add(
-            'EXISTS (SELECT 1 FROM forms fm '
-            'WHERE fm.species_id = s.id AND fm.is_mega = 1)',
-          );
-        case SpecialTag.gmax:
-          conditions.add(
-            'EXISTS (SELECT 1 FROM forms fm '
-            'WHERE fm.species_id = s.id AND fm.is_gmax = 1)',
-          );
-        case SpecialTag.regional:
-          conditions.add(
-            'EXISTS (SELECT 1 FROM forms fm '
-            'WHERE fm.species_id = s.id AND fm.is_regional = 1)',
-          );
-      }
+      conditions.add(
+        'EXISTS (SELECT 1 FROM species_tags st '
+        'WHERE st.species_id = s.id AND st.tag_id = ?)',
+      );
+      variables.add(Variable.withString(tag.dbId));
+    }
+
+    final genus = f.genus?.trim();
+    if (genus != null && genus.isNotEmpty) {
+      conditions.add('(s.genus_zh_hans = ? OR s.genus_en = ?)');
+      variables
+        ..add(Variable.withString(genus))
+        ..add(Variable.withString(genus));
     }
 
     return (
       conditions.isEmpty ? '' : 'WHERE ${conditions.join(' AND ')}',
       variables,
     );
+  }
+
+  /// 当属性筛选命中了「默认形态不含所选属性、但特殊形态命中」的宝可梦时，
+  /// 在尚无 matchHint 时补上「形态：…」轻提示。
+  Future<List<PokemonSummary>> _attachAltFormTypeHints(
+    List<PokemonSummary> items,
+    FilterState f,
+  ) async {
+    if (f.typeIds.isEmpty || items.isEmpty) return items;
+
+    bool defaultMatches(PokemonSummary s) => switch (f.typeMatchMode) {
+          TypeMatchMode.any => f.typeIds.any(s.typeIds.contains),
+          TypeMatchMode.all => f.typeIds.every(s.typeIds.contains),
+        };
+
+    final needIds = <int>[
+      for (final item in items)
+        if (item.matchHint == null && !defaultMatches(item)) item.speciesId,
+    ];
+    if (needIds.isEmpty) return items;
+
+    final typePlaceholders = _placeholders(f.typeIds.length);
+    final variables = <Variable>[
+      ...f.typeIds.map(Variable.withString),
+      if (f.typeMatchMode == TypeMatchMode.all)
+        Variable.withInt(f.typeIds.length),
+    ];
+    final sql = switch (f.typeMatchMode) {
+      TypeMatchMode.any =>
+        'SELECT fm.species_id, fm.form_name_zh FROM forms fm '
+            'WHERE fm.species_id IN (${needIds.join(', ')}) AND fm.is_default = 0 '
+            'AND EXISTS (SELECT 1 FROM form_types ft '
+            'JOIN types t ON t.id = ft.type_id '
+            'WHERE ft.form_id = fm.id AND t.identifier IN ($typePlaceholders)) '
+            'ORDER BY fm.species_id ASC, fm.form_order ASC',
+      TypeMatchMode.all =>
+        'SELECT fm.species_id, fm.form_name_zh FROM forms fm '
+            'WHERE fm.species_id IN (${needIds.join(', ')}) AND fm.is_default = 0 '
+            'AND (SELECT COUNT(DISTINCT ft.type_id) FROM form_types ft '
+            'JOIN types t ON t.id = ft.type_id '
+            'WHERE ft.form_id = fm.id AND t.identifier IN ($typePlaceholders)) = ? '
+            'ORDER BY fm.species_id ASC, fm.form_order ASC',
+    };
+    final rows = await customSelect(
+      sql,
+      variables: variables,
+      readsFrom: {
+        attachedDatabase.forms,
+        attachedDatabase.formTypes,
+        attachedDatabase.types,
+      },
+    ).get();
+    final formNameBySpecies = <int, String>{};
+    for (final row in rows) {
+      final sid = row.data['species_id'] as int;
+      formNameBySpecies.putIfAbsent(
+        sid,
+        () => row.data['form_name_zh'] as String,
+      );
+    }
+    if (formNameBySpecies.isEmpty) return items;
+
+    return [
+      for (final item in items)
+        if (item.matchHint == null && formNameBySpecies[item.speciesId] != null)
+          item.copyWith(matchHint: '形态：${formNameBySpecies[item.speciesId]}')
+        else
+          item,
+    ];
   }
 
   PokemonSummary _mapPokemonSummary(QueryRow row) => PokemonSummary(

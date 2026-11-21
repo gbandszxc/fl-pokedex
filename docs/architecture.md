@@ -64,7 +64,7 @@ AppShell：compact → NavigationBar（图鉴/收藏/设置）；medium/expanded
 // pokemon_summary.dart
 PokemonSummary { int speciesId; int nationalDex; String nameZh; String nameEn; String nameJa;
   List<String> typeIds; String? thumbAsset; int generationId;
-  bool isLegendary; bool isMythical; bool isUltraBeast; }
+  bool isLegendary; bool isMythical; bool isUltraBeast; String? matchHint; }
 // form_summary.dart
 FormSummary { int formId; int speciesId; String? formIdentifier; String formNameZh; String formNameEn;
   bool isDefault; bool isMega; bool isGmax; bool isRegional; String? artworkAsset; List<String> typeIds; }
@@ -93,10 +93,10 @@ MoveDetail { int id; String nameZh; String nameEn; String nameJa; String typeId;
   int? power; int? pp; int? accuracy; int? priority; int? effectChance;
   String? effectEn; String? flavorZh; int generationId; }
 // filters.dart
-enum SpecialTag { legendary, mythical, ultraBeast, mega, gmax, regional }
+enum SpecialTag { legendary, mythical, ultraBeast, paradox, pseudoLegendary, starter, fossil, baby, mega, gmax, regional }
 enum TypeMatchMode { any, all }
 FilterState { String query; Set<int> generations; Set<String> typeIds; TypeMatchMode typeMatchMode;
-  Set<int> pokedexIds; int? dexMin; int? dexMax; Set<SpecialTag> tags;
+  Set<int> pokedexIds; int? dexMin; int? dexMax; Set<SpecialTag> tags; String? genus;
   bool get isEmpty; }
 // refs.dart
 TypeRef { String id; String nameZh; }   // id 即 identifier（"fire"）
@@ -181,18 +181,17 @@ recentIdsProvider: StreamProvider<List<int>>
 - `user_database.dart`：drift，表 `favorites(species_id PK, created_at)`、`recents(species_id PK, viewed_at)`。
 - 查询要求：单查询聚合（JOIN/子查询），禁止 N+1；列表分页 limit/offset；搜索 SQL 见 §7。
 
-## 7. 搜索 SQL 语义（E 单元与 C 单元共同遵守）
+## 7. 搜索与筛选语义（E 单元与 C 单元共同遵守）
 
-```
-原始输入 q → trim；若 q 匹配 ^#?\d{1,4}$ → int n = parse（去前导零）
-WHERE ( national_dex = n  或为空 )
-   OR name_zh_hans LIKE %q%  OR name_zh_hant LIKE %q%
-   OR name_en LIKE %q%（大小写不敏感，LOWER()）
-   OR name_ja LIKE %q%  OR name_ja_hrkt LIKE %q%  OR name_roomaji LIKE %q%
-筛选条件全部在同一 WHERE 组合（世代 IN、属性经 form_types 默认形态 any/all、
-地区经 species_dex_numbers EXISTS、编号范围、特殊分类标志位）。
-排序固定 national_dex ASC。
-```
+- **无搜索词**：直接走 SQL WHERE 筛选（世代 IN、属性匹配**任意形态** `forms` + `form_types` 且 `all` 要求同一形态兼具所选属性、地区经 `species_dex_numbers` EXISTS、编号范围、`species_tags` EXISTS、图鉴分类 `genus_zh_hans`/`genus_en` 等值），按 `national_dex ASC` 排序。若某条目的默认形态不含所选属性而由非默认形态命中，`matchHint` 标注 `形态：{formNameZh}`。
+- **有搜索词**：纯 Dart 内存字符级倒排索引（`lib/data/search/pokedex_search_index.dart`）支持空格多词 AND 交集与分层相关性排序（`score DESC, national_dex ASC`）：
+  1. 编号精确（`^#?\d{1,4}$`）
+  2. 六语官译精确 / 前缀
+  3. 俗名 / 旧译精确 / 前缀（`species_aliases`，标注 `别名：...`）
+  4. 官译子串、全拼 / 首字母（`species_pinyin`）、别名子串 / 拼音、非默认形态名（`形态：...`）
+  5. 非连续有序子序列（`大鸟`→`大比鸟`）、无序全字命中（`鸟比`→`大比鸟`）、受控编辑距离 ≤ 1（长度 ≥ 3）
+  6. 图鉴分类（`分类：...`）与检索标签同义词（`标签：...`）
+  再与结构化筛选取交集并分页；`PokemonDetailPage` 通过 `onApplyFilter` 回调由 `app/` 桥接至 `filterProvider`（单栏同时 `go('/')`，双栏原地刷新列表）。
 
 ## 8. 离线保证与更新通道（运行时联网的唯一白名单）
 

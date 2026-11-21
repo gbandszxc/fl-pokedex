@@ -24,6 +24,9 @@ mixin _$SpeciesInfo {
   String? get genusZh => throw _privateConstructorUsedError;
   String? get genusEn => throw _privateConstructorUsedError;
 
+  /// 物种检索标签（按 [SpecialTag.values] 排序；不含默认空值）。
+  List<SpecialTag> get tags => throw _privateConstructorUsedError;
+
   /// Create a copy of SpeciesInfo
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -42,7 +45,8 @@ abstract class $SpeciesInfoCopyWith<$Res> {
       int nationalDex,
       int generationId,
       String? genusZh,
-      String? genusEn});
+      String? genusEn,
+      List<SpecialTag> tags});
 }
 
 /// @nodoc
@@ -65,6 +69,7 @@ class _$SpeciesInfoCopyWithImpl<$Res, $Val extends SpeciesInfo>
     Object? generationId = null,
     Object? genusZh = freezed,
     Object? genusEn = freezed,
+    Object? tags = null,
   }) {
     return _then(_value.copyWith(
       speciesId: null == speciesId
@@ -87,6 +92,10 @@ class _$SpeciesInfoCopyWithImpl<$Res, $Val extends SpeciesInfo>
           ? _value.genusEn
           : genusEn // ignore: cast_nullable_to_non_nullable
               as String?,
+      tags: null == tags
+          ? _value.tags
+          : tags // ignore: cast_nullable_to_non_nullable
+              as List<SpecialTag>,
     ) as $Val);
   }
 }
@@ -104,7 +113,8 @@ abstract class _$$SpeciesInfoImplCopyWith<$Res>
       int nationalDex,
       int generationId,
       String? genusZh,
-      String? genusEn});
+      String? genusEn,
+      List<SpecialTag> tags});
 }
 
 /// @nodoc
@@ -125,6 +135,7 @@ class __$$SpeciesInfoImplCopyWithImpl<$Res>
     Object? generationId = null,
     Object? genusZh = freezed,
     Object? genusEn = freezed,
+    Object? tags = null,
   }) {
     return _then(_$SpeciesInfoImpl(
       speciesId: null == speciesId
@@ -147,6 +158,10 @@ class __$$SpeciesInfoImplCopyWithImpl<$Res>
           ? _value.genusEn
           : genusEn // ignore: cast_nullable_to_non_nullable
               as String?,
+      tags: null == tags
+          ? _value._tags
+          : tags // ignore: cast_nullable_to_non_nullable
+              as List<SpecialTag>,
     ));
   }
 }
@@ -159,7 +174,9 @@ class _$SpeciesInfoImpl implements _SpeciesInfo {
       required this.nationalDex,
       required this.generationId,
       this.genusZh,
-      this.genusEn});
+      this.genusEn,
+      final List<SpecialTag> tags = const <SpecialTag>[]})
+      : _tags = tags;
 
   @override
   final int speciesId;
@@ -174,9 +191,21 @@ class _$SpeciesInfoImpl implements _SpeciesInfo {
   @override
   final String? genusEn;
 
+  /// 物种检索标签（按 [SpecialTag.values] 排序；不含默认空值）。
+  final List<SpecialTag> _tags;
+
+  /// 物种检索标签（按 [SpecialTag.values] 排序；不含默认空值）。
+  @override
+  @JsonKey()
+  List<SpecialTag> get tags {
+    if (_tags is EqualUnmodifiableListView) return _tags;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_tags);
+  }
+
   @override
   String toString() {
-    return 'SpeciesInfo(speciesId: $speciesId, nationalDex: $nationalDex, generationId: $generationId, genusZh: $genusZh, genusEn: $genusEn)';
+    return 'SpeciesInfo(speciesId: $speciesId, nationalDex: $nationalDex, generationId: $generationId, genusZh: $genusZh, genusEn: $genusEn, tags: $tags)';
   }
 
   @override
@@ -191,12 +220,19 @@ class _$SpeciesInfoImpl implements _SpeciesInfo {
             (identical(other.generationId, generationId) ||
                 other.generationId == generationId) &&
             (identical(other.genusZh, genusZh) || other.genusZh == genusZh) &&
-            (identical(other.genusEn, genusEn) || other.genusEn == genusEn));
+            (identical(other.genusEn, genusEn) || other.genusEn == genusEn) &&
+            const DeepCollectionEquality().equals(other._tags, _tags));
   }
 
   @override
   int get hashCode => Object.hash(
-      runtimeType, speciesId, nationalDex, generationId, genusZh, genusEn);
+      runtimeType,
+      speciesId,
+      nationalDex,
+      generationId,
+      genusZh,
+      genusEn,
+      const DeepCollectionEquality().hash(_tags));
 
   /// Create a copy of SpeciesInfo
   /// with the given fields replaced by the non-null parameter values.
@@ -213,7 +249,8 @@ abstract class _SpeciesInfo implements SpeciesInfo {
       required final int nationalDex,
       required final int generationId,
       final String? genusZh,
-      final String? genusEn}) = _$SpeciesInfoImpl;
+      final String? genusEn,
+      final List<SpecialTag> tags}) = _$SpeciesInfoImpl;
 
   @override
   int get speciesId;
@@ -227,6 +264,10 @@ abstract class _SpeciesInfo implements SpeciesInfo {
   String? get genusZh;
   @override
   String? get genusEn;
+
+  /// 物种检索标签（按 [SpecialTag.values] 排序；不含默认空值）。
+  @override
+  List<SpecialTag> get tags;
 
   /// Create a copy of SpeciesInfo
   /// with the given fields replaced by the non-null parameter values.

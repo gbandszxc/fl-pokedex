@@ -71,18 +71,19 @@ void main() {
       expect(await searchIds('bulba'), contains(1)); // LOWER(name_en)
     });
 
-    test('组合筛选：世代=3 + 水属性 + 名称含"龙"（结果为空或全部满足）', () async {
+    test('组合筛选：世代=3 + 水属性 + 关键词"龙"', () async {
       final f = const FilterState(
         query: '龙',
         generations: {3},
         typeIds: {'water'},
       );
       final items = await repo.queryPokemon(f, limit: 100, offset: 0);
+      expect(items, isNotEmpty);
       for (final item in items) {
         expect(item.generationId, 3, reason: '${item.nameZh} 世代不符');
         expect(item.typeIds, contains('water'), reason: '${item.nameZh} 属性不符');
-        expect(item.nameZh, contains('龙'), reason: '${item.nameZh} 名称不符');
       }
+      expect(items.map((e) => e.speciesId), containsAll([341, 342]));
       expect(await repo.countPokemon(f), items.length);
     });
 
@@ -585,9 +586,220 @@ void main() {
   test('getManifest 解析成功且 pokemonCount=1025', () async {
     final manifest = await repo.getManifest();
     expect(manifest, isA<DataManifest>());
-    expect(manifest.schemaVersion, 2); // form_flavor_texts 引入时 +1
+    expect(manifest.schemaVersion, 3);
     expect(manifest.pokemonCount, 1025);
     expect(manifest.learnsetVersionGroups, contains('sword-shield'));
     expect(manifest.upstreamRevision, contains('pokeapi'));
+  });
+
+  group('检索增强：俗名 / 拼音 / 模糊 / 标签 / 分类 / 任意形态属性', () {
+    test('俗名旧译命中并带别名提示', () async {
+      final cases = <(String query, int expectId, String expectHint)>[
+        ('比雕', 18, '别名：比雕'),
+        ('乘龙', 131, '别名：乘龙'),
+        ('血翼飞龙', 373, '别名：血翼飞龙'),
+        ('裂空座', 384, '别名：裂空座'),
+        ('谜拟Q', 778, '别名：谜拟Q'),
+        ('3D龙', 137, '别名：3D龙'),
+      ];
+      for (final (q, id, hint) in cases) {
+        final items = await repo.queryPokemon(
+          FilterState(query: q),
+          limit: 10,
+          offset: 0,
+        );
+        expect(items, isNotEmpty, reason: '搜「$q」无结果');
+        expect(items.first.speciesId, id, reason: '搜「$q」首位应为 #$id');
+        expect(items.first.matchHint, hint, reason: '搜「$q」提示不符');
+      }
+    });
+
+    test('拼音全拼与首字母搜索', () async {
+      final bd = await repo.queryPokemon(
+        const FilterState(query: 'bd'),
+        limit: 10,
+        offset: 0,
+      );
+      expect(bd.first.speciesId, 18);
+      expect(bd.first.matchHint, '别名：比雕');
+
+      final bidiao = await repo.queryPokemon(
+        const FilterState(query: 'bidiao'),
+        limit: 10,
+        offset: 0,
+      );
+      expect(bidiao.first.speciesId, 18);
+
+      final dbn = await repo.queryPokemon(
+        const FilterState(query: 'dbn'),
+        limit: 10,
+        offset: 0,
+      );
+      expect(dbn.first.speciesId, 18);
+
+      final pkq = await repo.queryPokemon(
+        const FilterState(query: 'pkq'),
+        limit: 10,
+        offset: 0,
+      );
+      expect(pkq.first.speciesId, 25);
+    });
+
+    test('非连续子序列、无序、编辑距离与多词交集', () async {
+      final daNiao = await repo.queryPokemon(
+        const FilterState(query: '大鸟'),
+        limit: 20,
+        offset: 0,
+      );
+      expect(daNiao.first.speciesId, 567); // 含连续子串「大鸟」（始祖大鸟）
+      expect(daNiao.map((e) => e.speciesId), contains(18)); // 非连续子序列命中大比鸟
+
+      final miaoZi = await repo.queryPokemon(
+        const FilterState(query: '妙子'),
+        limit: 10,
+        offset: 0,
+      );
+      expect(miaoZi.first.speciesId, 1); // 非连续子序列：妙蛙种子
+
+      final penLong = await repo.queryPokemon(
+        const FilterState(query: '喷龙'),
+        limit: 20,
+        offset: 0,
+      );
+      expect(penLong.first.speciesId, 6);
+
+      final unordered = await repo.queryPokemon(
+        const FilterState(query: '鸟比'),
+        limit: 20,
+        offset: 0,
+      );
+      expect(unordered.any((e) => e.speciesId == 18), isTrue);
+
+      final pikacu = await repo.queryPokemon(
+        const FilterState(query: 'pikacu'),
+        limit: 10,
+        offset: 0,
+      );
+      expect(pikacu.first.speciesId, 25);
+
+      final alolaVulpix = await repo.queryPokemon(
+        const FilterState(query: '阿罗拉 六尾'),
+        limit: 10,
+        offset: 0,
+      );
+      expect(alolaVulpix.map((e) => e.speciesId), [37]);
+
+      final fossilBirds = await repo.queryPokemon(
+        const FilterState(query: '化石 鸟'),
+        limit: 20,
+        offset: 0,
+      );
+      expect(fossilBirds.map((e) => e.speciesId), containsAll([566, 567]));
+    });
+
+    test('检索标签精确计数与究极异兽修复回归', () async {
+      expect(
+        await repo.countPokemon(const FilterState(tags: {SpecialTag.fossil})),
+        25,
+      );
+      expect(
+        await repo.countPokemon(const FilterState(tags: {SpecialTag.paradox})),
+        22,
+      );
+      expect(
+        await repo.countPokemon(const FilterState(tags: {SpecialTag.starter})),
+        81,
+      );
+      expect(
+        await repo.countPokemon(
+          const FilterState(tags: {SpecialTag.pseudoLegendary}),
+        ),
+        30,
+      );
+      expect(
+        await repo.countPokemon(const FilterState(tags: {SpecialTag.baby})),
+        19,
+      );
+
+      final ubs = await repo.queryPokemon(
+        const FilterState(tags: {SpecialTag.ultraBeast}),
+        limit: 50,
+        offset: 0,
+      );
+      final ubIds = ubs.map((e) => e.speciesId).toSet();
+      expect(ubIds, hasLength(11));
+      expect(ubIds, containsAll([803, 804]));
+      expect(ubIds, isNot(anyElement(isIn([807, 808]))));
+
+      final aerodactylInfo = await repo.getSpeciesInfo(142);
+      expect(aerodactylInfo.tags, contains(SpecialTag.fossil));
+    });
+
+    test('搜索框检索标签词（化石 / 御三家 / 准神）直接命中', () async {
+      expect(
+        await repo.countPokemon(const FilterState(query: '化石')),
+        25,
+      );
+      final starters = await repo.queryPokemon(
+        const FilterState(query: '御三家'),
+        limit: 100,
+        offset: 0,
+      );
+      expect(starters, hasLength(81));
+
+      final pseudos = await repo.queryPokemon(
+        const FilterState(query: '准神'),
+        limit: 50,
+        offset: 0,
+      );
+      expect(pseudos, hasLength(30));
+    });
+
+    test('图鉴分类 genus 精确筛选（含英文回退分类）', () async {
+      final birds = await repo.queryPokemon(
+        const FilterState(genus: '鸟宝可梦'),
+        limit: 20,
+        offset: 0,
+      );
+      expect(birds.map((e) => e.speciesId), [17, 18]);
+
+      final matcha = await repo.queryPokemon(
+        const FilterState(genus: 'Matcha Pokémon'),
+        limit: 20,
+        offset: 0,
+      );
+      expect(matcha.map((e) => e.speciesId), [1012, 1013]);
+    });
+
+    test('任意形态属性筛选与同形态 all 约束（不跨形态错配）', () async {
+      final dragons = await repo.queryPokemon(
+        const FilterState(typeIds: {'dragon'}),
+        limit: 200,
+        offset: 0,
+      );
+      final charizard = dragons.firstWhere((e) => e.speciesId == 6);
+      expect(charizard.matchHint, '形态：超级喷火龙Ｘ');
+
+      final ice = await repo.queryPokemon(
+        const FilterState(typeIds: {'ice'}),
+        limit: 200,
+        offset: 0,
+      );
+      final vulpix = ice.firstWhere((e) => e.speciesId == 37);
+      expect(vulpix.matchHint, '形态：阿罗拉的样子');
+
+      // 喷火龙默认/Mega Y 为火+飞，Mega X 为火+龙，不存在同一形态兼具飞+龙。
+      final flyingAndDragon = await repo.queryPokemon(
+        const FilterState(
+          typeIds: {'flying', 'dragon'},
+          typeMatchMode: TypeMatchMode.all,
+        ),
+        limit: 100,
+        offset: 0,
+      );
+      final fdIds = flyingAndDragon.map((e) => e.speciesId).toSet();
+      expect(fdIds, containsAll([149, 384]));
+      expect(fdIds, isNot(contains(6)));
+    });
   });
 }

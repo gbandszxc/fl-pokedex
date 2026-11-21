@@ -7768,6 +7768,862 @@ class SpeciesDexNumbersCompanion extends UpdateCompanion<SpeciesDexNumbersRow> {
   }
 }
 
+class $SpeciesAliasesTable extends SpeciesAliases
+    with TableInfo<$SpeciesAliasesTable, SpeciesAliasesRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SpeciesAliasesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _speciesIdMeta =
+      const VerificationMeta('speciesId');
+  @override
+  late final GeneratedColumn<int> speciesId = GeneratedColumn<int>(
+      'species_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _aliasMeta = const VerificationMeta('alias');
+  @override
+  late final GeneratedColumn<String> alias = GeneratedColumn<String>(
+      'alias', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _aliasNormMeta =
+      const VerificationMeta('aliasNorm');
+  @override
+  late final GeneratedColumn<String> aliasNorm = GeneratedColumn<String>(
+      'alias_norm', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+      'kind', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _priorityMeta =
+      const VerificationMeta('priority');
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+      'priority', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, speciesId, alias, aliasNorm, kind, priority];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'species_aliases';
+  @override
+  VerificationContext validateIntegrity(Insertable<SpeciesAliasesRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('species_id')) {
+      context.handle(_speciesIdMeta,
+          speciesId.isAcceptableOrUnknown(data['species_id']!, _speciesIdMeta));
+    } else if (isInserting) {
+      context.missing(_speciesIdMeta);
+    }
+    if (data.containsKey('alias')) {
+      context.handle(
+          _aliasMeta, alias.isAcceptableOrUnknown(data['alias']!, _aliasMeta));
+    } else if (isInserting) {
+      context.missing(_aliasMeta);
+    }
+    if (data.containsKey('alias_norm')) {
+      context.handle(_aliasNormMeta,
+          aliasNorm.isAcceptableOrUnknown(data['alias_norm']!, _aliasNormMeta));
+    } else if (isInserting) {
+      context.missing(_aliasNormMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+          _kindMeta, kind.isAcceptableOrUnknown(data['kind']!, _kindMeta));
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('priority')) {
+      context.handle(_priorityMeta,
+          priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta));
+    } else if (isInserting) {
+      context.missing(_priorityMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => const {};
+  @override
+  SpeciesAliasesRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SpeciesAliasesRow(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      speciesId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}species_id'])!,
+      alias: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}alias'])!,
+      aliasNorm: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}alias_norm'])!,
+      kind: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}kind'])!,
+      priority: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}priority'])!,
+    );
+  }
+
+  @override
+  $SpeciesAliasesTable createAlias(String alias) {
+    return $SpeciesAliasesTable(attachedDatabase, alias);
+  }
+}
+
+class SpeciesAliasesRow extends DataClass
+    implements Insertable<SpeciesAliasesRow> {
+  final int id;
+  final int speciesId;
+  final String alias;
+  final String aliasNorm;
+  final String kind;
+  final int priority;
+  const SpeciesAliasesRow(
+      {required this.id,
+      required this.speciesId,
+      required this.alias,
+      required this.aliasNorm,
+      required this.kind,
+      required this.priority});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['species_id'] = Variable<int>(speciesId);
+    map['alias'] = Variable<String>(alias);
+    map['alias_norm'] = Variable<String>(aliasNorm);
+    map['kind'] = Variable<String>(kind);
+    map['priority'] = Variable<int>(priority);
+    return map;
+  }
+
+  SpeciesAliasesCompanion toCompanion(bool nullToAbsent) {
+    return SpeciesAliasesCompanion(
+      id: Value(id),
+      speciesId: Value(speciesId),
+      alias: Value(alias),
+      aliasNorm: Value(aliasNorm),
+      kind: Value(kind),
+      priority: Value(priority),
+    );
+  }
+
+  factory SpeciesAliasesRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SpeciesAliasesRow(
+      id: serializer.fromJson<int>(json['id']),
+      speciesId: serializer.fromJson<int>(json['speciesId']),
+      alias: serializer.fromJson<String>(json['alias']),
+      aliasNorm: serializer.fromJson<String>(json['aliasNorm']),
+      kind: serializer.fromJson<String>(json['kind']),
+      priority: serializer.fromJson<int>(json['priority']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'speciesId': serializer.toJson<int>(speciesId),
+      'alias': serializer.toJson<String>(alias),
+      'aliasNorm': serializer.toJson<String>(aliasNorm),
+      'kind': serializer.toJson<String>(kind),
+      'priority': serializer.toJson<int>(priority),
+    };
+  }
+
+  SpeciesAliasesRow copyWith(
+          {int? id,
+          int? speciesId,
+          String? alias,
+          String? aliasNorm,
+          String? kind,
+          int? priority}) =>
+      SpeciesAliasesRow(
+        id: id ?? this.id,
+        speciesId: speciesId ?? this.speciesId,
+        alias: alias ?? this.alias,
+        aliasNorm: aliasNorm ?? this.aliasNorm,
+        kind: kind ?? this.kind,
+        priority: priority ?? this.priority,
+      );
+  SpeciesAliasesRow copyWithCompanion(SpeciesAliasesCompanion data) {
+    return SpeciesAliasesRow(
+      id: data.id.present ? data.id.value : this.id,
+      speciesId: data.speciesId.present ? data.speciesId.value : this.speciesId,
+      alias: data.alias.present ? data.alias.value : this.alias,
+      aliasNorm: data.aliasNorm.present ? data.aliasNorm.value : this.aliasNorm,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      priority: data.priority.present ? data.priority.value : this.priority,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpeciesAliasesRow(')
+          ..write('id: $id, ')
+          ..write('speciesId: $speciesId, ')
+          ..write('alias: $alias, ')
+          ..write('aliasNorm: $aliasNorm, ')
+          ..write('kind: $kind, ')
+          ..write('priority: $priority')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, speciesId, alias, aliasNorm, kind, priority);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SpeciesAliasesRow &&
+          other.id == this.id &&
+          other.speciesId == this.speciesId &&
+          other.alias == this.alias &&
+          other.aliasNorm == this.aliasNorm &&
+          other.kind == this.kind &&
+          other.priority == this.priority);
+}
+
+class SpeciesAliasesCompanion extends UpdateCompanion<SpeciesAliasesRow> {
+  final Value<int> id;
+  final Value<int> speciesId;
+  final Value<String> alias;
+  final Value<String> aliasNorm;
+  final Value<String> kind;
+  final Value<int> priority;
+  final Value<int> rowid;
+  const SpeciesAliasesCompanion({
+    this.id = const Value.absent(),
+    this.speciesId = const Value.absent(),
+    this.alias = const Value.absent(),
+    this.aliasNorm = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SpeciesAliasesCompanion.insert({
+    required int id,
+    required int speciesId,
+    required String alias,
+    required String aliasNorm,
+    required String kind,
+    required int priority,
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        speciesId = Value(speciesId),
+        alias = Value(alias),
+        aliasNorm = Value(aliasNorm),
+        kind = Value(kind),
+        priority = Value(priority);
+  static Insertable<SpeciesAliasesRow> custom({
+    Expression<int>? id,
+    Expression<int>? speciesId,
+    Expression<String>? alias,
+    Expression<String>? aliasNorm,
+    Expression<String>? kind,
+    Expression<int>? priority,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (speciesId != null) 'species_id': speciesId,
+      if (alias != null) 'alias': alias,
+      if (aliasNorm != null) 'alias_norm': aliasNorm,
+      if (kind != null) 'kind': kind,
+      if (priority != null) 'priority': priority,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SpeciesAliasesCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? speciesId,
+      Value<String>? alias,
+      Value<String>? aliasNorm,
+      Value<String>? kind,
+      Value<int>? priority,
+      Value<int>? rowid}) {
+    return SpeciesAliasesCompanion(
+      id: id ?? this.id,
+      speciesId: speciesId ?? this.speciesId,
+      alias: alias ?? this.alias,
+      aliasNorm: aliasNorm ?? this.aliasNorm,
+      kind: kind ?? this.kind,
+      priority: priority ?? this.priority,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (speciesId.present) {
+      map['species_id'] = Variable<int>(speciesId.value);
+    }
+    if (alias.present) {
+      map['alias'] = Variable<String>(alias.value);
+    }
+    if (aliasNorm.present) {
+      map['alias_norm'] = Variable<String>(aliasNorm.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpeciesAliasesCompanion(')
+          ..write('id: $id, ')
+          ..write('speciesId: $speciesId, ')
+          ..write('alias: $alias, ')
+          ..write('aliasNorm: $aliasNorm, ')
+          ..write('kind: $kind, ')
+          ..write('priority: $priority, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SpeciesTagsTable extends SpeciesTags
+    with TableInfo<$SpeciesTagsTable, SpeciesTagsRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SpeciesTagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _speciesIdMeta =
+      const VerificationMeta('speciesId');
+  @override
+  late final GeneratedColumn<int> speciesId = GeneratedColumn<int>(
+      'species_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _tagIdMeta = const VerificationMeta('tagId');
+  @override
+  late final GeneratedColumn<String> tagId = GeneratedColumn<String>(
+      'tag_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [speciesId, tagId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'species_tags';
+  @override
+  VerificationContext validateIntegrity(Insertable<SpeciesTagsRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('species_id')) {
+      context.handle(_speciesIdMeta,
+          speciesId.isAcceptableOrUnknown(data['species_id']!, _speciesIdMeta));
+    } else if (isInserting) {
+      context.missing(_speciesIdMeta);
+    }
+    if (data.containsKey('tag_id')) {
+      context.handle(
+          _tagIdMeta, tagId.isAcceptableOrUnknown(data['tag_id']!, _tagIdMeta));
+    } else if (isInserting) {
+      context.missing(_tagIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {speciesId, tagId};
+  @override
+  SpeciesTagsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SpeciesTagsRow(
+      speciesId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}species_id'])!,
+      tagId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tag_id'])!,
+    );
+  }
+
+  @override
+  $SpeciesTagsTable createAlias(String alias) {
+    return $SpeciesTagsTable(attachedDatabase, alias);
+  }
+}
+
+class SpeciesTagsRow extends DataClass implements Insertable<SpeciesTagsRow> {
+  final int speciesId;
+  final String tagId;
+  const SpeciesTagsRow({required this.speciesId, required this.tagId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['species_id'] = Variable<int>(speciesId);
+    map['tag_id'] = Variable<String>(tagId);
+    return map;
+  }
+
+  SpeciesTagsCompanion toCompanion(bool nullToAbsent) {
+    return SpeciesTagsCompanion(
+      speciesId: Value(speciesId),
+      tagId: Value(tagId),
+    );
+  }
+
+  factory SpeciesTagsRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SpeciesTagsRow(
+      speciesId: serializer.fromJson<int>(json['speciesId']),
+      tagId: serializer.fromJson<String>(json['tagId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'speciesId': serializer.toJson<int>(speciesId),
+      'tagId': serializer.toJson<String>(tagId),
+    };
+  }
+
+  SpeciesTagsRow copyWith({int? speciesId, String? tagId}) => SpeciesTagsRow(
+        speciesId: speciesId ?? this.speciesId,
+        tagId: tagId ?? this.tagId,
+      );
+  SpeciesTagsRow copyWithCompanion(SpeciesTagsCompanion data) {
+    return SpeciesTagsRow(
+      speciesId: data.speciesId.present ? data.speciesId.value : this.speciesId,
+      tagId: data.tagId.present ? data.tagId.value : this.tagId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpeciesTagsRow(')
+          ..write('speciesId: $speciesId, ')
+          ..write('tagId: $tagId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(speciesId, tagId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SpeciesTagsRow &&
+          other.speciesId == this.speciesId &&
+          other.tagId == this.tagId);
+}
+
+class SpeciesTagsCompanion extends UpdateCompanion<SpeciesTagsRow> {
+  final Value<int> speciesId;
+  final Value<String> tagId;
+  final Value<int> rowid;
+  const SpeciesTagsCompanion({
+    this.speciesId = const Value.absent(),
+    this.tagId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SpeciesTagsCompanion.insert({
+    required int speciesId,
+    required String tagId,
+    this.rowid = const Value.absent(),
+  })  : speciesId = Value(speciesId),
+        tagId = Value(tagId);
+  static Insertable<SpeciesTagsRow> custom({
+    Expression<int>? speciesId,
+    Expression<String>? tagId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (speciesId != null) 'species_id': speciesId,
+      if (tagId != null) 'tag_id': tagId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SpeciesTagsCompanion copyWith(
+      {Value<int>? speciesId, Value<String>? tagId, Value<int>? rowid}) {
+    return SpeciesTagsCompanion(
+      speciesId: speciesId ?? this.speciesId,
+      tagId: tagId ?? this.tagId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (speciesId.present) {
+      map['species_id'] = Variable<int>(speciesId.value);
+    }
+    if (tagId.present) {
+      map['tag_id'] = Variable<String>(tagId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpeciesTagsCompanion(')
+          ..write('speciesId: $speciesId, ')
+          ..write('tagId: $tagId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SpeciesPinyinTable extends SpeciesPinyin
+    with TableInfo<$SpeciesPinyinTable, SpeciesPinyinRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SpeciesPinyinTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _speciesIdMeta =
+      const VerificationMeta('speciesId');
+  @override
+  late final GeneratedColumn<int> speciesId = GeneratedColumn<int>(
+      'species_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _namePinyinMeta =
+      const VerificationMeta('namePinyin');
+  @override
+  late final GeneratedColumn<String> namePinyin = GeneratedColumn<String>(
+      'name_pinyin', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _nameInitialsMeta =
+      const VerificationMeta('nameInitials');
+  @override
+  late final GeneratedColumn<String> nameInitials = GeneratedColumn<String>(
+      'name_initials', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _aliasesPinyinMeta =
+      const VerificationMeta('aliasesPinyin');
+  @override
+  late final GeneratedColumn<String> aliasesPinyin = GeneratedColumn<String>(
+      'aliases_pinyin', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _aliasesInitialsMeta =
+      const VerificationMeta('aliasesInitials');
+  @override
+  late final GeneratedColumn<String> aliasesInitials = GeneratedColumn<String>(
+      'aliases_initials', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [speciesId, namePinyin, nameInitials, aliasesPinyin, aliasesInitials];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'species_pinyin';
+  @override
+  VerificationContext validateIntegrity(Insertable<SpeciesPinyinRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('species_id')) {
+      context.handle(_speciesIdMeta,
+          speciesId.isAcceptableOrUnknown(data['species_id']!, _speciesIdMeta));
+    }
+    if (data.containsKey('name_pinyin')) {
+      context.handle(
+          _namePinyinMeta,
+          namePinyin.isAcceptableOrUnknown(
+              data['name_pinyin']!, _namePinyinMeta));
+    } else if (isInserting) {
+      context.missing(_namePinyinMeta);
+    }
+    if (data.containsKey('name_initials')) {
+      context.handle(
+          _nameInitialsMeta,
+          nameInitials.isAcceptableOrUnknown(
+              data['name_initials']!, _nameInitialsMeta));
+    } else if (isInserting) {
+      context.missing(_nameInitialsMeta);
+    }
+    if (data.containsKey('aliases_pinyin')) {
+      context.handle(
+          _aliasesPinyinMeta,
+          aliasesPinyin.isAcceptableOrUnknown(
+              data['aliases_pinyin']!, _aliasesPinyinMeta));
+    }
+    if (data.containsKey('aliases_initials')) {
+      context.handle(
+          _aliasesInitialsMeta,
+          aliasesInitials.isAcceptableOrUnknown(
+              data['aliases_initials']!, _aliasesInitialsMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {speciesId};
+  @override
+  SpeciesPinyinRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SpeciesPinyinRow(
+      speciesId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}species_id'])!,
+      namePinyin: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name_pinyin'])!,
+      nameInitials: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name_initials'])!,
+      aliasesPinyin: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}aliases_pinyin']),
+      aliasesInitials: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}aliases_initials']),
+    );
+  }
+
+  @override
+  $SpeciesPinyinTable createAlias(String alias) {
+    return $SpeciesPinyinTable(attachedDatabase, alias);
+  }
+}
+
+class SpeciesPinyinRow extends DataClass
+    implements Insertable<SpeciesPinyinRow> {
+  final int speciesId;
+  final String namePinyin;
+  final String nameInitials;
+  final String? aliasesPinyin;
+  final String? aliasesInitials;
+  const SpeciesPinyinRow(
+      {required this.speciesId,
+      required this.namePinyin,
+      required this.nameInitials,
+      this.aliasesPinyin,
+      this.aliasesInitials});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['species_id'] = Variable<int>(speciesId);
+    map['name_pinyin'] = Variable<String>(namePinyin);
+    map['name_initials'] = Variable<String>(nameInitials);
+    if (!nullToAbsent || aliasesPinyin != null) {
+      map['aliases_pinyin'] = Variable<String>(aliasesPinyin);
+    }
+    if (!nullToAbsent || aliasesInitials != null) {
+      map['aliases_initials'] = Variable<String>(aliasesInitials);
+    }
+    return map;
+  }
+
+  SpeciesPinyinCompanion toCompanion(bool nullToAbsent) {
+    return SpeciesPinyinCompanion(
+      speciesId: Value(speciesId),
+      namePinyin: Value(namePinyin),
+      nameInitials: Value(nameInitials),
+      aliasesPinyin: aliasesPinyin == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aliasesPinyin),
+      aliasesInitials: aliasesInitials == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aliasesInitials),
+    );
+  }
+
+  factory SpeciesPinyinRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SpeciesPinyinRow(
+      speciesId: serializer.fromJson<int>(json['speciesId']),
+      namePinyin: serializer.fromJson<String>(json['namePinyin']),
+      nameInitials: serializer.fromJson<String>(json['nameInitials']),
+      aliasesPinyin: serializer.fromJson<String?>(json['aliasesPinyin']),
+      aliasesInitials: serializer.fromJson<String?>(json['aliasesInitials']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'speciesId': serializer.toJson<int>(speciesId),
+      'namePinyin': serializer.toJson<String>(namePinyin),
+      'nameInitials': serializer.toJson<String>(nameInitials),
+      'aliasesPinyin': serializer.toJson<String?>(aliasesPinyin),
+      'aliasesInitials': serializer.toJson<String?>(aliasesInitials),
+    };
+  }
+
+  SpeciesPinyinRow copyWith(
+          {int? speciesId,
+          String? namePinyin,
+          String? nameInitials,
+          Value<String?> aliasesPinyin = const Value.absent(),
+          Value<String?> aliasesInitials = const Value.absent()}) =>
+      SpeciesPinyinRow(
+        speciesId: speciesId ?? this.speciesId,
+        namePinyin: namePinyin ?? this.namePinyin,
+        nameInitials: nameInitials ?? this.nameInitials,
+        aliasesPinyin:
+            aliasesPinyin.present ? aliasesPinyin.value : this.aliasesPinyin,
+        aliasesInitials: aliasesInitials.present
+            ? aliasesInitials.value
+            : this.aliasesInitials,
+      );
+  SpeciesPinyinRow copyWithCompanion(SpeciesPinyinCompanion data) {
+    return SpeciesPinyinRow(
+      speciesId: data.speciesId.present ? data.speciesId.value : this.speciesId,
+      namePinyin:
+          data.namePinyin.present ? data.namePinyin.value : this.namePinyin,
+      nameInitials: data.nameInitials.present
+          ? data.nameInitials.value
+          : this.nameInitials,
+      aliasesPinyin: data.aliasesPinyin.present
+          ? data.aliasesPinyin.value
+          : this.aliasesPinyin,
+      aliasesInitials: data.aliasesInitials.present
+          ? data.aliasesInitials.value
+          : this.aliasesInitials,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpeciesPinyinRow(')
+          ..write('speciesId: $speciesId, ')
+          ..write('namePinyin: $namePinyin, ')
+          ..write('nameInitials: $nameInitials, ')
+          ..write('aliasesPinyin: $aliasesPinyin, ')
+          ..write('aliasesInitials: $aliasesInitials')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      speciesId, namePinyin, nameInitials, aliasesPinyin, aliasesInitials);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SpeciesPinyinRow &&
+          other.speciesId == this.speciesId &&
+          other.namePinyin == this.namePinyin &&
+          other.nameInitials == this.nameInitials &&
+          other.aliasesPinyin == this.aliasesPinyin &&
+          other.aliasesInitials == this.aliasesInitials);
+}
+
+class SpeciesPinyinCompanion extends UpdateCompanion<SpeciesPinyinRow> {
+  final Value<int> speciesId;
+  final Value<String> namePinyin;
+  final Value<String> nameInitials;
+  final Value<String?> aliasesPinyin;
+  final Value<String?> aliasesInitials;
+  const SpeciesPinyinCompanion({
+    this.speciesId = const Value.absent(),
+    this.namePinyin = const Value.absent(),
+    this.nameInitials = const Value.absent(),
+    this.aliasesPinyin = const Value.absent(),
+    this.aliasesInitials = const Value.absent(),
+  });
+  SpeciesPinyinCompanion.insert({
+    this.speciesId = const Value.absent(),
+    required String namePinyin,
+    required String nameInitials,
+    this.aliasesPinyin = const Value.absent(),
+    this.aliasesInitials = const Value.absent(),
+  })  : namePinyin = Value(namePinyin),
+        nameInitials = Value(nameInitials);
+  static Insertable<SpeciesPinyinRow> custom({
+    Expression<int>? speciesId,
+    Expression<String>? namePinyin,
+    Expression<String>? nameInitials,
+    Expression<String>? aliasesPinyin,
+    Expression<String>? aliasesInitials,
+  }) {
+    return RawValuesInsertable({
+      if (speciesId != null) 'species_id': speciesId,
+      if (namePinyin != null) 'name_pinyin': namePinyin,
+      if (nameInitials != null) 'name_initials': nameInitials,
+      if (aliasesPinyin != null) 'aliases_pinyin': aliasesPinyin,
+      if (aliasesInitials != null) 'aliases_initials': aliasesInitials,
+    });
+  }
+
+  SpeciesPinyinCompanion copyWith(
+      {Value<int>? speciesId,
+      Value<String>? namePinyin,
+      Value<String>? nameInitials,
+      Value<String?>? aliasesPinyin,
+      Value<String?>? aliasesInitials}) {
+    return SpeciesPinyinCompanion(
+      speciesId: speciesId ?? this.speciesId,
+      namePinyin: namePinyin ?? this.namePinyin,
+      nameInitials: nameInitials ?? this.nameInitials,
+      aliasesPinyin: aliasesPinyin ?? this.aliasesPinyin,
+      aliasesInitials: aliasesInitials ?? this.aliasesInitials,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (speciesId.present) {
+      map['species_id'] = Variable<int>(speciesId.value);
+    }
+    if (namePinyin.present) {
+      map['name_pinyin'] = Variable<String>(namePinyin.value);
+    }
+    if (nameInitials.present) {
+      map['name_initials'] = Variable<String>(nameInitials.value);
+    }
+    if (aliasesPinyin.present) {
+      map['aliases_pinyin'] = Variable<String>(aliasesPinyin.value);
+    }
+    if (aliasesInitials.present) {
+      map['aliases_initials'] = Variable<String>(aliasesInitials.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpeciesPinyinCompanion(')
+          ..write('speciesId: $speciesId, ')
+          ..write('namePinyin: $namePinyin, ')
+          ..write('nameInitials: $nameInitials, ')
+          ..write('aliasesPinyin: $aliasesPinyin, ')
+          ..write('aliasesInitials: $aliasesInitials')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$PokedexDatabase extends GeneratedDatabase {
   _$PokedexDatabase(QueryExecutor e) : super(e);
   $PokedexDatabaseManager get managers => $PokedexDatabaseManager(this);
@@ -7793,6 +8649,9 @@ abstract class _$PokedexDatabase extends GeneratedDatabase {
   late final $PokedexesTable pokedexes = $PokedexesTable(this);
   late final $SpeciesDexNumbersTable speciesDexNumbers =
       $SpeciesDexNumbersTable(this);
+  late final $SpeciesAliasesTable speciesAliases = $SpeciesAliasesTable(this);
+  late final $SpeciesTagsTable speciesTags = $SpeciesTagsTable(this);
+  late final $SpeciesPinyinTable speciesPinyin = $SpeciesPinyinTable(this);
   late final PokedexDao pokedexDao = PokedexDao(this as PokedexDatabase);
   late final MoveDao moveDao = MoveDao(this as PokedexDatabase);
   late final EvolutionDao evolutionDao = EvolutionDao(this as PokedexDatabase);
@@ -7819,7 +8678,10 @@ abstract class _$PokedexDatabase extends GeneratedDatabase {
         flavorTexts,
         formFlavorTexts,
         pokedexes,
-        speciesDexNumbers
+        speciesDexNumbers,
+        speciesAliases,
+        speciesTags,
+        speciesPinyin
       ];
 }
 
@@ -11657,6 +12519,495 @@ typedef $$SpeciesDexNumbersTableProcessedTableManager = ProcessedTableManager<
     ),
     SpeciesDexNumbersRow,
     PrefetchHooks Function()>;
+typedef $$SpeciesAliasesTableCreateCompanionBuilder = SpeciesAliasesCompanion
+    Function({
+  required int id,
+  required int speciesId,
+  required String alias,
+  required String aliasNorm,
+  required String kind,
+  required int priority,
+  Value<int> rowid,
+});
+typedef $$SpeciesAliasesTableUpdateCompanionBuilder = SpeciesAliasesCompanion
+    Function({
+  Value<int> id,
+  Value<int> speciesId,
+  Value<String> alias,
+  Value<String> aliasNorm,
+  Value<String> kind,
+  Value<int> priority,
+  Value<int> rowid,
+});
+
+class $$SpeciesAliasesTableFilterComposer
+    extends Composer<_$PokedexDatabase, $SpeciesAliasesTable> {
+  $$SpeciesAliasesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get speciesId => $composableBuilder(
+      column: $table.speciesId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get alias => $composableBuilder(
+      column: $table.alias, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get aliasNorm => $composableBuilder(
+      column: $table.aliasNorm, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get kind => $composableBuilder(
+      column: $table.kind, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get priority => $composableBuilder(
+      column: $table.priority, builder: (column) => ColumnFilters(column));
+}
+
+class $$SpeciesAliasesTableOrderingComposer
+    extends Composer<_$PokedexDatabase, $SpeciesAliasesTable> {
+  $$SpeciesAliasesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get speciesId => $composableBuilder(
+      column: $table.speciesId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get alias => $composableBuilder(
+      column: $table.alias, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get aliasNorm => $composableBuilder(
+      column: $table.aliasNorm, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+      column: $table.kind, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+      column: $table.priority, builder: (column) => ColumnOrderings(column));
+}
+
+class $$SpeciesAliasesTableAnnotationComposer
+    extends Composer<_$PokedexDatabase, $SpeciesAliasesTable> {
+  $$SpeciesAliasesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get speciesId =>
+      $composableBuilder(column: $table.speciesId, builder: (column) => column);
+
+  GeneratedColumn<String> get alias =>
+      $composableBuilder(column: $table.alias, builder: (column) => column);
+
+  GeneratedColumn<String> get aliasNorm =>
+      $composableBuilder(column: $table.aliasNorm, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+}
+
+class $$SpeciesAliasesTableTableManager extends RootTableManager<
+    _$PokedexDatabase,
+    $SpeciesAliasesTable,
+    SpeciesAliasesRow,
+    $$SpeciesAliasesTableFilterComposer,
+    $$SpeciesAliasesTableOrderingComposer,
+    $$SpeciesAliasesTableAnnotationComposer,
+    $$SpeciesAliasesTableCreateCompanionBuilder,
+    $$SpeciesAliasesTableUpdateCompanionBuilder,
+    (
+      SpeciesAliasesRow,
+      BaseReferences<_$PokedexDatabase, $SpeciesAliasesTable, SpeciesAliasesRow>
+    ),
+    SpeciesAliasesRow,
+    PrefetchHooks Function()> {
+  $$SpeciesAliasesTableTableManager(
+      _$PokedexDatabase db, $SpeciesAliasesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SpeciesAliasesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SpeciesAliasesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SpeciesAliasesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> speciesId = const Value.absent(),
+            Value<String> alias = const Value.absent(),
+            Value<String> aliasNorm = const Value.absent(),
+            Value<String> kind = const Value.absent(),
+            Value<int> priority = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SpeciesAliasesCompanion(
+            id: id,
+            speciesId: speciesId,
+            alias: alias,
+            aliasNorm: aliasNorm,
+            kind: kind,
+            priority: priority,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required int id,
+            required int speciesId,
+            required String alias,
+            required String aliasNorm,
+            required String kind,
+            required int priority,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SpeciesAliasesCompanion.insert(
+            id: id,
+            speciesId: speciesId,
+            alias: alias,
+            aliasNorm: aliasNorm,
+            kind: kind,
+            priority: priority,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$SpeciesAliasesTableProcessedTableManager = ProcessedTableManager<
+    _$PokedexDatabase,
+    $SpeciesAliasesTable,
+    SpeciesAliasesRow,
+    $$SpeciesAliasesTableFilterComposer,
+    $$SpeciesAliasesTableOrderingComposer,
+    $$SpeciesAliasesTableAnnotationComposer,
+    $$SpeciesAliasesTableCreateCompanionBuilder,
+    $$SpeciesAliasesTableUpdateCompanionBuilder,
+    (
+      SpeciesAliasesRow,
+      BaseReferences<_$PokedexDatabase, $SpeciesAliasesTable, SpeciesAliasesRow>
+    ),
+    SpeciesAliasesRow,
+    PrefetchHooks Function()>;
+typedef $$SpeciesTagsTableCreateCompanionBuilder = SpeciesTagsCompanion
+    Function({
+  required int speciesId,
+  required String tagId,
+  Value<int> rowid,
+});
+typedef $$SpeciesTagsTableUpdateCompanionBuilder = SpeciesTagsCompanion
+    Function({
+  Value<int> speciesId,
+  Value<String> tagId,
+  Value<int> rowid,
+});
+
+class $$SpeciesTagsTableFilterComposer
+    extends Composer<_$PokedexDatabase, $SpeciesTagsTable> {
+  $$SpeciesTagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get speciesId => $composableBuilder(
+      column: $table.speciesId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tagId => $composableBuilder(
+      column: $table.tagId, builder: (column) => ColumnFilters(column));
+}
+
+class $$SpeciesTagsTableOrderingComposer
+    extends Composer<_$PokedexDatabase, $SpeciesTagsTable> {
+  $$SpeciesTagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get speciesId => $composableBuilder(
+      column: $table.speciesId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get tagId => $composableBuilder(
+      column: $table.tagId, builder: (column) => ColumnOrderings(column));
+}
+
+class $$SpeciesTagsTableAnnotationComposer
+    extends Composer<_$PokedexDatabase, $SpeciesTagsTable> {
+  $$SpeciesTagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get speciesId =>
+      $composableBuilder(column: $table.speciesId, builder: (column) => column);
+
+  GeneratedColumn<String> get tagId =>
+      $composableBuilder(column: $table.tagId, builder: (column) => column);
+}
+
+class $$SpeciesTagsTableTableManager extends RootTableManager<
+    _$PokedexDatabase,
+    $SpeciesTagsTable,
+    SpeciesTagsRow,
+    $$SpeciesTagsTableFilterComposer,
+    $$SpeciesTagsTableOrderingComposer,
+    $$SpeciesTagsTableAnnotationComposer,
+    $$SpeciesTagsTableCreateCompanionBuilder,
+    $$SpeciesTagsTableUpdateCompanionBuilder,
+    (
+      SpeciesTagsRow,
+      BaseReferences<_$PokedexDatabase, $SpeciesTagsTable, SpeciesTagsRow>
+    ),
+    SpeciesTagsRow,
+    PrefetchHooks Function()> {
+  $$SpeciesTagsTableTableManager(_$PokedexDatabase db, $SpeciesTagsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SpeciesTagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SpeciesTagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SpeciesTagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> speciesId = const Value.absent(),
+            Value<String> tagId = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SpeciesTagsCompanion(
+            speciesId: speciesId,
+            tagId: tagId,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required int speciesId,
+            required String tagId,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SpeciesTagsCompanion.insert(
+            speciesId: speciesId,
+            tagId: tagId,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$SpeciesTagsTableProcessedTableManager = ProcessedTableManager<
+    _$PokedexDatabase,
+    $SpeciesTagsTable,
+    SpeciesTagsRow,
+    $$SpeciesTagsTableFilterComposer,
+    $$SpeciesTagsTableOrderingComposer,
+    $$SpeciesTagsTableAnnotationComposer,
+    $$SpeciesTagsTableCreateCompanionBuilder,
+    $$SpeciesTagsTableUpdateCompanionBuilder,
+    (
+      SpeciesTagsRow,
+      BaseReferences<_$PokedexDatabase, $SpeciesTagsTable, SpeciesTagsRow>
+    ),
+    SpeciesTagsRow,
+    PrefetchHooks Function()>;
+typedef $$SpeciesPinyinTableCreateCompanionBuilder = SpeciesPinyinCompanion
+    Function({
+  Value<int> speciesId,
+  required String namePinyin,
+  required String nameInitials,
+  Value<String?> aliasesPinyin,
+  Value<String?> aliasesInitials,
+});
+typedef $$SpeciesPinyinTableUpdateCompanionBuilder = SpeciesPinyinCompanion
+    Function({
+  Value<int> speciesId,
+  Value<String> namePinyin,
+  Value<String> nameInitials,
+  Value<String?> aliasesPinyin,
+  Value<String?> aliasesInitials,
+});
+
+class $$SpeciesPinyinTableFilterComposer
+    extends Composer<_$PokedexDatabase, $SpeciesPinyinTable> {
+  $$SpeciesPinyinTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get speciesId => $composableBuilder(
+      column: $table.speciesId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get namePinyin => $composableBuilder(
+      column: $table.namePinyin, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nameInitials => $composableBuilder(
+      column: $table.nameInitials, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get aliasesPinyin => $composableBuilder(
+      column: $table.aliasesPinyin, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get aliasesInitials => $composableBuilder(
+      column: $table.aliasesInitials,
+      builder: (column) => ColumnFilters(column));
+}
+
+class $$SpeciesPinyinTableOrderingComposer
+    extends Composer<_$PokedexDatabase, $SpeciesPinyinTable> {
+  $$SpeciesPinyinTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get speciesId => $composableBuilder(
+      column: $table.speciesId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get namePinyin => $composableBuilder(
+      column: $table.namePinyin, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nameInitials => $composableBuilder(
+      column: $table.nameInitials,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get aliasesPinyin => $composableBuilder(
+      column: $table.aliasesPinyin,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get aliasesInitials => $composableBuilder(
+      column: $table.aliasesInitials,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$SpeciesPinyinTableAnnotationComposer
+    extends Composer<_$PokedexDatabase, $SpeciesPinyinTable> {
+  $$SpeciesPinyinTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get speciesId =>
+      $composableBuilder(column: $table.speciesId, builder: (column) => column);
+
+  GeneratedColumn<String> get namePinyin => $composableBuilder(
+      column: $table.namePinyin, builder: (column) => column);
+
+  GeneratedColumn<String> get nameInitials => $composableBuilder(
+      column: $table.nameInitials, builder: (column) => column);
+
+  GeneratedColumn<String> get aliasesPinyin => $composableBuilder(
+      column: $table.aliasesPinyin, builder: (column) => column);
+
+  GeneratedColumn<String> get aliasesInitials => $composableBuilder(
+      column: $table.aliasesInitials, builder: (column) => column);
+}
+
+class $$SpeciesPinyinTableTableManager extends RootTableManager<
+    _$PokedexDatabase,
+    $SpeciesPinyinTable,
+    SpeciesPinyinRow,
+    $$SpeciesPinyinTableFilterComposer,
+    $$SpeciesPinyinTableOrderingComposer,
+    $$SpeciesPinyinTableAnnotationComposer,
+    $$SpeciesPinyinTableCreateCompanionBuilder,
+    $$SpeciesPinyinTableUpdateCompanionBuilder,
+    (
+      SpeciesPinyinRow,
+      BaseReferences<_$PokedexDatabase, $SpeciesPinyinTable, SpeciesPinyinRow>
+    ),
+    SpeciesPinyinRow,
+    PrefetchHooks Function()> {
+  $$SpeciesPinyinTableTableManager(
+      _$PokedexDatabase db, $SpeciesPinyinTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SpeciesPinyinTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SpeciesPinyinTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SpeciesPinyinTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> speciesId = const Value.absent(),
+            Value<String> namePinyin = const Value.absent(),
+            Value<String> nameInitials = const Value.absent(),
+            Value<String?> aliasesPinyin = const Value.absent(),
+            Value<String?> aliasesInitials = const Value.absent(),
+          }) =>
+              SpeciesPinyinCompanion(
+            speciesId: speciesId,
+            namePinyin: namePinyin,
+            nameInitials: nameInitials,
+            aliasesPinyin: aliasesPinyin,
+            aliasesInitials: aliasesInitials,
+          ),
+          createCompanionCallback: ({
+            Value<int> speciesId = const Value.absent(),
+            required String namePinyin,
+            required String nameInitials,
+            Value<String?> aliasesPinyin = const Value.absent(),
+            Value<String?> aliasesInitials = const Value.absent(),
+          }) =>
+              SpeciesPinyinCompanion.insert(
+            speciesId: speciesId,
+            namePinyin: namePinyin,
+            nameInitials: nameInitials,
+            aliasesPinyin: aliasesPinyin,
+            aliasesInitials: aliasesInitials,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$SpeciesPinyinTableProcessedTableManager = ProcessedTableManager<
+    _$PokedexDatabase,
+    $SpeciesPinyinTable,
+    SpeciesPinyinRow,
+    $$SpeciesPinyinTableFilterComposer,
+    $$SpeciesPinyinTableOrderingComposer,
+    $$SpeciesPinyinTableAnnotationComposer,
+    $$SpeciesPinyinTableCreateCompanionBuilder,
+    $$SpeciesPinyinTableUpdateCompanionBuilder,
+    (
+      SpeciesPinyinRow,
+      BaseReferences<_$PokedexDatabase, $SpeciesPinyinTable, SpeciesPinyinRow>
+    ),
+    SpeciesPinyinRow,
+    PrefetchHooks Function()>;
 
 class $PokedexDatabaseManager {
   final _$PokedexDatabase _db;
@@ -11696,6 +13047,12 @@ class $PokedexDatabaseManager {
       $$PokedexesTableTableManager(_db, _db.pokedexes);
   $$SpeciesDexNumbersTableTableManager get speciesDexNumbers =>
       $$SpeciesDexNumbersTableTableManager(_db, _db.speciesDexNumbers);
+  $$SpeciesAliasesTableTableManager get speciesAliases =>
+      $$SpeciesAliasesTableTableManager(_db, _db.speciesAliases);
+  $$SpeciesTagsTableTableManager get speciesTags =>
+      $$SpeciesTagsTableTableManager(_db, _db.speciesTags);
+  $$SpeciesPinyinTableTableManager get speciesPinyin =>
+      $$SpeciesPinyinTableTableManager(_db, _db.speciesPinyin);
 }
 
 mixin _$PokedexDaoMixin on DatabaseAccessor<PokedexDatabase> {}

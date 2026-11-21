@@ -28,6 +28,9 @@ mixin _$PokemonSummary {
   bool get isMythical => throw _privateConstructorUsedError;
   bool get isUltraBeast => throw _privateConstructorUsedError;
 
+  /// 搜索或跨形态筛选的轻量命中原因提示（如「别名：比雕」「形态：超级喷火龙Ｘ」）。
+  String? get matchHint => throw _privateConstructorUsedError;
+
   /// Create a copy of PokemonSummary
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -52,7 +55,8 @@ abstract class $PokemonSummaryCopyWith<$Res> {
       int generationId,
       bool isLegendary,
       bool isMythical,
-      bool isUltraBeast});
+      bool isUltraBeast,
+      String? matchHint});
 }
 
 /// @nodoc
@@ -81,6 +85,7 @@ class _$PokemonSummaryCopyWithImpl<$Res, $Val extends PokemonSummary>
     Object? isLegendary = null,
     Object? isMythical = null,
     Object? isUltraBeast = null,
+    Object? matchHint = freezed,
   }) {
     return _then(_value.copyWith(
       speciesId: null == speciesId
@@ -127,6 +132,10 @@ class _$PokemonSummaryCopyWithImpl<$Res, $Val extends PokemonSummary>
           ? _value.isUltraBeast
           : isUltraBeast // ignore: cast_nullable_to_non_nullable
               as bool,
+      matchHint: freezed == matchHint
+          ? _value.matchHint
+          : matchHint // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -150,7 +159,8 @@ abstract class _$$PokemonSummaryImplCopyWith<$Res>
       int generationId,
       bool isLegendary,
       bool isMythical,
-      bool isUltraBeast});
+      bool isUltraBeast,
+      String? matchHint});
 }
 
 /// @nodoc
@@ -177,6 +187,7 @@ class __$$PokemonSummaryImplCopyWithImpl<$Res>
     Object? isLegendary = null,
     Object? isMythical = null,
     Object? isUltraBeast = null,
+    Object? matchHint = freezed,
   }) {
     return _then(_$PokemonSummaryImpl(
       speciesId: null == speciesId
@@ -223,6 +234,10 @@ class __$$PokemonSummaryImplCopyWithImpl<$Res>
           ? _value.isUltraBeast
           : isUltraBeast // ignore: cast_nullable_to_non_nullable
               as bool,
+      matchHint: freezed == matchHint
+          ? _value.matchHint
+          : matchHint // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -241,7 +256,8 @@ class _$PokemonSummaryImpl implements _PokemonSummary {
       required this.generationId,
       required this.isLegendary,
       required this.isMythical,
-      required this.isUltraBeast})
+      required this.isUltraBeast,
+      this.matchHint})
       : _typeIds = typeIds;
 
   @override
@@ -273,9 +289,13 @@ class _$PokemonSummaryImpl implements _PokemonSummary {
   @override
   final bool isUltraBeast;
 
+  /// 搜索或跨形态筛选的轻量命中原因提示（如「别名：比雕」「形态：超级喷火龙Ｘ」）。
+  @override
+  final String? matchHint;
+
   @override
   String toString() {
-    return 'PokemonSummary(speciesId: $speciesId, nationalDex: $nationalDex, nameZh: $nameZh, nameEn: $nameEn, nameJa: $nameJa, typeIds: $typeIds, thumbAsset: $thumbAsset, generationId: $generationId, isLegendary: $isLegendary, isMythical: $isMythical, isUltraBeast: $isUltraBeast)';
+    return 'PokemonSummary(speciesId: $speciesId, nationalDex: $nationalDex, nameZh: $nameZh, nameEn: $nameEn, nameJa: $nameJa, typeIds: $typeIds, thumbAsset: $thumbAsset, generationId: $generationId, isLegendary: $isLegendary, isMythical: $isMythical, isUltraBeast: $isUltraBeast, matchHint: $matchHint)';
   }
 
   @override
@@ -300,7 +320,9 @@ class _$PokemonSummaryImpl implements _PokemonSummary {
             (identical(other.isMythical, isMythical) ||
                 other.isMythical == isMythical) &&
             (identical(other.isUltraBeast, isUltraBeast) ||
-                other.isUltraBeast == isUltraBeast));
+                other.isUltraBeast == isUltraBeast) &&
+            (identical(other.matchHint, matchHint) ||
+                other.matchHint == matchHint));
   }
 
   @override
@@ -316,7 +338,8 @@ class _$PokemonSummaryImpl implements _PokemonSummary {
       generationId,
       isLegendary,
       isMythical,
-      isUltraBeast);
+      isUltraBeast,
+      matchHint);
 
   /// Create a copy of PokemonSummary
   /// with the given fields replaced by the non-null parameter values.
@@ -340,7 +363,8 @@ abstract class _PokemonSummary implements PokemonSummary {
       required final int generationId,
       required final bool isLegendary,
       required final bool isMythical,
-      required final bool isUltraBeast}) = _$PokemonSummaryImpl;
+      required final bool isUltraBeast,
+      final String? matchHint}) = _$PokemonSummaryImpl;
 
   @override
   int get speciesId;
@@ -364,6 +388,10 @@ abstract class _PokemonSummary implements PokemonSummary {
   bool get isMythical;
   @override
   bool get isUltraBeast;
+
+  /// 搜索或跨形态筛选的轻量命中原因提示（如「别名：比雕」「形态：超级喷火龙Ｘ」）。
+  @override
+  String? get matchHint;
 
   /// Create a copy of PokemonSummary
   /// with the given fields replaced by the non-null parameter values.

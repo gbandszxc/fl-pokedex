@@ -1,4 +1,4 @@
-// pokedex.db 全部 18 张表的 drift 定义。
+// pokedex.db 全部 21 张表的 drift 定义。
 //
 // 与 docs/data-contract.md §3 的 DDL 逐字对齐：表名用 `tableName` 覆写、
 // 列名用 `.named()` 显式 snake_case 命名；复合主键表通过 `primaryKey`
@@ -472,4 +472,58 @@ class SpeciesDexNumbers extends Table {
 
   @override
   Set<Column> get primaryKey => {pokedexId, speciesId};
+}
+
+/// species_aliases(id, species_id, alias, alias_norm, kind, priority)
+@DataClassName('SpeciesAliasesRow')
+class SpeciesAliases extends Table {
+  @override
+  String get tableName => 'species_aliases';
+
+  IntColumn get id => integer().named('id')();
+
+  IntColumn get speciesId => integer().named('species_id')();
+
+  TextColumn get alias => text().named('alias')();
+
+  TextColumn get aliasNorm => text().named('alias_norm')();
+
+  TextColumn get kind => text().named('kind')();
+
+  IntColumn get priority => integer().named('priority')();
+}
+
+/// species_tags(species_id, tag_id, PRIMARY KEY(species_id, tag_id))
+@DataClassName('SpeciesTagsRow')
+class SpeciesTags extends Table {
+  @override
+  String get tableName => 'species_tags';
+
+  IntColumn get speciesId => integer().named('species_id')();
+
+  TextColumn get tagId => text().named('tag_id')();
+
+  @override
+  Set<Column> get primaryKey => {speciesId, tagId};
+}
+
+/// species_pinyin(species_id PK, name_pinyin, name_initials, aliases_pinyin?, aliases_initials?)
+@DataClassName('SpeciesPinyinRow')
+class SpeciesPinyin extends Table {
+  @override
+  String get tableName => 'species_pinyin';
+
+  IntColumn get speciesId => integer().named('species_id')();
+
+  TextColumn get namePinyin => text().named('name_pinyin')();
+
+  TextColumn get nameInitials => text().named('name_initials')();
+
+  TextColumn get aliasesPinyin => text().nullable().named('aliases_pinyin')();
+
+  TextColumn get aliasesInitials =>
+      text().nullable().named('aliases_initials')();
+
+  @override
+  Set<Column> get primaryKey => {speciesId};
 }
