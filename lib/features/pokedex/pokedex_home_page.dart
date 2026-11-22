@@ -293,7 +293,7 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
         focusNode: widget.focusNode,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: '搜索 名称 / 俗名 / 拼音 / 编号',
+          hintText: '搜索',
           prefixIcon: widget.showLeadingIcon ? const Icon(Icons.search) : null,
           suffixIcon: value.text.isEmpty
               ? null

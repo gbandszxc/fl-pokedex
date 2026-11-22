@@ -326,7 +326,7 @@ void main() {
     expect(_location(container), '/'); // 未发生路由 push
     expect(favorites.recents, [1]); // 点选仍记录最近浏览
     // 列表面板仍在原位（没有整页详情覆盖窗口）。
-    expect(find.text('搜索 名称 / 俗名 / 拼音 / 编号'), findsOneWidget);
+    expect(find.text('搜索'), findsOneWidget);
     expect(find.byType(BackButton), findsNothing); // 面板嵌入无返回按钮
   });
 

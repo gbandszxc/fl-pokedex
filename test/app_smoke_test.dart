@@ -22,6 +22,6 @@ void main() {
     // 至少其一渲染「图鉴」标签；默认测试视口为 compact。
     expect(find.text('图鉴'), findsWidgets);
     // E 单元实装后，顶栏为内嵌搜索框（原「Fl-PokeDex」占位标题移除）。
-    expect(find.text('搜索 名称 / 俗名 / 拼音 / 编号'), findsOneWidget);
+    expect(find.text('搜索'), findsOneWidget);
   });
 }

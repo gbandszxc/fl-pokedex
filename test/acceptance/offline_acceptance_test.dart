@@ -285,7 +285,7 @@ void main() {
         find.descendant(of: rail, matching: find.text('图鉴')),
       );
       await pumpFor(tester);
-      await pumpUntilFound(tester, find.text('搜索 名称 / 俗名 / 拼音 / 编号'));
+      await pumpUntilFound(tester, find.text('搜索'));
       assertNoException(tester, '返回图鉴');
 
       // ---- 5b) 俗名搜索 → 详情 → 标签结果 → 返回原搜索（真实库全链路）----
