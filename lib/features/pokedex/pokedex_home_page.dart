@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme/tokens.dart';
 import '../../core/di.dart';
+import '../../core/search_history.dart';
 import '../../domain/models/filters.dart';
 import '../../domain/models/pokemon_summary.dart';
 import '../../shared/responsive/breakpoints.dart';
@@ -53,9 +54,13 @@ class _CompactLayout extends StatelessWidget {
           ),
           bottom: const _FilterBar(),
         ),
-        body: _PokemonListBody(
-          embeddedInPane: false,
-          finishSearch: finishSearch,
+        body: _SearchHistoryOverlay(
+          controller: searchController,
+          searchFocus: searchFocus,
+          child: _PokemonListBody(
+            embeddedInPane: false,
+            finishSearch: finishSearch,
+          ),
         ),
       ),
     );
@@ -131,9 +136,13 @@ class PokedexHomeListContent extends ConsumerWidget {
             ),
           ),
           Expanded(
-            child: _PokemonListBody(
-              embeddedInPane: embeddedInPane,
-              finishSearch: finishSearch,
+            child: _SearchHistoryOverlay(
+              controller: searchController,
+              searchFocus: searchFocus,
+              child: _PokemonListBody(
+                embeddedInPane: embeddedInPane,
+                finishSearch: finishSearch,
+              ),
             ),
           ),
         ],
@@ -187,6 +196,21 @@ class _HomeKeyboardScopeState extends ConsumerState<_HomeKeyboardScope> {
     _searchFocus.unfocus();
   }
 
+  void _finishSearch() {
+    final query = ref.read(filterProvider).query;
+    // 防抖或重载期间，列表可能还在显示上一次查询的结果。
+    if (query.trim().isNotEmpty && query == _searchController.text) {
+      final results = ref.read(pokemonListProvider);
+      if (!results.isLoading && !results.hasError) {
+        unawaited(ref.read(searchHistoryProvider.notifier).record(query));
+      }
+    }
+    if (_searchFocus.hasFocus) {
+      _searchFocus.unfocus();
+      _keyboardAnchor.requestFocus();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
@@ -213,13 +237,15 @@ class _HomeKeyboardScopeState extends ConsumerState<_HomeKeyboardScope> {
           focusNode: _keyboardAnchor,
           autofocus: true,
           skipTraversal: true,
-          child: widget.builder(context, _searchController, _searchFocus, () {
-            if (_searchFocus.hasFocus) {
-              // 移除搜索框的焦点历史，返回后仍可使用首页键盘快捷键。
-              _searchFocus.unfocus();
-              _keyboardAnchor.requestFocus();
-            }
-          }),
+          child: FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: widget.builder(
+              context,
+              _searchController,
+              _searchFocus,
+              _finishSearch,
+            ),
+          ),
         ),
       ),
     );
@@ -237,10 +263,7 @@ class _ClearSearchIntent extends Intent {
 /// 搜索框：200ms 防抖写入 [filterProvider.query]；外部清空筛选时
 /// （清除按钮 / 面板重置 / Esc）反向同步回输入框。
 class _SearchField extends ConsumerStatefulWidget {
-  const _SearchField({
-    required this.controller,
-    required this.focusNode,
-  });
+  const _SearchField({required this.controller, required this.focusNode});
 
   /// 由 [_HomeKeyboardScope] 持有（Esc 清空 / `/` 聚焦共用）。
   final TextEditingController controller;
@@ -277,9 +300,7 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
     }
     _debounce?.cancel();
     _debounce = Timer(_debounceDuration, () {
-      ref
-          .read(filterProvider.notifier)
-          .updateQuery(widget.controller.text);
+      ref.read(filterProvider.notifier).updateQuery(widget.controller.text);
     });
   }
 
@@ -301,39 +322,47 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
 
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: widget.controller,
-      builder: (context, value, _) => TextField(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: '搜索',
-          prefixIcon: Center(
-            widthFactor: 1,
-            heightFactor: 1,
-            child: SvgPicture.asset(
-              'assets/icons/search.svg',
-              width: AppSpacing.xl,
-              height: AppSpacing.xl,
-              colorFilter: ColorFilter.mode(
-                Theme.of(context).colorScheme.onSurfaceVariant,
-                BlendMode.srcIn,
+      builder: (context, value, _) => FocusTraversalOrder(
+        order: const NumericFocusOrder(0),
+        child: TextField(
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (query) {
+            _debounce?.cancel();
+            ref.read(filterProvider.notifier).updateQuery(query);
+            unawaited(ref.read(searchHistoryProvider.notifier).record(query));
+          },
+          decoration: InputDecoration(
+            hintText: '搜索',
+            prefixIcon: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: SvgPicture.asset(
+                'assets/icons/search.svg',
+                width: AppSpacing.xl,
+                height: AppSpacing.xl,
+                colorFilter: ColorFilter.mode(
+                  Theme.of(context).colorScheme.onSurfaceVariant,
+                  BlendMode.srcIn,
+                ),
               ),
             ),
+            suffixIcon: value.text.isEmpty
+                ? null
+                : IconButton(
+                    key: const ValueKey('clear_search_query'),
+                    tooltip: '清空搜索',
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      _debounce?.cancel();
+                      _applyingExternal = true;
+                      widget.controller.clear();
+                      _applyingExternal = false;
+                      ref.read(filterProvider.notifier).updateQuery('');
+                    },
+                  ),
           ),
-          suffixIcon: value.text.isEmpty
-              ? null
-              : IconButton(
-                  key: const ValueKey('clear_search_query'),
-                  tooltip: '清空搜索',
-                  icon: const Icon(Icons.close, size: 18),
-                  onPressed: () {
-                    _debounce?.cancel();
-                    _applyingExternal = true;
-                    widget.controller.clear();
-                    _applyingExternal = false;
-                    ref.read(filterProvider.notifier).updateQuery('');
-                  },
-                ),
         ),
       ),
     );
@@ -345,6 +374,139 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
     widget.controller.removeListener(_onTextChanged);
     // controller / focusNode 归 [_HomeKeyboardScope] 所有，不在此释放。
     super.dispose();
+  }
+}
+
+/// 搜索框为空且处于焦点内时，在列表上方显示近期查询。
+class _SearchHistoryOverlay extends ConsumerStatefulWidget {
+  const _SearchHistoryOverlay({
+    required this.controller,
+    required this.searchFocus,
+    required this.child,
+  });
+
+  final TextEditingController controller;
+  final FocusNode searchFocus;
+  final Widget child;
+
+  @override
+  ConsumerState<_SearchHistoryOverlay> createState() =>
+      _SearchHistoryOverlayState();
+}
+
+class _SearchHistoryOverlayState extends ConsumerState<_SearchHistoryOverlay> {
+  final FocusNode _historyFocus = FocusNode(skipTraversal: true);
+
+  @override
+  void dispose() {
+    _historyFocus.dispose();
+    super.dispose();
+  }
+
+  void _searchAgain(String term) {
+    widget.searchFocus.unfocus();
+    _historyFocus.unfocus();
+    ref.read(filterProvider.notifier).updateQuery(term);
+    unawaited(ref.read(searchHistoryProvider.notifier).record(term));
+  }
+
+  Future<void> _remove(String term) async {
+    final removed = await ref.read(searchHistoryProvider.notifier).remove(term);
+    if (!removed && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('无法删除搜索记录，请重试。')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final history = ref.watch(searchHistoryProvider).valueOrNull ?? const [];
+    final theme = Theme.of(context);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        if (history.isNotEmpty)
+          ListenableBuilder(
+            listenable: Listenable.merge([
+              widget.controller,
+              widget.searchFocus,
+              _historyFocus,
+            ]),
+            builder: (context, _) {
+              if (widget.controller.text.trim().isNotEmpty ||
+                  !(widget.searchFocus.hasFocus || _historyFocus.hasFocus)) {
+                return const SizedBox.shrink();
+              }
+              return Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    pagePaddingFor(context),
+                    AppSpacing.xs,
+                    pagePaddingFor(context),
+                    0,
+                  ),
+                  child: FocusTraversalOrder(
+                    order: const NumericFocusOrder(1),
+                    child: TextFieldTapRegion(
+                      child: Focus(
+                        focusNode: _historyFocus,
+                        child: Material(
+                          color: theme.colorScheme.surfaceContainerLow,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.input,
+                            ),
+                            side: BorderSide(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxHeight: 4 * kMinInteractiveDimension,
+                            ),
+                            child: ListView.builder(
+                              primary: false,
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              itemCount: history.length,
+                              itemBuilder: (context, index) {
+                                final term = history[index];
+                                return ListTile(
+                                  key: ValueKey(term),
+                                  contentPadding:
+                                      const EdgeInsetsDirectional.only(
+                                        start: AppSpacing.m,
+                                      ),
+                                  minTileHeight: kMinInteractiveDimension,
+                                  leading: const Icon(Icons.history),
+                                  title: Text(
+                                    term,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: () => _searchAgain(term),
+                                  trailing: IconButton(
+                                    tooltip: '删除搜索记录：$term',
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () => unawaited(_remove(term)),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
   }
 }
 

@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fl_pokedex/app/theme/app_colors.dart';
+import 'package:fl_pokedex/core/search_history.dart';
 import 'package:fl_pokedex/features/settings/providers.dart';
 import 'package:fl_pokedex/features/settings/settings_page.dart';
 
@@ -63,6 +64,33 @@ Future<_Harness> _pumpSettings(
 }
 
 void main() {
+  testWidgets('取消清空保留记录，确认清空后禁用入口并持久化', (tester) async {
+    final (container, _) = await _pumpSettings(tester, prefs: {
+      'search_history': ['皮卡丘', '喷火龙'],
+      kThemeModePrefsKey: 'dark',
+    });
+    final clear = find.text('清空搜索记录');
+
+    await tester.tap(clear);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(container.read(searchHistoryProvider).requireValue, ['皮卡丘', '喷火龙']);
+
+    await tester.tap(clear);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('清空'));
+    await tester.pumpAndSettle();
+    final clearTile = find.ancestor(of: clear, matching: find.byType(ListTile));
+    expect(tester.widget<ListTile>(clearTile).enabled, isFalse);
+
+    final restarted = ProviderContainer();
+    addTearDown(restarted.dispose);
+    expect(await restarted.read(searchHistoryProvider.future), isEmpty);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(kThemeModePrefsKey), 'dark');
+  });
+
   testWidgets('三组 SegmentedButton 与关于区块渲染', (tester) async {
     await _pumpSettings(tester);
 
@@ -215,6 +243,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
+    await tester.scrollUntilVisible(find.text('信息不可用'), 120);
     expect(find.text('信息不可用'), findsOneWidget);
     // 其余关于项不受影响。
     expect(find.text('9.9.9'), findsOneWidget);

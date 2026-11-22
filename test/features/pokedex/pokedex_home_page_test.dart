@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fl_pokedex/app/theme/theme.dart';
+import 'package:fl_pokedex/core/search_history.dart';
 import 'package:fl_pokedex/features/pokedex/pokedex_home_page.dart';
 import 'package:fl_pokedex/features/pokedex/providers.dart';
 import 'package:fl_pokedex/shared/widgets/widgets.dart';
@@ -108,6 +110,44 @@ void main() {
     expect(state.items.single.nameZh, '皮卡丘');
     expect(find.text('皮卡丘'), findsOneWidget);
     expect(find.text('宝可梦001'), findsNothing);
+  });
+
+  testWidgets('只记录提交或打开结果的搜索，支持重搜和单条删除', (tester) async {
+    final (container, _, _) = await _pumpHome(tester);
+    final field = find.byType(TextField);
+
+    await tester.enterText(field, '草稿');
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(container.read(searchHistoryProvider).requireValue, isEmpty);
+
+    await tester.enterText(field, '001');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, ' 001 ');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, '皮卡');
+    await tester.pumpAndSettle(const Duration(milliseconds: 250));
+    await tester.tap(find.text('皮卡丘'));
+    await tester.pumpAndSettle();
+    expect(container.read(searchHistoryProvider).requireValue, ['皮卡', '001']);
+
+    Navigator.of(tester.element(find.textContaining('detail-'))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(field);
+    await tester.tap(find.byTooltip('清空搜索'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('删除搜索记录：皮卡'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('删除搜索记录：皮卡'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(container.read(filterProvider).query, '001');
+    expect(find.byTooltip('删除搜索记录：001'), findsNothing);
+    expect(container.read(searchHistoryProvider).requireValue, ['001']);
   });
 
   testWidgets('切换列表视图后渲染 PokemonListTile', (tester) async {

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../core/di.dart';
+import '../../core/search_history.dart';
 import '../../domain/models/manifest.dart';
 import '../../shared/widgets/widgets.dart';
 import 'check_update_row.dart';
@@ -15,7 +16,7 @@ final manifestProvider = FutureProvider<DataManifest>((ref) async {
   return ref.watch(pokedexRepositoryProvider).getManifest();
 });
 
-/// 设置页（design-ui.md §8）：外观 / 首页布局 / 桌面卡片密度 / 关于。
+/// 设置页（design-ui.md §8）：外观 / 首页布局 / 桌面卡片密度 / 搜索记录 / 关于。
 ///
 /// 纯个人偏好，无任何账号与网络项（PRODUCT.md 硬性契约）。
 class SettingsPage extends ConsumerWidget {
@@ -25,6 +26,11 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pad = pagePaddingFor(context);
     final appVersion = ref.watch(appVersionProvider);
+    final hasSearchHistory = ref.watch(
+      searchHistoryProvider.select(
+        (history) => history.valueOrNull?.isNotEmpty ?? false,
+      ),
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: Center(
@@ -95,6 +101,14 @@ class SettingsPage extends ConsumerWidget {
               ),
               const _Caption('仅桌面宽屏生效'),
               const SizedBox(height: AppSpacing.xl),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('清空搜索记录'),
+                enabled: hasSearchHistory,
+                onTap: hasSearchHistory
+                    ? () => _clearSearchHistory(context, ref)
+                    : null,
+              ),
               const Divider(),
               const SizedBox(height: AppSpacing.m),
               const SectionTitle(title: '关于'),
@@ -165,6 +179,34 @@ class SettingsPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _clearSearchHistory(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('清空搜索记录？'),
+        content: const Text('清空后无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final cleared = await ref.read(searchHistoryProvider.notifier).clear();
+    if (!cleared && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('无法清空搜索记录，请重试。')),
+      );
+    }
   }
 }
 

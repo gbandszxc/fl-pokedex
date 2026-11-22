@@ -148,6 +148,8 @@ abstract class FavoritesRepository {
 ```dart
 // lib/core/di.dart
 pokedexRepositoryProvider / favoritesRepositoryProvider / pokedexDatabaseProvider / userDatabaseProvider
+// lib/core/search_history.dart
+searchHistoryProvider: AsyncNotifier<List<String>>（首页与设置共享，SharedPreferences key 'search_history'）
 // lib/features/pokedex/providers.dart
 filterProvider: Notifier<FilterState>
 pokemonListProvider: AsyncNotifier<PokemonPageState>   // {items, total, isLoadingMore}
