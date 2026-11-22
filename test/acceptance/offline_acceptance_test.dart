@@ -208,6 +208,9 @@ void main() {
       await pumpUntilFound(tester, find.text('妙蛙种子'));
       assertNoException(tester, '搜索「フシギダネ」');
 
+      expect(tester.testTextInput.isVisible, isTrue);
+      tester.testTextInput.log.clear();
+
       // ---- 3) 点击妙蛙种子卡片 → push 详情页：头部名称 / 属性。----
       // 等待信号用头部特有文本（列表卡片的名称/编号同名，无法区分就绪）。
       await tester.tap(find.text('妙蛙种子').first);
@@ -241,6 +244,14 @@ void main() {
       expect(find.widgetWithText(VersionChip, '朱/紫'), findsOneWidget);
       assertNoException(tester, '招式 tab 默认列表');
 
+      await tester.tap(find.text('撞击'));
+      await pumpUntilFound(tester, find.text('威力'));
+      await tester.pumpAndSettle();
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('共 53 个招式'), findsOneWidget);
+      expect(tester.testTextInput.isVisible, isFalse);
+
       // 来源筛选「学习器」：妙蛙种子在朱/紫无 machine 招式 → 空态。
       await tester.tap(find.text('学习器').first);
       await pumpFor(tester);
@@ -267,6 +278,13 @@ void main() {
       await pumpFor(tester);
       final rail = find.byType(NavigationRail);
       await pumpUntilFound(tester, rail);
+      final restoredSearch = tester.widget<TextField>(find.byType(TextField));
+      expect(restoredSearch.controller!.text, 'フシギダネ');
+      expect(restoredSearch.focusNode!.hasFocus, isFalse);
+      expect(
+        tester.testTextInput.log.map((call) => call.method),
+        isNot(contains('TextInput.show')),
+      );
       for (var i = 0; i < 4; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }

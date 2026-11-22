@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme/tokens.dart';
@@ -40,18 +41,22 @@ class _CompactLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _HomeKeyboardScope(
-      builder: (context, searchController, searchFocus) => Scaffold(
+      builder: (context, searchController, searchFocus, finishSearch) => Scaffold(
         appBar: AppBar(
+          titleSpacing: pagePaddingFor(context),
           leading: (ModalRoute.canPopOf(context) ?? false)
               ? const BackButton()
-              : const Icon(Icons.search),
+              : null,
           title: _SearchField(
             controller: searchController,
             focusNode: searchFocus,
           ),
           bottom: const _FilterBar(),
         ),
-        body: const _PokemonListBody(embeddedInPane: false),
+        body: _PokemonListBody(
+          embeddedInPane: false,
+          finishSearch: finishSearch,
+        ),
       ),
     );
   }
@@ -87,7 +92,7 @@ class PokedexHomeListContent extends ConsumerWidget {
       pokemonListProvider.select((async) => async.valueOrNull?.total),
     );
     return _HomeKeyboardScope(
-      builder: (context, searchController, searchFocus) => Column(
+      builder: (context, searchController, searchFocus, finishSearch) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
@@ -119,7 +124,6 @@ class PokedexHomeListContent extends ConsumerWidget {
                 _SearchField(
                   controller: searchController,
                   focusNode: searchFocus,
-                  showLeadingIcon: true,
                 ),
                 const SizedBox(height: AppSpacing.s),
                 const _FilterBar(),
@@ -127,7 +131,10 @@ class PokedexHomeListContent extends ConsumerWidget {
             ),
           ),
           Expanded(
-            child: _PokemonListBody(embeddedInPane: embeddedInPane),
+            child: _PokemonListBody(
+              embeddedInPane: embeddedInPane,
+              finishSearch: finishSearch,
+            ),
           ),
         ],
       ),
@@ -147,6 +154,7 @@ class _HomeKeyboardScope extends ConsumerStatefulWidget {
     BuildContext context,
     TextEditingController searchController,
     FocusNode searchFocus,
+    VoidCallback finishSearch,
   ) builder;
 
   @override
@@ -157,11 +165,13 @@ class _HomeKeyboardScope extends ConsumerStatefulWidget {
 class _HomeKeyboardScopeState extends ConsumerState<_HomeKeyboardScope> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
+  final FocusNode _keyboardAnchor = FocusNode();
 
   @override
   void dispose() {
     _searchController.dispose();
     _searchFocus.dispose();
+    _keyboardAnchor.dispose();
     super.dispose();
   }
 
@@ -200,9 +210,16 @@ class _HomeKeyboardScopeState extends ConsumerState<_HomeKeyboardScope> {
           ),
         },
         child: Focus(
+          focusNode: _keyboardAnchor,
           autofocus: true,
           skipTraversal: true,
-          child: widget.builder(context, _searchController, _searchFocus),
+          child: widget.builder(context, _searchController, _searchFocus, () {
+            if (_searchFocus.hasFocus) {
+              // 移除搜索框的焦点历史，返回后仍可使用首页键盘快捷键。
+              _searchFocus.unfocus();
+              _keyboardAnchor.requestFocus();
+            }
+          }),
         ),
       ),
     );
@@ -223,7 +240,6 @@ class _SearchField extends ConsumerStatefulWidget {
   const _SearchField({
     required this.controller,
     required this.focusNode,
-    this.showLeadingIcon = false,
   });
 
   /// 由 [_HomeKeyboardScope] 持有（Esc 清空 / `/` 聚焦共用）。
@@ -231,9 +247,6 @@ class _SearchField extends ConsumerStatefulWidget {
 
   /// 由 [_HomeKeyboardScope] 持有。
   final FocusNode focusNode;
-
-  /// expanded 独立搜索框自带放大镜；compact 的放大镜由 AppBar.leading 承担。
-  final bool showLeadingIcon;
 
   @override
   ConsumerState<_SearchField> createState() => _SearchFieldState();
@@ -294,7 +307,19 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: '搜索',
-          prefixIcon: widget.showLeadingIcon ? const Icon(Icons.search) : null,
+          prefixIcon: Center(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: SvgPicture.asset(
+              'assets/icons/search.svg',
+              width: AppSpacing.xl,
+              height: AppSpacing.xl,
+              colorFilter: ColorFilter.mode(
+                Theme.of(context).colorScheme.onSurfaceVariant,
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
           suffixIcon: value.text.isEmpty
               ? null
               : IconButton(
@@ -482,9 +507,13 @@ class _FilterGroupChip extends StatelessWidget {
 /// [embeddedInPane] 为 true 时运行在双栏列表面板内：点卡片写入
 /// [paneSelectionProvider]（不导航），并为选中项绘制 primary 描边。
 class _PokemonListBody extends ConsumerStatefulWidget {
-  const _PokemonListBody({required this.embeddedInPane});
+  const _PokemonListBody({
+    required this.embeddedInPane,
+    required this.finishSearch,
+  });
 
   final bool embeddedInPane;
+  final VoidCallback finishSearch;
 
   @override
   ConsumerState<_PokemonListBody> createState() => _PokemonListBodyState();
@@ -673,6 +702,7 @@ class _PokemonListBodyState extends ConsumerState<_PokemonListBody> {
   }) {
     final isFavorite = favoriteIds.contains(summary.speciesId);
     void onOpen() {
+      widget.finishSearch();
       unawaited(
         ref.read(favoritesRepositoryProvider).addRecent(summary.speciesId),
       );
