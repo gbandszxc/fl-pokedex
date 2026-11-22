@@ -16,7 +16,7 @@ manifest.json：
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "dataVersion": "pokeapi@<short-sha>",
   "pokemonCount": 1025,
   "formCount": 0,
@@ -31,6 +31,8 @@ manifest.json：
 ```
 
 两个上游 commit sha 在首次构建时获取并**硬编码**进 `tools/data_builder/config.py`（可重复构建）；提供 `--latest` 参数刷新。
+
+`schemaVersion` 同时用于刷新应用文档目录中的内置数据库副本。需要让旧安装读取修正后的数据时递增该版本，即使表结构不变。
 
 ## 1. ID 对齐（极重要）
 
@@ -229,6 +231,8 @@ damage_class 映射**必须**从上游 `move_damage_classes.csv` 数据驱动（
 identifier 后缀 → 官方中文：
 `-alola→阿罗拉的样子 -galar→伽勒尔的样子 -hisui→洗翠的样子 -paldea→帕底亚的样子 -mega→超级进化 -mega-x→超级进化Ｘ -mega-y→超级进化Ｙ -gmax→超极巨化 -primal→原始回归 -origin→起源形态 -therian→灵兽形态 -black→阿勃梭鲁(霸主?)…`（以 pokemon_form_names.csv 的 language 12/4 官方数据为准，取不到时用“地区名+的样子”模板，仍无则回退英文并在 meta 记录缺失清单）。is_regional 判定 = form_identifier ∈ {alola,galar,hisui,paldea}(含 -battle 变体归并)；is_gmax = identifier 以 -gmax 结尾；is_mega = pokemon_forms.is_mega。
 
+基格尔德的两个 10% 变体保留各自的 variety ID。中英文显示名分别追加对应的官方特性名，区分气场破坏与群聚变形；括号内容为图鉴标注。
+
 ## 6. 图鉴说明（flavor_texts / form_flavor_texts）
 
 - 来源 `pokemon_species_flavor_text.csv`，只保留 language ∈ {zh_hans, zh_hant, en, ja} 四行/版本。
@@ -260,5 +264,6 @@ identifier 后缀 → 官方中文：
 11. 归属前后守恒：flavor_texts ∪ form_flavor_texts 的行集合与归属前的 species 文本集合一一对应（不多不少）。
 12. 检索增强：`species_aliases` ≥ 300 条、外键无悬空且含典型旧译；`species_tags` 各标签计数准确（`fossil=25` / `paradox=22` / `starter=81` / `pseudo_legendary=30` / `baby=19` / `ultra_beast=11` 等）；`species_pinyin` 覆盖全部 1025 只且非空。
 13. 形态级进化（§8.6b / §8.9）：`evolution_edges.to_form_id` 与 `from_form_id`（非空时）全部可解析到 `forms.id`；魔尼尼/呆呆兽/喵喵/大葱鸭形态分支及 `region` 字段完整；`forms.id=10247`（白条纹的样子）/`10151`（我行我素）译名准确。
+14. 基格尔德两个 10% 变体的中英文显示名均带上各自的特性名，且与特性表对应。
 
 输出结束时打印：各表行数、db 文件大小、图片数量与总体积。

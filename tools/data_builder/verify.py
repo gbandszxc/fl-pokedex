@@ -69,6 +69,21 @@ def main(argv: list[str] | None = None) -> int:
     c.check("§8.1 每 species 恰有 1 个 is_default 形态", orphan_default == 0,
             f"异常 {orphan_default} 个")
 
+    zygarde_forms = q(
+        "SELECT f.form_identifier, f.form_name_zh, f.form_name_en, "
+        "a.name_zh_hans, a.name_en FROM forms f "
+        "JOIN form_abilities fa ON fa.form_id = f.id "
+        "JOIN abilities a ON a.id = fa.ability_id "
+        "WHERE f.species_id = 718 AND f.form_identifier IN ('10', '10-power-construct') "
+        "ORDER BY f.form_identifier LIMIT 3"
+    ).fetchall()
+    c.check("§8.1 基格尔德两种 10% 变体按特性区分",
+            [tuple(row) for row in zygarde_forms] == [
+                ("10", "１０％形态（气场破坏）", "10% Forme (Aura Break)", "气场破坏", "Aura Break"),
+                ("10-power-construct", "１０％形态（群聚变形）", "10% Forme (Power Construct)",
+                 "群聚变形", "Power Construct"),
+            ], str([tuple(row) for row in zygarde_forms]))
+
     # ---- 1b. forms 图片路径回填完整（process_images 语义：NULL ⇔ 缺图且已记录）----
     missing_list = list(manifest.get("missingArtwork", []))
     null_art = {r[0] for r in q(

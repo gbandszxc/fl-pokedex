@@ -63,7 +63,8 @@ MANIFEST_PATH = ASSETS_DB_DIR / "manifest.json"
 ASSETS_FULL_DIR = REPO_ROOT / "assets" / "pokemon" / "full"
 ASSETS_THUMB_DIR = REPO_ROOT / "assets" / "pokemon" / "thumb"
 
-SCHEMA_VERSION = 4  # evolution_edges 升级为形态级图谱（from_form_id / to_form_id / region）并补全进化形态译名时 +1
+# 运行时用此版本号刷新内置数据库副本，形态名称等数据修正也需要递增。
+SCHEMA_VERSION = 5
 
 # ---------------------------------------------------------------------------
 # 数据契约常量（docs/data-contract.md §2/§4/§5）

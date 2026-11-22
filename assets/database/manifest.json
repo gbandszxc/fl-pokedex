@@ -1,12 +1,12 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "dataVersion": "pokeapi@ca0a21b3587a",
   "pokemonCount": 1025,
   "formCount": 1351,
   "moveCount": 937,
   "abilityCount": 374,
   "versionCount": 53,
-  "buildDate": "2026-11-21T12:40:22+00:00",
+  "buildDate": "2026-11-22T13:18:29+00:00",
   "upstreamRevision": {
     "pokeapi": "ca0a21b3587af20b52c8a00d33812c47b75fe341",
     "sprites": "a13b1f4ccd77f35fd1370d2db5f0051221e9683f"

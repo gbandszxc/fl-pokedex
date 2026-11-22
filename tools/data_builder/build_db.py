@@ -552,6 +552,13 @@ class Builder:
                 official_en.setdefault(fid, r["form_name"])
         official_zh = {**zh_hant, **zh_hans}  # 简中优先，繁中兜底
 
+        # 这两个 10% 变体共享官方形态名，使用官方特性名区分图鉴条目。
+        zygarde_10_abilities = {
+            "zygarde-10": "aura-break",
+            "zygarde-10-power-construct": "power-construct",
+        }
+        ability_names = {row[1]: (row[2], row[3]) for row in self.rows["abilities"]}
+
         for vid in sorted(variety):
             sid, ident, is_default, height, weight, base_exp = variety[vid]
             fmeta = chosen[vid]
@@ -577,6 +584,12 @@ class Builder:
                     else:
                         name_zh = name_en
                         self.missing["missing_form_name_zh"].append(vid)
+
+            ability_identifier = zygarde_10_abilities.get(ident)
+            if ability_identifier is not None:
+                ability_zh, ability_en = ability_names[ability_identifier]
+                name_zh = f"{name_zh}（{ability_zh}）"
+                name_en = f"{name_en} ({ability_en})"
 
             is_regional = int(any(
                 form_identifier == s or (form_identifier or "").startswith(s + "-")

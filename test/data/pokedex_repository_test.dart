@@ -659,7 +659,7 @@ void main() {
   test('getManifest 解析成功且 pokemonCount=1025', () async {
     final manifest = await repo.getManifest();
     expect(manifest, isA<DataManifest>());
-    expect(manifest.schemaVersion, 4);
+    expect(manifest.schemaVersion, 5);
     expect(manifest.pokemonCount, 1025);
     expect(manifest.learnsetVersionGroups, contains('sword-shield'));
     expect(manifest.upstreamRevision, contains('pokeapi'));
