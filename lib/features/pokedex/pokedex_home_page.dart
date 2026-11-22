@@ -42,7 +42,9 @@ class _CompactLayout extends StatelessWidget {
     return _HomeKeyboardScope(
       builder: (context, searchController, searchFocus) => Scaffold(
         appBar: AppBar(
-          leading: const Icon(Icons.search),
+          leading: (ModalRoute.canPopOf(context) ?? false)
+              ? const BackButton()
+              : const Icon(Icons.search),
           title: _SearchField(
             controller: searchController,
             focusNode: searchFocus,
@@ -80,6 +82,7 @@ class PokedexHomeListContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pad = pagePaddingFor(context);
+    final canPop = ModalRoute.canPopOf(context) ?? false;
     final total = ref.watch(
       pokemonListProvider.select((async) => async.valueOrNull?.total),
     );
@@ -96,7 +99,11 @@ class PokedexHomeListContent extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text('图鉴', style: Theme.of(context).textTheme.titleLarge),
+                    if (canPop) const BackButton(),
+                    Text(
+                      canPop ? '搜索结果' : '图鉴',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(width: AppSpacing.s),
                     if (total != null)
                       Text(
@@ -430,12 +437,16 @@ class _FilterBar extends ConsumerWidget implements PreferredSizeWidget {
   }
 
   void _openFilterSheet(BuildContext context) {
+    final container = ProviderScope.containerOf(context, listen: false);
     unawaited(
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         showDragHandle: true,
-        builder: (_) => const _FilterSheet(),
+        builder: (_) => UncontrolledProviderScope(
+          container: container,
+          child: const _FilterSheet(),
+        ),
       ),
     );
   }

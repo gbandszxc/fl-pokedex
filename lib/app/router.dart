@@ -20,6 +20,7 @@ import 'update_startup_check.dart';
 /// /settings             设置（branch 2）
 /// /pokemon/:speciesId   详情
 /// /move/:moveId         招式详情
+/// /search               详情标签的筛选结果
 /// ```
 final routerProvider = Provider<GoRouter>((ref) {
   late final GoRouter router;
@@ -63,10 +64,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               : PokemonDetailPage(
                   speciesId: speciesId,
                   initialFormId: initialFormId,
-                  onApplyFilter: (FilterState filter) {
-                    ref.read(filterProvider.notifier).replaceWith(filter);
-                    router.go('/');
-                  },
+                  onApplyFilter: (filter) =>
+                      router.push<void>('/search', extra: filter),
                 );
           // extra 携带切换方向时（滑动 / ←/→ 键切上一只下一只）播放
           // 方向性滑入：next 自右、prev 自左，旧页按自身进入方向滑出，
@@ -94,6 +93,20 @@ final routerProvider = Provider<GoRouter>((ref) {
                 child: child,
               );
             },
+          );
+        },
+      ),
+      GoRoute(
+        path: '/search',
+        redirect: (context, state) => state.extra is FilterState ? null : '/',
+        builder: (context, state) {
+          final filter = state.extra as FilterState;
+          // 每层结果页保有自己的筛选和分页，返回时直接露出原页面。
+          return ProviderScope(
+            overrides: [
+              filterProvider.overrideWith(() => FilterNotifier(initial: filter)),
+            ],
+            child: const PokedexHomePage(),
           );
         },
       ),

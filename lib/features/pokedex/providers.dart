@@ -49,8 +49,12 @@ class PokemonPageState {
 ///
 /// 变更即触发 [pokemonListProvider] 重建；语义化方法供 UI 调用。
 class FilterNotifier extends Notifier<FilterState> {
+  FilterNotifier({FilterState initial = const FilterState()}) : _initial = initial;
+
+  final FilterState _initial;
+
   @override
-  FilterState build() => const FilterState();
+  FilterState build() => _initial;
 
   /// 搜索词（原样传入，trim / 编号识别由仓储按 §7 处理）。
   void updateQuery(String value) {
@@ -134,6 +138,7 @@ class FilterNotifier extends Notifier<FilterState> {
 
 final filterProvider = NotifierProvider<FilterNotifier, FilterState>(
   FilterNotifier.new,
+  dependencies: const [],
 );
 
 /// 首页列表：watch [filterProvider]，筛选/搜索变更自动重建（回到第 1 页）。
@@ -216,6 +221,7 @@ class PokemonListNotifier extends AsyncNotifier<PokemonPageState> {
 final pokemonListProvider =
     AsyncNotifierProvider<PokemonListNotifier, PokemonPageState>(
   PokemonListNotifier.new,
+  dependencies: [filterProvider],
 );
 
 const String _viewModePrefsKey = 'view_mode';

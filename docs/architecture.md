@@ -193,7 +193,7 @@ recentIdsProvider: StreamProvider<List<int>>
   4. 官译子串、全拼 / 首字母（`species_pinyin`）、别名子串 / 拼音、非默认形态名（`形态：...`）
   5. 非连续有序子序列（`大鸟`→`大比鸟`）、无序全字命中（`鸟比`→`大比鸟`）、受控编辑距离 ≤ 1（长度 ≥ 3）
   6. 图鉴分类（`分类：...`）与检索标签同义词（`标签：...`）
-  再与结构化筛选取交集并分页；`PokemonDetailPage` 通过 `onApplyFilter` 回调由 `app/` 桥接至 `filterProvider`（单栏同时 `go('/')`，双栏原地刷新列表）。
+  再与结构化筛选取交集并分页。`PokemonDetailPage` 通过 `onApplyFilter` 回调由 `app/` 桥接：全页详情推入 `/search`，该页独立持有筛选与分页状态，返回时依次回到详情和原列表；嵌入双栏的详情原地刷新左侧列表。
 
 ## 8. 离线保证与更新通道（运行时联网的唯一白名单）
 
@@ -217,6 +217,7 @@ recentIdsProvider: StreamProvider<List<int>>
 /settings             设置（branch 2）
 /pokemon/:speciesId   详情（compact/medium 全页；expanded+twoPane 时由首页分支内嵌渲染）
 /move/:moveId         招式详情（全页推入）
+/search               详情标签筛选结果（全页推入，初始条件由路由参数传入）
 ```
 
 ## 10. 主机端 SQLite 测试前提

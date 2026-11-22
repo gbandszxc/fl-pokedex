@@ -549,17 +549,27 @@ void main() {
     expect(find.byKey(const ValueKey('active_genus_chip')), findsOneWidget);
   });
 
-  testWidgets('单栏点击详情页属性：携带过滤条件跳回首页 /', (tester) async {
-    final (container, _) = await _pumpApp(tester, size: const Size(800, 600));
+  testWidgets('单栏标签结果可返回详情，筛选面板只修改当前结果', (tester) async {
+    final (container, _) = await _pumpApp(tester, size: const Size(1000, 800));
 
     await tester.tap(find.text('妙蛙种子').first);
     await _pumpDetailReady(tester);
     expect(_location(container), '/pokemon/1');
 
     await tester.tap(find.byKey(const ValueKey('detail_header_type_grass')));
-    await _pumpDetailReady(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('属性·草'), findsOneWidget);
 
-    expect(_location(container), '/');
-    expect(container.read(filterProvider), const FilterState(typeIds: {'grass'}));
+    await tester.tap(find.text('属性·草'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('重置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('应用'));
+    await tester.pumpAndSettle();
+    expect(find.text('属性·草'), findsNothing);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(_location(container), '/pokemon/1');
   });
 }

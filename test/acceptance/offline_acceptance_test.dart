@@ -288,7 +288,7 @@ void main() {
       await pumpUntilFound(tester, find.text('搜索 名称 / 俗名 / 拼音 / 编号'));
       assertNoException(tester, '返回图鉴');
 
-      // ---- 5b) 俗名搜索 + 详情页属性点击回跳筛选（真实库全链路）----
+      // ---- 5b) 俗名搜索 → 详情 → 标签结果 → 返回原搜索（真实库全链路）----
       await tester.enterText(find.byType(TextField), '比雕');
       await pumpFor(tester);
       await pumpUntilFound(tester, find.text('大比鸟'));
@@ -307,12 +307,35 @@ void main() {
       await tester.tap(find.text('大比鸟').first);
       await pumpFor(tester);
       await pumpUntilFound(tester, find.textContaining('Pidgeot · '));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('detail_header_type_flying')));
-      await pumpFor(tester);
-      await pumpUntilFound(tester, find.text('搜索 名称 / 俗名 / 拼音 / 编号'));
-      expect(find.text('属性·飞行'), findsOneWidget);
-      assertNoException(tester, '详情点属性跳回图鉴筛选');
+      await pumpUntilFound(tester, find.text('属性·飞行'));
+      await pumpUntilFound(tester, find.text('波波'));
+      await tester.pumpAndSettle();
+      expect(find.text('妙蛙种子'), findsNothing);
+      assertNoException(tester, '详情点属性打开筛选结果');
+
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await pumpUntilFound(tester, find.textContaining('Pidgeot · '));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('detail_header_genus')));
+      await pumpUntilFound(
+        tester,
+        find.byKey(const ValueKey('active_genus_chip')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      final search = tester.widget<TextField>(find.byType(TextField));
+      expect(search.controller!.text, '比雕');
+      expect(find.text('大比鸟'), findsOneWidget);
+      expect(find.text('波波'), findsNothing);
+      expect(find.byType(BackButton), findsNothing);
 
       // ---- 6) 终检：全程无未消费异常。----
       expect(tester.takeException(), isNull,
