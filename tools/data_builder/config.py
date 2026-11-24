@@ -16,7 +16,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 # PokeAPI/pokeapi master（data/v2/csv 来源）
-POKEAPI_SHA = "ca0a21b3587af20b52c8a00d33812c47b75fe341"
+POKEAPI_SHA = "de6760be38b60a3024f1d9054330ff265f0dc619"
 # PokeAPI/sprites master（official-artwork 来源）
 SPRITES_SHA = "a13b1f4ccd77f35fd1370d2db5f0051221e9683f"
 
@@ -64,7 +64,7 @@ ASSETS_FULL_DIR = REPO_ROOT / "assets" / "pokemon" / "full"
 ASSETS_THUMB_DIR = REPO_ROOT / "assets" / "pokemon" / "thumb"
 
 # 运行时用此版本号刷新内置数据库副本，形态名称等数据修正也需要递增。
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 # ---------------------------------------------------------------------------
 # 数据契约常量（docs/data-contract.md §2/§4/§5）

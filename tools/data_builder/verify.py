@@ -219,9 +219,31 @@ def main(argv: list[str] | None = None) -> int:
                  "OR trim(name_zh_hans) = ''").fetchone()[0]
     fallback_moves = json.loads(meta.get("missing_json", "{}")).get(
         "missing_move_name_zh_hans", [])
+    move_names = {r["id"]: (r["name_zh_hans"], r["name_en"]) for r in q(
+        "SELECT id, name_zh_hans, name_en FROM moves"
+    )}
+    fallback_ids = set(fallback_moves)
     c.check("§8.7 每招式 name_zh_hans 非空（缺失者以英文回退并记 meta）",
-            empty_zh == 0 and len(fallback_moves) > 0,
+            empty_zh == 0 and len(fallback_ids) == len(fallback_moves)
+            and all(mid in move_names and move_names[mid][0] == move_names[mid][1]
+                    for mid in fallback_ids),
             f"空名 {empty_zh} 个，英文回退 {len(fallback_moves)} 个")
+    csv_move_names = cfg.CACHE_CSV_DIR / "move_names.csv"
+    if csv_move_names.exists():
+        with csv_move_names.open(encoding="utf-8", newline="") as f:
+            upstream_zh_names = {
+                int(r["move_id"]): r["name"]
+                for r in csv.DictReader(f)
+                if cfg.LANGUAGE_MAP.get(int(r["local_language_id"])) == "zh_hans"
+            }
+        expected_fallback = {
+            mid for mid in move_names if not upstream_zh_names.get(mid)
+        }
+        c.check("§8.7 英文回退清单与上游缺失一致",
+                fallback_ids == expected_fallback
+                and all(zh == upstream_zh_names[mid] for mid, (zh, _) in move_names.items()
+                        if mid not in expected_fallback),
+                f"上游缺失 {len(expected_fallback)} 个，已记录 {len(fallback_ids)} 个")
 
     # ---- 7b. 伤害分类（A2 回归：PokeAPI 1=status, 2=physical, 3=special）----
     known = {  # identifier -> (damage_class, power 或 None)
@@ -401,6 +423,23 @@ def main(argv: list[str] | None = None) -> int:
                 "JOIN versions v ON v.id = ft.version_id WHERE ft.species_id = 79").fetchall()
             c.check("§8.11b 呆呆兽 species 级仍保留非剑/盾文本", len(ft_kept) > 0,
                     f"{[r[0] for r in ft_kept]}")
+            bdsp = {"brilliant-diamond", "shining-pearl"}
+            default_bdsp = {r[0] for r in q(
+                "SELECT v.identifier FROM flavor_texts ft "
+                "JOIN versions v ON v.id = ft.version_id "
+                "WHERE ft.species_id = 79 AND ft.language = 'zh_hans' "
+                "AND v.identifier IN ('brilliant-diamond', 'shining-pearl')"
+            )}
+            regional_bdsp = q(
+                "SELECT COUNT(*) FROM form_flavor_texts ff "
+                "JOIN versions v ON v.id = ff.version_id "
+                "WHERE ff.form_id = ? "
+                "AND v.identifier IN ('brilliant-diamond', 'shining-pearl')",
+                (galar_id,),
+            ).fetchone()[0]
+            c.check("§8.11b 呆呆兽晶灿钻石/明亮珍珠文本留在默认形态",
+                    default_bdsp == bdsp and regional_bdsp == 0,
+                    f"默认形态 {sorted(default_bdsp)}，误归伽勒尔 {regional_bdsp} 行")
 
         # 11c. 喵喵(52)：sun/moon/ultra 系→阿罗拉；剑/盾→伽勒尔；lets-go 及更早→默认形态
         meowth = {r[0]: r[1] for r in q(

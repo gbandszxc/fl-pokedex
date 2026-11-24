@@ -358,7 +358,6 @@
     {"alias": "正拍拍", "kind": "nickname", "priority": 85}
   ],
   "312": [
-    {"alias": "负电拍拍", "kind": "typo", "priority": 100},
     {"alias": "负拍拍", "kind": "nickname", "priority": 85}
   ],
   "329": [
@@ -869,7 +868,6 @@
     {"alias": "磁怪古代种", "kind": "nickname", "priority": 85}
   ],
   "990": [
-    {"alias": "铁辙迹", "kind": "typo", "priority": 100},
     {"alias": "顿甲未来种", "kind": "nickname", "priority": 85}
   ],
   "991": [

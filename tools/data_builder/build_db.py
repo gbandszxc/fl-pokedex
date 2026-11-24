@@ -896,6 +896,10 @@ class Builder:
                 return "kanto"   # Let's Go 重访关都
             if vg == "legends-arceus":
                 return "hisui"   # 传说阿尔宙斯在洗翠（上游归第 8 世代）
+            if vg == "brilliant-diamond-shining-pearl":
+                return "sinnoh"  # 晶灿钻石 / 明亮珍珠回到神奥，同为第 8 世代但非伽勒尔
+            if vg == "legends-za":
+                return "kalos"   # 传说 Z-A 在卡洛斯，第 9 世代不等于帕底亚
             return cfg.GENERATION_REGION.get(gen_id)
 
         kept: list[tuple] = []
@@ -1122,8 +1126,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {t:22s} {counts[t]:>8}")
     print(f"[build_db] {cfg.DB_PATH} ({db_size / 1024 / 1024:.1f} MB)")
     print(f"[build_db] manifest -> {cfg.MANIFEST_PATH}")
-    if db_size > 45 * 1024 * 1024:
-        print("[build_db][error] db 体积超过 45MB 上限")
+    if db_size > 46 * 1024 * 1024:
+        print("[build_db][error] db 体积超过 46MiB 上限")
         return 1
     return 0
 

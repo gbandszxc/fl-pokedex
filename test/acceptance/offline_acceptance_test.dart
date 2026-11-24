@@ -259,12 +259,11 @@ void main() {
       assertNoException(tester, '招式方法筛选');
 
       // ---- 4c) 图鉴说明 tab：官方简中文本渲染。----
-      // 默认选中 gen8 组内最新的「盾」（version_id 34 > 剑 33），
-      // 显示盾版官方简中文本。
+      // 更新后的最新简中说明来自「传说 Z-A」。
       await openTab(tester, '图鉴说明');
       await pumpUntilFound(
         tester,
-        find.textContaining('在出生后的一段时间内'),
+        find.textContaining('据说在它出生的时候'),
       );
       // 有官方简中：不出现语言回退提示。
       expect(find.textContaining('暂无简体中文资料'), findsNothing);

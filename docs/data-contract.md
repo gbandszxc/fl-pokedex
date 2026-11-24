@@ -16,7 +16,7 @@ manifest.json：
 
 ```json
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "dataVersion": "pokeapi@<short-sha>",
   "pokemonCount": 1025,
   "formCount": 0,
@@ -239,7 +239,7 @@ identifier 后缀 → 官方中文：
 - 清洗：压平换行、去 U+0C/U+1C 控制符。
 - versions 表收录全部游戏版本（含无简中文本的旧版本）；version_names.csv 提供官方简中版本名（剑/盾/朱/紫…；无官方简中的版本 name_zh_hans 留空）。
 - **禁止生成/机翻“官方”文本**。缺简中由 UI 标注。
-- **地区形态归属**（构建期一次性完成）：仅当 species 存在地区形态（forms.is_regional=1 且 form_identifier ∈ {alola, galar, hisui, paldea}）时参与归属。版本 → 地区：version_group == `lets-go-pikachu-lets-go-eevee` → kanto；== `legends-arceus` → hisui；否则按 generation_id 映射 1:kanto 2:johto 3:hoenn 4:sinnoh 5:unova 6:kalos 7:alola 8:galar 9:paldea。文本 (species, version) 的版本地区 == 某地区形态的 form_identifier → 该行写入 form_flavor_texts（form_id=该形态 id），并从 flavor_texts 剔除；否则留在 flavor_texts（描述默认形态）。无地区形态的 species 全部维持原样；mega/gmax 等其他形态不建 form 文本，沿用 species 文本。上游地区图鉴登记的就是地区形态，对应版本文本实际描述地区形态（如剑/盾的呆呆兽）。
+- **地区形态归属**（构建期一次性完成）：仅当 species 存在地区形态（forms.is_regional=1 且 form_identifier ∈ {alola, galar, hisui, paldea}）时参与归属。版本 → 地区：`lets-go-pikachu-lets-go-eevee` → kanto；`legends-arceus` → hisui；`brilliant-diamond-shining-pearl` → sinnoh；`legends-za` → kalos；否则按 generation_id 映射 1:kanto 2:johto 3:hoenn 4:sinnoh 5:unova 6:kalos 7:alola 8:galar 9:paldea。文本 (species, version) 的版本地区 == 某地区形态的 form_identifier → 该行写入 form_flavor_texts（form_id=该形态 id），并从 flavor_texts 剔除；否则留在 flavor_texts（描述默认形态）。无地区形态的 species 全部维持原样；mega/gmax 等其他形态不建 form 文本，沿用 species 文本。上游地区图鉴登记的就是地区形态，对应版本文本实际描述地区形态（如剑/盾的呆呆兽）。
 
 ## 7. 图片
 

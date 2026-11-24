@@ -18,7 +18,7 @@ import '../../helpers/sqlite_loader.dart';
 /// 呆呆兽(#79) 真实资产库下的图鉴说明形态归属回归：
 /// 剑/盾地区图鉴登记的是伽勒尔形态，其文本在 form_flavor_texts
 /// （data-contract §6）——切到「伽勒尔的样子」应显示剑/盾文本，
-/// 切回默认形态应显示 species 级文本（lets-go 简中）。
+/// 切回默认形态应显示 species 级文本（传说 Z-A 简中）。
 void main() {
   loadSqliteForHostTests();
 
@@ -66,9 +66,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    // 默认形态：species 级最新含简中的版本（lets-go）文本。
-    const speciesText = '非常呆，动作也很缓慢。从不在意时间的流逝，过着悠闲的生活。';
+    // 默认形态：species 级最新含简中的版本（传说 Z-A）。
+    const speciesText = '一直在水边发呆。就算有什么东西咬住了尾巴，它也一整天不会注意到。';
     expect(find.text(speciesText), findsOneWidget);
+    expect(find.widgetWithText(VersionChip, '明亮珍珠'), findsOneWidget);
 
     // 切到伽勒尔的样子：图鉴说明即时刷新为盾版本文本，不残留旧文本。
     await tester.tap(find.widgetWithText(VersionChip, '伽勒尔的样子'));
@@ -78,6 +79,7 @@ void main() {
     expect(find.text(speciesText), findsNothing);
     // 版本 chips 随数据自然变化：显示盾版本文本组（剑/盾属第八世代）。
     expect(find.widgetWithText(VersionChip, '盾'), findsOneWidget);
+    expect(find.widgetWithText(VersionChip, '明亮珍珠'), findsNothing);
 
     // 切回默认形态：回到 species 级文本。
     await tester.tap(find.widgetWithText(VersionChip, '呆呆兽'));

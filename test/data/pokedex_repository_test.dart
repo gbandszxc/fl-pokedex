@@ -367,8 +367,8 @@ void main() {
       expect(hypnosis!.damageClass, 'status', reason: '催眠术是变化招式');
     });
 
-    test('三类分布与上游 CSV 一致：status 277 / physical 395 / special 265', () async {
-      // 回归锚（2026-09 上游 @ca0a21b3）；上游新增招式后数字变化需人工确认
+    test('三类分布与上游 CSV 一致：status 277 / physical 395 / special 266', () async {
+      // 回归锚（上游 @de6760be）；新增的「归无之光」为特殊招式。
       final rows = await db
           .customSelect(
             'SELECT damage_class, COUNT(*) AS n FROM moves GROUP BY damage_class',
@@ -380,8 +380,8 @@ void main() {
       };
       expect(dist['status'], 277);
       expect(dist['physical'], 395);
-      expect(dist['special'], 265);
-      expect(dist.values.fold<int>(0, (sum, n) => sum + n), 937);
+      expect(dist['special'], 266);
+      expect(dist.values.fold<int>(0, (sum, n) => sum + n), 938);
     });
   });
 
@@ -442,22 +442,41 @@ void main() {
   });
 
   group('图鉴文本', () {
-    test('皮卡丘(#25) 存在官方简中图鉴文本（剑/盾版本；朱紫无图鉴文本）', () async {
+    test('皮卡丘(#25) 存在官方简中图鉴文本（剑/盾与朱/紫版本）', () async {
       final flavors = await repo.getFlavorTexts(25);
       final zhHans = flavors
           .where((entry) => entry.language == 'zh_hans')
           .toList();
       expect(zhHans, isNotEmpty);
-      // 上游 pokemon_species_flavor_text 中皮卡丘最新简中文本在剑/盾
-      // （朱/紫版本没有该 species 的任何语言图鉴文本，系上游数据事实）。
+      // 上游 #1733 补齐 Switch 时代图鉴文本：剑/盾之外，朱/紫也有官方简中。
       expect(
         zhHans.map((entry) => entry.versionIdentifier),
-        containsAll(['sword', 'shield']),
+        containsAll(['sword', 'shield', 'scarlet', 'violet']),
+      );
+      // 同一版本的中文和英文说明应并存。
+      expect(
+        flavors
+            .where((entry) => entry.language == 'en')
+            .map((entry) => entry.versionIdentifier),
+        containsAll(['scarlet', 'violet']),
       );
       expect(flavors.every((entry) => entry.text.isNotEmpty), isTrue);
       // 排序：generation_id 升序
       final generations = flavors.map((entry) => entry.generationId).toList();
       expect(generations, equals(List.of(generations)..sort()));
+    });
+
+    test('新叶喵(#906)：朱/紫官方 zh_hans、zh_hant 与英文文本并存', () async {
+      final flavors = await repo.getFlavorTexts(906);
+      for (final version in const ['scarlet', 'violet']) {
+        expect(
+          flavors
+              .where((entry) => entry.versionIdentifier == version)
+              .map((entry) => entry.language),
+          containsAll(const ['zh_hans', 'zh_hant', 'en']),
+          reason: '$version 应保留英文并含官方简繁中文图鉴文本',
+        );
+      }
     });
 
     test('妙蛙种子(#1)：老版本存在无 zh_hans 的条目（en 有）', () async {
@@ -659,7 +678,7 @@ void main() {
   test('getManifest 解析成功且 pokemonCount=1025', () async {
     final manifest = await repo.getManifest();
     expect(manifest, isA<DataManifest>());
-    expect(manifest.schemaVersion, 5);
+    expect(manifest.schemaVersion, 6);
     expect(manifest.pokemonCount, 1025);
     expect(manifest.learnsetVersionGroups, contains('sword-shield'));
     expect(manifest.upstreamRevision, contains('pokeapi'));
